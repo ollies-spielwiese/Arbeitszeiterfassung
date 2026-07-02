@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Arbeitszeit" />
+  <title>Arbeitszeiterfassung</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" width="30" height="30" aria-label="Arbeitszeit Logo">
+        <!-- Segel -->
+        <rect x="24" y="14" width="16" height="14" fill="currentColor"/>
+        <line x1="32" y1="10" x2="32" y2="36" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="24" y1="12" x2="40" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <!-- Rumpf -->
+        <path d="M12 36 Q10 30 16 30 L48 30 Q54 30 52 36 L48 42 L16 42 Z" fill="currentColor"/>
+        <!-- Bug/Heck Schwünge -->
+        <path d="M12 36 Q6 34 8 28 Q10 30 12 32 Z" fill="currentColor"/>
+        <path d="M52 36 Q58 34 56 28 Q54 30 52 32 Z" fill="currentColor"/>
+        <!-- Ruder -->
+        <line x1="20" y1="44" x2="16" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="28" y1="44" x2="24" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h1>Arbeitszeit</h1>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
+      <button class="tab" data-view="entries" role="tab">Einträge</button>
+      <button class="tab" data-view="week" role="tab">Woche</button>
+      <button class="tab" data-view="report" role="tab">Monat</button>
+      <button class="tab" data-view="employers" role="tab">Arbeitgeber</button>
+      <button class="tab" data-view="archive" role="tab">Archiv</button>
+      <button class="tab" data-view="guide" role="tab">Anleitung</button>
+      <button class="tab" data-view="settings" role="tab">Einstellungen</button>
+    </nav>
+  </header>
+
+  <main id="app">
+    <!-- Tracker View -->
+    <section id="view-tracker" class="view active">
+      <div class="employer-selector">
+        <label for="active-employer">Aktueller Arbeitgeber</label>
+        <select id="active-employer" data-testid="select-active-employer"></select>
+      </div>
+
+      <div id="live-status" class="live-status hidden">
+        <div class="live-dot"></div>
+        <div class="live-info">
+          <div class="live-label">Läuft seit</div>
+          <div class="live-time" id="live-time">–</div>
+          <div class="live-duration" id="live-duration">00:00:00</div>
+        </div>
+      </div>
+
+      <div class="big-buttons">
+        <button id="btn-start" class="btn-huge btn-start" data-testid="button-start">
+          <span class="btn-icon">▶</span>
+          <span class="btn-label">Arbeitsbeginn</span>
+        </button>
+        <button id="btn-end" class="btn-huge btn-end" data-testid="button-end" disabled>
+          <span class="btn-icon">■</span>
+          <span class="btn-label">Arbeitsende</span>
+        </button>
+      </div>
+
+      <div class="secondary-actions">
+        <button id="btn-add-manual" class="btn-secondary" data-testid="button-add-manual">
+          + Zeit nachträglich erfassen
+        </button>
+        <button id="btn-add-absence" class="btn-secondary" data-testid="button-add-absence">
+          + Urlaub / Krankheit
+        </button>
+      </div>
+
+      <div id="onboarding-hint" class="onboarding-hint" style="display:none;">
+        <strong>Willkommen 👋</strong><br>
+        Bitte legen Sie zuerst unter <em>Arbeitgeber</em> mindestens einen Arbeitgeber an. Danach können Sie hier Ihre Arbeitszeiten erfassen.
+      </div>
+
+      <div class="today-summary" id="today-summary"></div>
+    </section>
+
+    <!-- Entries View -->
+    <section id="view-entries" class="view">
+      <div class="filter-row">
+        <select id="filter-employer" data-testid="select-filter-employer"></select>
+        <input type="month" id="filter-month" data-testid="input-filter-month" />
+      </div>
+      <div id="entries-list" class="entries-list"></div>
+    </section>
+
+    <!-- Week View -->
+    <section id="view-week" class="view">
+      <div class="filter-row">
+        <select id="week-employer" data-testid="select-week-employer"></select>
+        <input type="week" id="week-input" data-testid="input-week" />
+      </div>
+      <div id="week-content" class="report-content"></div>
+    </section>
+
+    <!-- Monthly Report View -->
+    <section id="view-report" class="view">
+      <div class="filter-row">
+        <select id="report-employer" data-testid="select-report-employer"></select>
+        <input type="month" id="report-month" data-testid="input-report-month" />
+      </div>
+      <div id="report-content" class="report-content"></div>
+      <div class="report-actions">
+        <button id="btn-export-word" class="btn-primary" data-testid="button-export-word">
+          📄 Word (.docx)
+        </button>
+        <button id="btn-export-pdf" class="btn-primary" data-testid="button-export-pdf">
+          📕 PDF
+        </button>
+        <button id="btn-share" class="btn-primary" data-testid="button-share">
+          📤 Teilen
+        </button>
+        <button id="btn-archive-month" class="btn-secondary" data-testid="button-archive-month">
+          🗄 Monat archivieren
+        </button>
+      </div>
+    </section>
+
+    <!-- Employers View -->
+    <section id="view-employers" class="view">
+      <div class="section-header">
+        <h2>Arbeitgeber verwalten</h2>
+        <button id="btn-add-employer" class="btn-primary" data-testid="button-add-employer">
+          + Neu
+        </button>
+      </div>
+      <div id="employers-list" class="employers-list"></div>
+    </section>
+
+    <!-- Archive View -->
+    <section id="view-archive" class="view">
+      <h2>Archivierte Monate</h2>
+      <div id="archive-list" class="archive-list"></div>
+    </section>
+
+    <!-- Guide View -->
+    <section id="view-guide" class="view">
+      <div class="guide">
+        <h2>Bedienungsanleitung</h2>
+        <p class="guide-intro">Diese Anleitung erklärt Schritt für Schritt, wie du mit der App <strong>Arbeitszeit</strong> deine Arbeitszeiten erfasst, auswertest und weitergibst.</p>
+
+        <details class="guide-section" open>
+          <summary>1. Erste Schritte</summary>
+          <div class="guide-body">
+            <p>Bevor du Zeiten erfassen kannst, richte die App einmalig ein:</p>
+            <ol>
+              <li>Öffne den Reiter <strong>Einstellungen</strong>.</li>
+              <li>Trage deinen <strong>Namen</strong> ein – er erscheint später auf allen Word‑ und PDF‑Nachweisen.</li>
+              <li>Trage deine <strong>eigene E‑Mail‑Adresse</strong> ein – sie wird für den Selbstversand der Auswertungen genutzt.</li>
+              <li>Wähle dein <strong>Bundesland</strong> aus. Feiertage werden dann automatisch berücksichtigt.</li>
+              <li>Wechsle in den Reiter <strong>Arbeitgeber</strong> und lege über <strong>+ Neu</strong> mindestens einen Arbeitgeber an.</li>
+            </ol>
+            <p>Erst danach kannst du sinnvoll mit dem Reiter <strong>Erfassen</strong> arbeiten.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>2. Reiter „Erfassen" – Zeiten aufnehmen</summary>
+          <div class="guide-body">
+            <p>Hier läuft dein Alltag.</p>
+            <ul>
+              <li><strong>Aktueller Arbeitgeber:</strong> oben auswählen, falls du mehrere hast.</li>
+              <li><strong>▶ Arbeitsbeginn:</strong> startet die laufende Zeiterfassung. Ein grüner Live‑Zähler zeigt an, wie lange du bereits arbeitest.</li>
+              <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
+              <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen.</li>
+              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen kompletten Tag (oder mehrere Tage) als Abwesenheit ein.</li>
+            </ul>
+            <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>3. Reiter „Einträge" – einzelne Zeiten prüfen und ändern</summary>
+          <div class="guide-body">
+            <ul>
+              <li>Über die zwei Filter oben wählst du <strong>Arbeitgeber</strong> und <strong>Monat</strong>.</li>
+              <li>Jeder Eintrag wird als Karte angezeigt: Datum, Uhrzeit, Pause, Dauer und ggf. Notiz.</li>
+              <li>Ein Tipp auf einen Eintrag öffnet ihn zum Bearbeiten oder Löschen.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>4. Reiter „Woche" – Wochenübersicht</summary>
+          <div class="guide-body">
+            <ul>
+              <li>Wähle Arbeitgeber und Kalenderwoche.</li>
+              <li>Die App zeigt die Summe der Arbeitszeit für die Woche und den Vergleich zur Sollzeit.</li>
+              <li>Ideal für einen schnellen Zwischenstand.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>5. Reiter „Monat" – Monatsauswertung und Export</summary>
+          <div class="guide-body">
+            <p>Hier entsteht dein offizieller Stundennachweis.</p>
+            <ol>
+              <li>Arbeitgeber und Monat auswählen.</li>
+              <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo.</li>
+              <li>Am Ende der Seite stehen vier Aktionen zur Verfügung:
+                <ul>
+                  <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile.</li>
+                  <li><strong>📕 PDF:</strong> erstellt dieselbe Auswertung als PDF.</li>
+                  <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 8).</li>
+                  <li><strong>🗄 Monat archivieren:</strong> verschiebt den fertigen Monat ins Archiv, damit er nicht mehr aus Versehen geändert wird.</li>
+                </ul>
+              </li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>6. Reiter „Arbeitgeber" – Arbeitgeber und Sollstunden pflegen</summary>
+          <div class="guide-body">
+            <p>Hier legst du fest, wie viel du wo arbeiten sollst.</p>
+            <ul>
+              <li><strong>+ Neu</strong> legt einen weiteren Arbeitgeber an.</li>
+              <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Arbeitgebers:
+                <ul>
+                  <li>Name, Ansprechperson und Adresse für den Nachweiskopf.</li>
+                  <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
+                  <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
+                  <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen.</li>
+                </ul>
+              </li>
+            </ul>
+            <p>Änderungen wirken sich auf zukünftige Auswertungen aus. Bereits archivierte Monate bleiben unberührt.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>7. Reiter „Archiv" – abgeschlossene Monate</summary>
+          <div class="guide-body">
+            <ul>
+              <li>Zeigt alle Monate, die du über <strong>🗄 Monat archivieren</strong> abgeschlossen hast.</li>
+              <li>Archivierte Monate kannst du weiterhin ansehen, als Word/PDF neu exportieren und teilen.</li>
+              <li>Ein Zurückholen ist möglich, falls du doch noch etwas korrigieren musst.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>8. Auswertung per E‑Mail teilen</summary>
+          <div class="guide-body">
+            <p>Über <strong>📤 Teilen</strong> im Reiter Monat öffnet sich ein Dialog:</p>
+            <ol>
+              <li>Wähle das Format: <strong>Word</strong> oder <strong>PDF</strong>.</li>
+              <li>Setze die Häkchen bei den gewünschten Empfängern: deine eigene Adresse, die Ansprechperson des Arbeitgebers und beliebige zusätzliche Adressen im Freitextfeld (mehrere durch Komma trennen).</li>
+              <li>Tippe auf <strong>Senden / Teilen</strong>.</li>
+            </ol>
+            <p><strong>Auf dem iPad (Safari/Edge) ist der Ablauf zweistufig:</strong></p>
+            <ul>
+              <li>Erster Tipp erzeugt die Datei und lädt sie herunter. Es erscheint ein „Fast fertig"‑Bildschirm mit einem großen Button.</li>
+              <li>Zweiter Tipp auf <strong>E‑Mail‑Programm öffnen</strong> startet die Mail‑App mit vorausgefüllten Empfängern und Betreff. Die heruntergeladene Datei hängst du dort einmal manuell an.</li>
+            </ul>
+            <p>Auf Windows/Mac läuft beides in einem Schritt.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>9. Reiter „Einstellungen" – Feinjustage</summary>
+          <div class="guide-body">
+            <p>Neben Name, E‑Mail und Bundesland findest du hier:</p>
+            <ul>
+              <li><strong>Notizvorlagen:</strong> Textbausteine für Bemerkungen (z. B. „Überstunden wegen Projektabschluss"). Mit <strong>+ Neu</strong> anlegen, per <strong>✕</strong> wieder löschen.</li>
+              <li><strong>Daten:</strong>
+                <ul>
+                  <li><strong>💾 Backup exportieren:</strong> speichert alle Daten als JSON‑Datei auf dein Gerät.</li>
+                  <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>10. Die App auf dem Home‑Bildschirm installieren (iPad/iPhone)</summary>
+          <div class="guide-body">
+            <p>Damit die App wie eine echte App startet:</p>
+            <ol>
+              <li>Die App im Browser (Safari oder Edge) unter der offiziellen Adresse öffnen.</li>
+              <li>Teilen‑Symbol antippen → <strong>Zum Home‑Bildschirm hinzufügen</strong>.</li>
+              <li>Nach der Installation immer über das Home‑Bildschirm‑Icon starten – nicht über eine gespeicherte Datei.</li>
+            </ol>
+            <p class="guide-warning"><strong>Wichtig:</strong> Wenn die Adresszeile <code>edge://external-file</code> oder <code>file://</code> zeigt, siehst du eine tote lokale Kopie ohne Styling. Dann bitte die App über das Icon oder die Original‑URL neu öffnen.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>11. Tipps und Hinweise</summary>
+          <div class="guide-body">
+            <ul>
+              <li>Alle Daten werden <strong>lokal auf deinem Gerät</strong> gespeichert. Es gibt keinen Server, keinen Account.</li>
+              <li>Regelmäßig ein <strong>Backup exportieren</strong> – am besten am Monatsende.</li>
+              <li>Feiertage werden automatisch aus dem gewählten Bundesland gezogen.</li>
+              <li>Bei einem Arbeitgeberwechsel: alten Arbeitgeber nicht löschen, damit alte Nachweise erhalten bleiben.</li>
+            </ul>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- Settings View -->
+    <section id="view-settings" class="view">
+      <h2>Einstellungen</h2>
+
+      <div class="settings-block">
+        <h3>Arbeitnehmer/in – Name</h3>
+        <p class="hint">Erscheint im Kopf und in der Unterschriftszeile von Word- und PDF-Nachweisen.</p>
+        <input type="text" id="setting-employee-name" placeholder="Vor- und Nachname" data-testid="input-employee-name" autocomplete="name" />
+      </div>
+
+      <div class="settings-block">
+        <h3>Eigene E-Mail-Adresse</h3>
+        <p class="hint">Für den Selbstversand der Auswertung.</p>
+        <input type="email" id="setting-own-email" placeholder="mich@example.de" data-testid="input-own-email" />
+      </div>
+
+      <div class="settings-block">
+        <h3>Bundesland (für Feiertage)</h3>
+        <p class="hint">Feiertage werden automatisch von den Sollstunden abgezogen.</p>
+        <select id="setting-state" data-testid="select-state">
+          <option value="HE">Hessen</option>
+          <option value="BW">Baden-Württemberg</option>
+          <option value="BY">Bayern</option>
+          <option value="BE">Berlin</option>
+          <option value="BB">Brandenburg</option>
+          <option value="HB">Bremen</option>
+          <option value="HH">Hamburg</option>
+          <option value="MV">Mecklenburg-Vorpommern</option>
+          <option value="NI">Niedersachsen</option>
+          <option value="NW">Nordrhein-Westfalen</option>
+          <option value="RP">Rheinland-Pfalz</option>
+          <option value="SL">Saarland</option>
+          <option value="SN">Sachsen</option>
+          <option value="ST">Sachsen-Anhalt</option>
+          <option value="SH">Schleswig-Holstein</option>
+          <option value="TH">Thüringen</option>
+        </select>
+      </div>
+
+      <div class="settings-block">
+        <div class="section-header">
+          <h3>Notizvorlagen</h3>
+          <button id="btn-add-template" class="btn-secondary btn-small" data-testid="button-add-template">+ Neu</button>
+        </div>
+        <p class="hint">Textbausteine für Bemerkungen und Überstunden-Begründungen.</p>
+        <div id="templates-list" class="templates-list"></div>
+      </div>
+
+      <div class="settings-block">
+        <h3>Daten</h3>
+        <div class="data-actions">
+          <button id="btn-export-backup" class="btn-secondary" data-testid="button-export-backup">
+            💾 Backup exportieren
+          </button>
+          <button id="btn-import-backup" class="btn-secondary" data-testid="button-import-backup">
+            📥 Backup importieren
+          </button>
+          <input type="file" id="input-backup-file" accept="application/json" hidden />
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Entry Form -->
+  <div id="modal-entry" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-entry-title">Zeit erfassen</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-entry">
+        <input type="hidden" id="entry-id" />
+        <div class="form-row">
+          <label for="entry-employer">Arbeitgeber</label>
+          <select id="entry-employer" required></select>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="entry-date">Datum</label>
+            <input type="date" id="entry-date" required />
+          </div>
+          <div>
+            <label for="entry-type">Art</label>
+            <select id="entry-type">
+              <option value="work">Arbeit</option>
+              <option value="vacation">Urlaub</option>
+              <option value="sick">Krankheit</option>
+            </select>
+          </div>
+        </div>
+        <div id="work-fields">
+          <div class="form-row two-col">
+            <div>
+              <label for="entry-start">Beginn</label>
+              <input type="time" id="entry-start" />
+            </div>
+            <div>
+              <label for="entry-end">Ende</label>
+              <input type="time" id="entry-end" />
+            </div>
+          </div>
+          <div id="schedule-fill-row" class="hidden">
+            <button type="button" id="btn-apply-schedule" class="btn-secondary btn-small">
+              📅 Zeit aus Wochenschema übernehmen
+            </button>
+          </div>
+          <div class="form-row">
+            <label for="entry-break">Pause (Minuten)</label>
+            <input type="number" id="entry-break" min="0" value="0" />
+            <small id="break-hint" class="hint"></small>
+          </div>
+          <div class="form-row">
+            <label for="entry-overtime-reason">Grund für Überstunden (optional)</label>
+            <div class="input-with-templates">
+              <textarea id="entry-overtime-reason" rows="2" placeholder="z.B. Projektabschluss, Kollege krank ..."></textarea>
+              <select id="entry-overtime-tpl" class="template-select" data-target="entry-overtime-reason">
+                <option value="">Vorlage einfügen …</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="entry-note">Bemerkung (optional)</label>
+            <div class="input-with-templates">
+              <input type="text" id="entry-note" />
+              <select id="entry-note-tpl" class="template-select" data-target="entry-note">
+                <option value="">Vorlage einfügen …</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="button" id="btn-delete-entry" class="btn-danger hidden">Löschen</button>
+          <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Employer Form -->
+  <div id="modal-employer" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-employer-title">Arbeitgeber</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-employer">
+        <input type="hidden" id="employer-id" />
+
+        <fieldset class="fs">
+          <legend>Basisdaten</legend>
+          <div class="form-row two-col">
+            <div>
+              <label for="employer-name">Name / Firma *</label>
+              <input type="text" id="employer-name" required />
+            </div>
+            <div>
+              <label for="employer-color">Farbe</label>
+              <input type="color" id="employer-color" value="#3b82f6" />
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="employer-phone">Telefon</label>
+            <input type="tel" id="employer-phone" placeholder="+49 …" />
+          </div>
+        </fieldset>
+
+        <fieldset class="fs">
+          <legend>Ansprechpartner</legend>
+          <div class="form-row two-col">
+            <div>
+              <label for="employer-contact1-name">Person 1 – Name</label>
+              <input type="text" id="employer-contact1-name" />
+            </div>
+            <div>
+              <label for="employer-contact1-email">Person 1 – E-Mail</label>
+              <input type="email" id="employer-contact1-email" />
+            </div>
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label for="employer-contact2-name">Person 2 – Name</label>
+              <input type="text" id="employer-contact2-name" />
+            </div>
+            <div>
+              <label for="employer-contact2-email">Person 2 – E-Mail</label>
+              <input type="email" id="employer-contact2-email" />
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fs">
+          <legend>Arbeitszeitmodell</legend>
+          <div class="form-row">
+            <label for="employer-hours-mode">Sollstunden</label>
+            <select id="employer-hours-mode">
+              <option value="week">Pro Woche (empfohlen bei Teilzeit)</option>
+              <option value="month">Pro Monat (fester Wert)</option>
+            </select>
+          </div>
+          <div class="form-row" id="row-weekly-hours">
+            <label for="employer-weekly-hours">Sollstunden / Woche</label>
+            <input type="number" id="employer-weekly-hours" step="0.5" min="0" value="40" />
+            <small class="hint">Monatssoll wird aus Werktagen − Feiertage berechnet.</small>
+          </div>
+          <div class="form-row" id="row-monthly-hours">
+            <label for="employer-monthly-hours">Sollstunden / Monat</label>
+            <input type="number" id="employer-monthly-hours" step="0.5" min="0" value="160" />
+          </div>
+          <div class="form-row">
+            <label for="employer-break-mode">Pausenregelung</label>
+            <select id="employer-break-mode">
+              <option value="legal">Gesetzlich (ArbZG: 30 Min ab 6h, 45 Min ab 9h)</option>
+              <option value="manual">Manuell pro Eintrag</option>
+              <option value="flex">Gleitzeit (Vorschlag gesetzlich, überschreibbar)</option>
+              <option value="none">Keine Pause (z.B. Minijob)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="employer-annual-vacation">Urlaubsanspruch / Jahr (Tage)</label>
+            <input type="number" id="employer-annual-vacation" min="0" value="0" />
+          </div>
+        </fieldset>
+
+        <fieldset class="fs">
+          <legend>Feste Wochenarbeitszeiten (Vorschlag bei Nacherfassung)</legend>
+          <p class="hint">Leer lassen, wenn kein fester Rhythmus.</p>
+          <div id="schedule-grid" class="schedule-grid"></div>
+        </fieldset>
+
+        <fieldset class="fs">
+          <legend>Notizen</legend>
+          <div class="form-row">
+            <textarea id="employer-notes" rows="2" placeholder="interne Notizen …"></textarea>
+          </div>
+        </fieldset>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="button" id="btn-delete-employer" class="btn-danger hidden">Löschen</button>
+          <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Template Editor -->
+  <div id="modal-template" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-template-title">Notizvorlage</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-template">
+        <input type="hidden" id="template-id" />
+        <div class="form-row">
+          <label for="template-label">Bezeichnung</label>
+          <input type="text" id="template-label" required placeholder="z.B. Projektabschluss" />
+        </div>
+        <div class="form-row">
+          <label for="template-text">Text</label>
+          <textarea id="template-text" rows="3" required placeholder="Der eigentliche Textbaustein …"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="button" id="btn-delete-template" class="btn-danger hidden">Löschen</button>
+          <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Share / Recipient Chooser -->
+  <div id="modal-share" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Auswertung versenden</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <div class="form-row">
+        <label>Format</label>
+        <div class="radio-row">
+          <label><input type="radio" name="share-format" value="docx" checked /> Word</label>
+          <label><input type="radio" name="share-format" value="pdf" /> PDF</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Empfänger</label>
+        <div id="share-recipients" class="recipient-list"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+        <button type="button" class="btn-primary" id="share-send-btn">Senden / Teilen</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
