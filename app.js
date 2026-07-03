@@ -1102,11 +1102,12 @@ function renderReport() {
     const mins = computeWorkMinutes(e);
     return `
       <tr>
-        <td>${formatDateLong(e.date)}</td>
-        <td>${e.start}–${e.end}</td>
-        <td class="num">${e.breakMinutes || 0}</td>
-        <td class="num">${minutesToHM(mins)}</td>
-        <td>${escapeHtml(e.overtimeReason || '')}</td>
+        <td data-label="Datum">${formatDateLong(e.date)}</td>
+        <td data-label="Zeit">${e.start}–${e.end}</td>
+        <td class="num" data-label="Pause (Min)">${e.breakMinutes || 0}</td>
+        <td class="num" data-label="Std.">${minutesToHM(mins)}</td>
+        <td data-label="Grund Überstunden">${escapeHtml(e.overtimeReason || '')}</td>
+        <td data-label="Bemerkung">${escapeHtml(e.note || '')}</td>
       </tr>
     `;
   }).join('');
@@ -1129,7 +1130,7 @@ function renderReport() {
     ${holidayList}
     ${rows ? `
       <table class="report-table">
-        <thead><tr><th>Datum</th><th>Zeit</th><th>Pause (Min)</th><th>Std.</th><th>Grund Überstunden</th></tr></thead>
+        <thead><tr><th>Datum</th><th>Zeit</th><th>Pause (Min)</th><th>Std.</th><th>Grund Überstunden</th><th>Bemerkung</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     ` : '<div class="empty-state">Keine Arbeitszeiten in diesem Monat.</div>'}
@@ -1145,8 +1146,8 @@ async function generateWordBlob(report) {
   const cellBorders = { top: border, bottom: border, left: border, right: border };
 
   // Fixed column widths in DXA (1440 dxa = 1 inch). Page width A4 minus margins ≈ 9000 dxa.
-  // Widths: Datum 2200, Zeit 1600, Pause 1200, Std. 1200, Grund 2800 = 9000 total
-  const colWidths = [2200, 1600, 1200, 1200, 2800];
+  // Widths: Datum 1700, Zeit 1400, Pause 900, Std. 900, Grund 2100, Bemerkung 2000 = 9000 total
+  const colWidths = [1700, 1400, 900, 900, 2100, 2000];
   const headerCellW = (text, w) => new TableCell({
     width: { size: w, type: WidthType.DXA },
     borders: cellBorders,
@@ -1168,6 +1169,7 @@ async function generateWordBlob(report) {
         cellW(e.breakMinutes || 0, colWidths[2], AlignmentType.RIGHT),
         cellW(minutesToHM(mins), colWidths[3], AlignmentType.RIGHT),
         cellW(e.overtimeReason || '', colWidths[4]),
+        cellW(e.note || '', colWidths[5]),
       ],
     });
   });
@@ -1183,6 +1185,7 @@ async function generateWordBlob(report) {
         headerCellW('Pause (Min)', colWidths[2]),
         headerCellW('Std.', colWidths[3]),
         headerCellW('Grund Überstunden', colWidths[4]),
+        headerCellW('Bemerkung', colWidths[5]),
       ]}),
       ...workRowsFixed,
     ],
@@ -1259,8 +1262,26 @@ async function generateWordBlob(report) {
 
     new Paragraph({ text: '' }),
     new Paragraph({ text: '' }),
-    new Paragraph({ children: [new TextRun({ text: '_______________________________', color: '94A3B8' })] }),
-    new Paragraph({ children: [new TextRun({ text: empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', size: 18, color: '64748B' })] }),
+    new Table({
+      width: { size: 9000, type: WidthType.DXA },
+      columnWidths: [4200, 600, 4200],
+      layout: 'fixed',
+      borders: {
+        top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      },
+      rows: [
+        new TableRow({ children: [
+          new TableCell({ width: { size: 4200, type: WidthType.DXA }, borders: { top: { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [ new Paragraph({ children: [new TextRun({ text: empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', size: 18, color: '64748B' })] }) ] }),
+          new TableCell({ width: { size: 600, type: WidthType.DXA }, borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [new Paragraph({ text: '' })] }),
+          new TableCell({ width: { size: 4200, type: WidthType.DXA }, borders: { top: { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [ new Paragraph({ children: [new TextRun({ text: 'Unterschrift Arbeitgeber / Datum', size: 18, color: '64748B' })] }) ] }),
+        ]}),
+      ],
+    }),
   ];
 
   const doc = new Document({
@@ -1351,14 +1372,22 @@ function generatePdfBlob(report) {
       String(e.breakMinutes || 0),
       minutesToHM(computeWorkMinutes(e)),
       e.overtimeReason || '',
+      e.note || '',
     ]);
     doc.autoTable({
       startY: y + 2,
-      head: [['Datum', 'Zeit', 'Pause (Min)', 'Std.', 'Grund Überstunden']],
+      head: [['Datum', 'Zeit', 'Pause (Min)', 'Std.', 'Grund Überstunden', 'Bemerkung']],
       body,
-      styles: { fontSize: 9, cellPadding: 2 },
-      headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold' },
-      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
+      styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', halign: 'left' },
+      headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
+      columnStyles: {
+        0: { cellWidth: 26 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 16 },
+        4: { cellWidth: 45 },
+        5: { cellWidth: 45 },
+      },
       margin: { left: marginX, right: marginX },
     });
     y = doc.lastAutoTable.finalY + 6;
@@ -1379,14 +1408,21 @@ function generatePdfBlob(report) {
     }
   }
 
-  if (y > 260) { doc.addPage(); y = 20; }
+  if (y > 250) { doc.addPage(); y = 20; }
   y += 15;
+  const pageW = doc.internal.pageSize.getWidth();
+  const usableW = pageW - marginX * 2;
+  const sigLineW = 70;
+  const leftX = marginX;
+  const rightX = pageW - marginX - sigLineW;
   doc.setDrawColor(150);
-  doc.line(marginX, y, marginX + 70, y);
+  doc.line(leftX, y, leftX + sigLineW, y);
+  doc.line(rightX, y, rightX + sigLineW, y);
   y += 5;
   doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text(empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', marginX, y);
+  doc.text(empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', leftX, y);
+  doc.text('Unterschrift Arbeitgeber / Datum', rightX, y);
 
   return doc.output('blob');
 }

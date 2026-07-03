@@ -389,9 +389,44 @@ textarea { resize: vertical; min-height: 3rem; }
   padding: 0.5rem 0.4rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  vertical-align: top;
 }
 .report-table th { font-weight: 600; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
-.report-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.report-table td.num { text-align: left; font-variant-numeric: tabular-nums; }
+
+/* Karten-Ansicht auf schmalen Displays (iPhone) */
+@media (max-width: 700px) {
+  .report-table thead { display: none; }
+  .report-table, .report-table tbody, .report-table tr, .report-table td {
+    display: block;
+    width: 100%;
+  }
+  .report-table tr {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    background: var(--surface);
+  }
+  .report-table td {
+    border: none;
+    padding: 0.2rem 0;
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .report-table td::before {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .report-table td:empty,
+  .report-table td[data-label]:has(> :only-child:empty) { display: none; }
+}
 
 .report-actions {
   display: flex;
