@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-1';
+// Arbeitszeiterfassung Service Worker v3.1 - rebuild 2026-07-03T08:15:14Z
 const ASSETS = [
   './',
   './index.html',
