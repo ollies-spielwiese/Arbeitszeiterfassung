@@ -1,4 +1,5 @@
-// Arbeitszeiterfassung Service Worker v3.1 - rebuild 2026-07-03T08:15:14Z
+// Arbeitszeiterfassung Service Worker v3.1 - rebuild 2026-07-03T08:18:47Z
+const CACHE_NAME = 'arbeitszeit-v3-1';
 const ASSETS = [
   './',
   './index.html',
