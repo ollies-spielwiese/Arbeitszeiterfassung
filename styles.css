@@ -394,6 +394,17 @@ textarea { resize: vertical; min-height: 3rem; }
 .report-table th { font-weight: 600; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .report-table td.num { text-align: left; font-variant-numeric: tabular-nums; }
 
+/* Overview: Monatsauswertung über alle Arbeitgeber */
+.report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.overview-table .totals-row td {
+  background: var(--surface-alt, #f1f5f9);
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  font-weight: 600;
+}
+.report-table td .pos, .report-table td.pos { color: #059669; }
+.report-table td .neg, .report-table td.neg { color: #dc2626; }
+
 /* Karten-Ansicht auf schmalen Displays (iPhone) */
 @media (max-width: 700px) {
   .report-table thead { display: none; }

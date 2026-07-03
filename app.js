@@ -563,6 +563,7 @@ function switchView(name) {
   if (name === 'entries') renderEntries();
   if (name === 'week') renderWeek();
   if (name === 'report') renderReport();
+  if (name === 'overview') renderOverview();
   if (name === 'employers') renderEmployers();
   if (name === 'archive') renderArchive();
   if (name === 'settings') renderSettings();
@@ -1433,6 +1434,253 @@ function wrapText(doc, text, x, y, maxWidth) {
   return y + split.length * 5;
 }
 
+/* ---------- Overview: Monatsauswertung über alle Arbeitgeber ---------- */
+
+function computeMonthOverview(ym) {
+  const rows = state.employers.map(emp => {
+    const r = computeMonthReport(emp.id, ym);
+    if (!r) return null;
+    return {
+      employer: emp,
+      workedMin: r.workedMin,
+      targetMin: r.targetMin,
+      balance: r.balance,
+      vacationDays: r.vacationEntries.length,
+      sickDays: r.sickEntries.length,
+      workEntriesCount: r.workEntries.length,
+    };
+  }).filter(Boolean);
+
+  const totals = rows.reduce((acc, row) => ({
+    workedMin: acc.workedMin + row.workedMin,
+    targetMin: acc.targetMin + row.targetMin,
+    balance: acc.balance + row.balance,
+    vacationDays: acc.vacationDays + row.vacationDays,
+    sickDays: acc.sickDays + row.sickDays,
+    workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
+  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, workEntriesCount: 0 });
+
+  return { ym, rows, totals };
+}
+
+function renderOverview() {
+  const monthInput = document.getElementById('overview-month');
+  if (!monthInput.value) monthInput.value = currentYearMonth();
+  const ym = monthInput.value;
+  const container = document.getElementById('overview-content');
+
+  if (!state.employers.length) {
+    container.innerHTML = '<div class="empty-state">Bitte zuerst einen Arbeitgeber anlegen.</div>';
+    return;
+  }
+
+  const ov = computeMonthOverview(ym);
+
+  if (!ov.rows.length) {
+    container.innerHTML = '<div class="empty-state">Keine Daten für diesen Monat.</div>';
+    return;
+  }
+
+  const bodyRows = ov.rows.map(row => `
+    <tr>
+      <td data-label="Arbeitgeber">${escapeHtml(row.employer.name)}</td>
+      <td class="num" data-label="Tage">${row.workEntriesCount}</td>
+      <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
+      <td class="num" data-label="Soll">${minutesToHM(row.targetMin)}</td>
+      <td class="num ${row.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo">${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}</td>
+      <td class="num" data-label="Urlaub">${row.vacationDays}</td>
+      <td class="num" data-label="Krank">${row.sickDays}</td>
+    </tr>
+  `).join('');
+
+  const totalsRow = `
+    <tr class="totals-row">
+      <td data-label="Arbeitgeber"><strong>Gesamt</strong></td>
+      <td class="num" data-label="Tage"><strong>${ov.totals.workEntriesCount}</strong></td>
+      <td class="num" data-label="Ist"><strong>${minutesToHM(ov.totals.workedMin)}</strong></td>
+      <td class="num" data-label="Soll"><strong>${minutesToHM(ov.totals.targetMin)}</strong></td>
+      <td class="num ${ov.totals.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo"><strong>${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</strong></td>
+      <td class="num" data-label="Urlaub"><strong>${ov.totals.vacationDays}</strong></td>
+      <td class="num" data-label="Krank"><strong>${ov.totals.sickDays}</strong></td>
+    </tr>
+  `;
+
+  container.innerHTML = `
+    <div class="report-header">
+      <h3>Monatsübersicht – alle Arbeitgeber</h3>
+      <div class="subtitle">${formatMonthYear(ym)}</div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item"><div class="label">Ist gesamt</div><div class="value">${minutesToHM(ov.totals.workedMin)}</div></div>
+      <div class="summary-item"><div class="label">Soll gesamt</div><div class="value">${minutesToHM(ov.totals.targetMin)}</div></div>
+      <div class="summary-item"><div class="label">Saldo gesamt</div><div class="value ${ov.totals.balance >= 0 ? 'pos' : 'neg'}">${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</div></div>
+      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${ov.totals.vacationDays} / ${ov.totals.sickDays}</div></div>
+    </div>
+    <div class="report-table-wrap">
+      <table class="report-table overview-table">
+        <thead>
+          <tr>
+            <th>Arbeitgeber</th>
+            <th class="num">Tage</th>
+            <th class="num">Ist</th>
+            <th class="num">Soll</th>
+            <th class="num">Saldo</th>
+            <th class="num">Urlaub</th>
+            <th class="num">Krank</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+          ${totalsRow}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function generateOverviewPdfBlob(ov) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const marginX = 15;
+  let y = 20;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Monatsübersicht – alle Arbeitgeber', marginX, y);
+  y += 8;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12);
+  doc.text(formatMonthYear(ov.ym), marginX, y);
+  y += 6;
+
+  const empName = (state.settings.employeeName || '').trim();
+  if (empName) {
+    doc.setFontSize(10);
+    const label = 'Arbeitnehmer/in: ';
+    doc.setFont('helvetica', 'bold');
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(empName, marginX + labelWidth + 1, y);
+    y += 6;
+  }
+
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, marginX, y);
+  doc.setTextColor(0);
+  y += 8;
+
+  if (!ov.rows.length) {
+    doc.setFontSize(11);
+    doc.text('Keine Einträge für diesen Monat.', marginX, y);
+    return doc.output('blob');
+  }
+
+  const body = ov.rows.map(row => [
+    row.employer.name,
+    String(row.workEntriesCount),
+    minutesToHM(row.workedMin),
+    minutesToHM(row.targetMin),
+    `${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}`,
+    String(row.vacationDays),
+    String(row.sickDays),
+  ]);
+
+  const totalsRow = [
+    'Gesamt',
+    String(ov.totals.workEntriesCount),
+    minutesToHM(ov.totals.workedMin),
+    minutesToHM(ov.totals.targetMin),
+    `${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}`,
+    String(ov.totals.vacationDays),
+    String(ov.totals.sickDays),
+  ];
+
+  doc.autoTable({
+    startY: y,
+    head: [['Arbeitgeber', 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank']],
+    body,
+    foot: [totalsRow],
+    styles: { fontSize: 10, cellPadding: 2.5, overflow: 'linebreak', halign: 'left' },
+    headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
+    footStyles: { fillColor: [226, 232, 240], textColor: 30, fontStyle: 'bold', halign: 'left' },
+    columnStyles: {
+      0: { cellWidth: 60 },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 22 },
+      4: { cellWidth: 22 },
+      5: { cellWidth: 18 },
+      6: { cellWidth: 18 },
+    },
+    margin: { left: marginX, right: marginX },
+  });
+
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Kurze Legende / Erläuterung
+  doc.setFontSize(9);
+  doc.setTextColor(90);
+  const legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
+  y = wrapText(doc, legend, marginX, y, 180);
+  doc.setTextColor(0);
+
+  return doc.output('blob');
+}
+
+function fileNameForOverview(ov, ext) {
+  return `Arbeitszeit_Übersicht_${ov.ym}.${ext}`;
+}
+
+function getCurrentOverview() {
+  const ym = document.getElementById('overview-month').value;
+  if (!ym) { toast('Bitte Monat wählen'); return null; }
+  if (!state.employers.length) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return null; }
+  const ov = computeMonthOverview(ym);
+  if (!ov.rows.length) { toast('Keine Daten für diesen Monat'); return null; }
+  return ov;
+}
+
+async function exportOverviewPdf() {
+  const ov = getCurrentOverview();
+  if (!ov) return;
+  try {
+    const blob = generateOverviewPdfBlob(ov);
+    downloadBlob(blob, fileNameForOverview(ov, 'pdf'));
+    toast('Übersicht als PDF heruntergeladen');
+  } catch (err) {
+    console.error(err);
+    toast('PDF-Export fehlgeschlagen: ' + err.message);
+  }
+}
+
+async function shareOverviewPdf() {
+  const ov = getCurrentOverview();
+  if (!ov) return;
+  try {
+    const blob = generateOverviewPdfBlob(ov);
+    const filename = fileNameForOverview(ov, 'pdf');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    const shareData = {
+      title: `Arbeitszeit-Übersicht ${formatMonthYear(ov.ym)}`,
+      text: `Monatsübersicht – alle Arbeitgeber – ${formatMonthYear(ov.ym)}`,
+      files: [file],
+    };
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share(shareData);
+    } else {
+      downloadBlob(blob, filename);
+      toast('Datei heruntergeladen (Teilen wird nicht unterstützt)');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    console.error(err);
+    toast('Teilen fehlgeschlagen: ' + err.message);
+  }
+}
+
 /* ---------- Export UI ---------- */
 
 function fileNameForReport(report, ext) {
@@ -2233,12 +2481,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('week-input').addEventListener('change', renderWeek);
   document.getElementById('report-employer').addEventListener('change', renderReport);
   document.getElementById('report-month').addEventListener('change', renderReport);
+  document.getElementById('overview-month').addEventListener('change', renderOverview);
 
   // Report actions
   document.getElementById('btn-export-word').addEventListener('click', exportWord);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
   document.getElementById('btn-share').addEventListener('click', openShareModal);
   document.getElementById('btn-archive-month').addEventListener('click', archiveCurrentMonth);
+
+  // Overview actions
+  document.getElementById('btn-export-overview-pdf').addEventListener('click', exportOverviewPdf);
+  document.getElementById('btn-share-overview').addEventListener('click', shareOverviewPdf);
 
   // Settings
   document.getElementById('setting-employee-name').addEventListener('change', (e) => {

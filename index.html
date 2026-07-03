@@ -39,6 +39,7 @@
       <button class="tab" data-view="entries" role="tab">Einträge</button>
       <button class="tab" data-view="week" role="tab">Woche</button>
       <button class="tab" data-view="report" role="tab">Monat</button>
+      <button class="tab" data-view="overview" role="tab">Übersicht</button>
       <button class="tab" data-view="employers" role="tab">Arbeitgeber</button>
       <button class="tab" data-view="archive" role="tab">Archiv</button>
       <button class="tab" data-view="guide" role="tab">Anleitung</button>
@@ -132,6 +133,22 @@
       </div>
     </section>
 
+    <!-- Overview View: Monatsauswertung über alle Arbeitgeber -->
+    <section id="view-overview" class="view">
+      <div class="filter-row">
+        <input type="month" id="overview-month" data-testid="input-overview-month" />
+      </div>
+      <div id="overview-content" class="report-content"></div>
+      <div class="report-actions">
+        <button id="btn-export-overview-pdf" class="btn-primary" data-testid="button-export-overview-pdf">
+          📕 PDF
+        </button>
+        <button id="btn-share-overview" class="btn-primary" data-testid="button-share-overview">
+          📤 Teilen
+        </button>
+      </div>
+    </section>
+
     <!-- Employers View -->
     <section id="view-employers" class="view">
       <div class="section-header">
@@ -218,7 +235,7 @@
                 <ul>
                   <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile.</li>
                   <li><strong>📕 PDF:</strong> erstellt dieselbe Auswertung als PDF.</li>
-                  <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 8).</li>
+                  <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 9).</li>
                   <li><strong>🗄 Monat archivieren:</strong> verschiebt den fertigen Monat ins Archiv, damit er nicht mehr aus Versehen geändert wird.</li>
                 </ul>
               </li>
@@ -227,7 +244,21 @@
         </details>
 
         <details class="guide-section">
-          <summary>6. Reiter „Arbeitgeber" – Arbeitgeber und Sollstunden pflegen</summary>
+          <summary>6. Reiter „Übersicht“ – Monatsauswertung über alle Arbeitgeber</summary>
+          <div class="guide-body">
+            <p>Wenn du mehrere Arbeitgeber hast, zeigt dir dieser Reiter, wie viel du im gewählten Monat bei welchem Arbeitgeber gearbeitet hast.</p>
+            <ol>
+              <li>Monat oben auswählen.</li>
+              <li>Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs- und Krankheitstagen auf.</li>
+              <li>Am Ende steht eine Gesamt-Zeile mit den Summen über alle Arbeitgeber.</li>
+              <li>Mit <strong>📕 PDF</strong> erstellst du einen kombinierten Nachweis als Download, mit <strong>📤 Teilen</strong> versendest du ihn per E‑Mail.</li>
+            </ol>
+            <p>Der PDF-Export enthält den gleichen Kopf wie der Monats-Nachweis und eine kompakte Tabelle mit einer Zeile pro Arbeitgeber sowie einer Summenzeile.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>7. Reiter „Arbeitgeber“ – Arbeitgeber und Sollstunden pflegen</summary>
           <div class="guide-body">
             <p>Hier legst du fest, wie viel du wo arbeiten sollst.</p>
             <ul>
@@ -246,7 +277,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>7. Reiter „Archiv" – abgeschlossene Monate</summary>
+          <summary>8. Reiter „Archiv“ – abgeschlossene Monate</summary>
           <div class="guide-body">
             <ul>
               <li>Zeigt alle Monate, die du über <strong>🗄 Monat archivieren</strong> abgeschlossen hast.</li>
@@ -257,7 +288,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>8. Auswertung per E‑Mail teilen</summary>
+          <summary>9. Auswertung per E‑Mail teilen</summary>
           <div class="guide-body">
             <p>Über <strong>📤 Teilen</strong> im Reiter Monat öffnet sich ein Dialog:</p>
             <ol>
@@ -275,7 +306,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>9. Reiter „Einstellungen" – Feinjustage</summary>
+          <summary>10. Reiter „Einstellungen“ – Feinjustage</summary>
           <div class="guide-body">
             <p>Neben Name, E‑Mail und Bundesland findest du hier:</p>
             <ul>
@@ -291,7 +322,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>10. Die App auf dem Home‑Bildschirm installieren (iPad/iPhone)</summary>
+          <summary>11. Die App auf dem Home‑Bildschirm installieren (iPad/iPhone)</summary>
           <div class="guide-body">
             <p>Damit die App wie eine echte App startet:</p>
             <ol>
@@ -304,7 +335,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>11. Tipps und Hinweise</summary>
+          <summary>12. Tipps und Hinweise</summary>
           <div class="guide-body">
             <ul>
               <li>Alle Daten werden <strong>lokal auf deinem Gerät</strong> gespeichert. Es gibt keinen Server, keinen Account.</li>
@@ -316,7 +347,7 @@
         </details>
 
         <details class="guide-section">
-          <summary>12. Rechtliches, Datenschutz und Copyright</summary>
+          <summary>13. Rechtliches, Datenschutz und Copyright</summary>
           <div class="guide-body">
             <p><strong>Urheberrecht.</strong> © 2026 Oliver Gläser. Alle Rechte vorbehalten. Diese Anwendung, ihr Quellcode, Layout, Texte und Grafiken sind urheberrechtlich geschützt. Eine Weitergabe, Veröffentlichung, Bearbeitung oder kommerzielle Nutzung ist nur mit ausdrücklicher Zustimmung des Urhebers zulässig.</p>
             <p><strong>Nutzung.</strong> Die App wird zur privaten und beruflichen Zeiterfassung bereitgestellt. Sie ersetzt keine offizielle Personal- oder Lohnabrechnungssoftware und stellt keine Rechts- oder Steuerberatung dar.</p>
