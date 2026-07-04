@@ -32,7 +32,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit</h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.4</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -53,6 +53,11 @@
       <div class="employer-selector">
         <label for="active-employer">Aktueller Arbeitgeber</label>
         <select id="active-employer" data-testid="select-active-employer"></select>
+      </div>
+
+      <div class="mode-toggle" role="radiogroup" aria-label="Arbeitsort">
+        <button type="button" class="mode-chip active" id="mode-praesenz" data-mode="praesenz" role="radio" aria-checked="true" data-testid="button-mode-praesenz">Präsenz</button>
+        <button type="button" class="mode-chip" id="mode-homeoffice" data-mode="homeoffice" role="radio" aria-checked="false" data-testid="button-mode-homeoffice">Home-Office</button>
       </div>
 
       <div id="live-status" class="live-status hidden">
@@ -78,6 +83,9 @@
       <div class="secondary-actions">
         <button id="btn-add-manual" class="btn-secondary" data-testid="button-add-manual">
           + Zeit nachträglich erfassen
+        </button>
+        <button id="btn-add-homeoffice" class="btn-secondary" data-testid="button-add-homeoffice">
+          + Home-Office-Tag
         </button>
         <button id="btn-add-absence" class="btn-secondary" data-testid="button-add-absence">
           + Urlaub / Krankheit
@@ -193,12 +201,34 @@
             <p>Hier läuft dein Alltag.</p>
             <ul>
               <li><strong>Aktueller Arbeitgeber:</strong> oben auswählen, falls du mehrere hast.</li>
+              <li><strong>Präsenz / Home-Office:</strong> kleiner Umschalter direkt über den Start/Stop-Buttons. Standard ist immer <strong>Präsenz</strong>. Auf <strong>Home-Office</strong> wechseln, wenn du von zu Hause arbeitest.</li>
               <li><strong>▶ Arbeitsbeginn:</strong> startet die laufende Zeiterfassung. Ein grüner Live‑Zähler zeigt an, wie lange du bereits arbeitest.</li>
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
               <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen.</li>
+              <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
               <li><strong>+ Urlaub / Krankheit:</strong> trägt einen kompletten Tag (oder mehrere Tage) als Abwesenheit ein.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>2a. Home-Office – Arbeit in mehreren Blöcken</summary>
+          <div class="guide-body">
+            <p>Im Home-Office arbeitest du oft nicht am Stück: du unterbrichst für private Erledigungen und arbeitest später weiter. Die App fasst mehrere kurze Arbeitsblöcke zu einem einzigen Home-Office-Tag zusammen und rechnet nur die tatsächliche Netto-Arbeitszeit.</p>
+            <p><strong>Zwei Wege, Home-Office zu erfassen:</strong></p>
+            <ol>
+              <li><strong>Live per Timer:</strong> Umschalter auf <em>Home-Office</em> stellen, dann <em>Arbeitsbeginn</em>/<em>Arbeitsende</em> wie gewohnt. Jeder Timer-Lauf am selben Tag wird automatisch als neuer Block an denselben Home-Office-Eintrag angehängt.</li>
+              <li><strong>Nachträglich über „+ Home-Office-Tag“:</strong> Öffnet den Editor mit Datum, Arbeitgeber, einer Liste von Arbeitsblöcken (Beginn/Ende) und einer Bemerkung. Beliebig viele Blöcke hinzufügen. Oben rechts siehst du die Netto-Summe live.</li>
+            </ol>
+            <p><strong>Wichtig für den Bericht:</strong></p>
+            <ul>
+              <li>Im Monatsbericht, PDF und Word erscheint pro Home-Office-Tag nur <strong>eine</strong> Zeile mit dem Label <em>Home-Office</em> und der Netto-Summe. Die einzelnen Blöcke und Zeiten bleiben privat und werden nicht ausgewiesen.</li>
+              <li>Unter der Tabelle steht eine Fußzeile <em>„davon Home-Office: X Tage · Y:ZZ“</em>.</li>
+              <li>In der Wochenansicht erscheinen reine Home-Office-Tage nur mit dem Label <em>Home-Office</em>, ohne Uhrzeiten.</li>
+              <li>Die Pflicht-Pausenprüfung des Arbeitszeitgesetzes wird im Home-Office nicht angewendet. Du bist selbst für die Einhaltung verantwortlich.</li>
+            </ul>
+            <p><strong>Bearbeiten:</strong> Ein Tipp auf einen Home-Office-Eintrag im Reiter <em>Einträge</em> öffnet den Editor. Blöcke lassen sich hinzufügen, ändern oder löschen.</p>
           </div>
         </details>
 
@@ -516,6 +546,43 @@
         <div class="modal-actions">
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
           <button type="button" id="btn-delete-entry" class="btn-danger hidden">Löschen</button>
+          <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Home-Office (Multi-Segment) -->
+  <div id="modal-homeoffice" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-homeoffice-title">Home-Office-Tag</h3>
+        <div class="ho-live-total" id="ho-live-total" aria-live="polite">0:00</div>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-homeoffice">
+        <input type="hidden" id="ho-id" />
+        <div class="form-row">
+          <label for="ho-employer">Arbeitgeber</label>
+          <select id="ho-employer" required></select>
+        </div>
+        <div class="form-row">
+          <label for="ho-date">Datum</label>
+          <input type="date" id="ho-date" required />
+        </div>
+        <div class="form-row">
+          <label>Arbeitsblöcke</label>
+          <small class="hint">Erfasse jeden Arbeitsblock einzeln. Zwischen den Blöcken liegen private Unterbrechungen (Einkaufen, Kinder abholen, Pause). Die Blöcke bleiben privat und erscheinen nicht im Bericht.</small>
+          <div id="ho-segments" class="ho-segments"></div>
+          <button type="button" id="btn-ho-add-segment" class="btn-secondary btn-small">+ Block hinzufügen</button>
+        </div>
+        <div class="form-row">
+          <label for="ho-note">Bemerkung (optional)</label>
+          <input type="text" id="ho-note" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="button" id="btn-delete-homeoffice" class="btn-danger hidden">Löschen</button>
           <button type="submit" class="btn-primary">Speichern</button>
         </div>
       </form>

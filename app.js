@@ -12,7 +12,9 @@
  *     schedule: { mon:{enabled,start,end,break}, tue:..., wed:..., thu:..., fri:..., sat:..., sun:... },
  *     notes
  *   }],
- *   entries: [{ id, employerId, date, type:'work'|'vacation'|'sick', start, end, breakMinutes, overtimeReason, note, createdAt }],
+ *   entries: [{ id, employerId, date, type:'work'|'homeoffice'|'vacation'|'sick', start, end, breakMinutes, segments, overtimeReason, note, createdAt }],
+ *   // 'work' (Präsenz): start, end, breakMinutes, overtimeReason.
+ *   // 'homeoffice': segments = [{start, end}, ...]; keine Pause, kein Überstundengrund. Netto = Summe der Segmente.
  *   archives: [{ id, employerId, yearMonth, generatedAt, snapshot }],
  *   templates: [{ id, label, text }],
  *   settings: { ownEmail, state: 'HE' },
@@ -22,11 +24,18 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.3';
+const APP_VERSION = '3.4';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.4', items: [
+      'Neuer Home-Office-Modus: Multi-Segment-Erfassung für Arbeit mit privaten Unterbrechungen (Einkaufen, Kinder abholen, Pause)',
+      'Präsenz/Home-Office-Umschalter im Erfassen-Tab; startet immer auf Präsenz',
+      'Home-Office-Tage im Monatsbericht als Netto-Summe ausgewiesen, Segmente bleiben privat',
+      'Neuer Footer im Monatsbericht: „davon Home-Office: X Tage · Y:ZZ“',
+      'Versionsnummer im Kopf sichtbar',
+  ]},
   { version: '3.3', items: [
       'Was-ist-neu-Hinweis nach jedem Update',
       'Aktualisierungs-Prompt, wenn eine neue Version bereitsteht',
@@ -301,11 +310,33 @@ const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const DAY_LABELS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
 function computeWorkMinutes(entry) {
+  if (entry.type === 'homeoffice') {
+    return computeHomeofficeMinutes(entry);
+  }
   if (entry.type !== 'work' || !entry.start || !entry.end) return 0;
   let mins = timeToMinutes(entry.end) - timeToMinutes(entry.start);
   if (mins < 0) mins += 24 * 60;
   mins -= (entry.breakMinutes || 0);
   return Math.max(0, mins);
+}
+
+/* Home-Office: Netto ist die Summe aller Segmente. Ein Segment gilt nur,
+ * wenn Start und Ende gesetzt sind und Ende > Start. */
+function computeHomeofficeMinutes(entry) {
+  if (!entry || !Array.isArray(entry.segments)) return 0;
+  let total = 0;
+  for (const seg of entry.segments) {
+    if (!seg || !seg.start || !seg.end) continue;
+    let m = timeToMinutes(seg.end) - timeToMinutes(seg.start);
+    if (m < 0) m += 24 * 60;
+    if (m > 0) total += m;
+  }
+  return total;
+}
+
+/* Einheitliches Prädikat: zählt der Eintrag als geleistete Arbeitszeit? */
+function isWorkedEntry(entry) {
+  return entry && (entry.type === 'work' || entry.type === 'homeoffice');
 }
 
 function legalBreakMinutes(workMinutesBeforeBreak) {
@@ -661,6 +692,14 @@ function renderTracker() {
   }
 
   renderTodaySummary();
+
+  // Mode-Toggle beim Wechsel in den Tracker-Tab immer auf Präsenz zurücksetzen (nicht persistiert),
+  // außer der laufende Timer ist bereits im Home-Office-Modus.
+  if (running && running.mode === 'homeoffice') {
+    setMode('homeoffice');
+  } else {
+    setMode('praesenz');
+  }
 }
 
 function startLiveTimer() {
@@ -693,7 +732,7 @@ function renderTodaySummary() {
   const ym = currentYearMonth();
   const entries = state.entries.filter(e => e.employerId === empId && e.date.startsWith(ym));
 
-  const workedMin = entries.filter(e => e.type === 'work').reduce((s, e) => s + computeWorkMinutes(e), 0);
+  const workedMin = entries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
   const vacationDays = entries.filter(e => e.type === 'vacation').length;
   const sickDays = entries.filter(e => e.type === 'sick').length;
   const targetMin = computeMonthTargetMinutes(emp, ym);
@@ -731,10 +770,11 @@ function startWork() {
   state.runningTimer = {
     employerId: state.activeEmployerId,
     startISO: new Date().toISOString(),
+    mode: currentMode === 'homeoffice' ? 'homeoffice' : 'praesenz',
   };
   saveState();
   renderTracker();
-  toast('Arbeitsbeginn erfasst');
+  toast(currentMode === 'homeoffice' ? 'Home-Office-Block gestartet' : 'Arbeitsbeginn erfasst');
 }
 
 function endWork() {
@@ -745,6 +785,35 @@ function endWork() {
   const dateISO = `${startDate.getFullYear()}-${pad(startDate.getMonth()+1)}-${pad(startDate.getDate())}`;
   const startHHMM = `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`;
   const endHHMM = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+
+  if (r.mode === 'homeoffice') {
+    // Ans bestehenden Home-Office-Eintrag desselben Tages/Arbeitgebers anhängen oder neuen anlegen
+    const existing = state.entries.find(e =>
+      e.type === 'homeoffice' && e.employerId === r.employerId && e.date === dateISO
+    );
+    if (existing) {
+      existing.segments = Array.isArray(existing.segments) ? existing.segments : [];
+      existing.segments.push({ start: startHHMM, end: endHHMM });
+    } else {
+      state.entries.push({
+        id: uid(),
+        employerId: r.employerId,
+        date: dateISO,
+        type: 'homeoffice',
+        segments: [{ start: startHHMM, end: endHHMM }],
+        note: '',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    state.runningTimer = null;
+    saveState();
+    renderTracker();
+    renderEntries();
+    renderWeek();
+    renderReport();
+    toast('Home-Office-Block gespeichert');
+    return;
+  }
 
   const emp = getEmployer(r.employerId);
   const suggestedBreak = computeSuggestedBreak(startHHMM, endHHMM, emp?.breakMode);
@@ -937,6 +1006,193 @@ function deleteEntry() {
   toast('Gelöscht');
 }
 
+/* ---------- Home-Office Mode & Modal ---------- */
+
+let currentMode = 'praesenz';
+
+function setMode(mode) {
+  currentMode = mode === 'homeoffice' ? 'homeoffice' : 'praesenz';
+  const btnP = document.getElementById('mode-praesenz');
+  const btnH = document.getElementById('mode-homeoffice');
+  if (!btnP || !btnH) return;
+  const isHO = currentMode === 'homeoffice';
+  btnP.classList.toggle('active', !isHO);
+  btnH.classList.toggle('active', isHO);
+  btnP.setAttribute('aria-checked', String(!isHO));
+  btnH.setAttribute('aria-checked', String(isHO));
+}
+
+function openHomeofficeModal(entry, opts) {
+  opts = opts || {};
+  const modal = document.getElementById('modal-homeoffice');
+  const title = document.getElementById('modal-homeoffice-title');
+  const empSel = document.getElementById('ho-employer');
+  const dateInput = document.getElementById('ho-date');
+  const noteInput = document.getElementById('ho-note');
+  const idInput = document.getElementById('ho-id');
+  const delBtn = document.getElementById('btn-delete-homeoffice');
+
+  empSel.innerHTML = state.employers
+    .map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+
+  if (entry && entry.id) {
+    title.textContent = 'Home-Office-Tag bearbeiten';
+    idInput.value = entry.id;
+    empSel.value = entry.employerId || state.activeEmployerId || '';
+    dateInput.value = entry.date || todayISO();
+    noteInput.value = entry.note || '';
+    const segs = Array.isArray(entry.segments) && entry.segments.length
+      ? entry.segments.map(s => ({ start: s.start || '', end: s.end || '' }))
+      : (entry.start && entry.end ? [{ start: entry.start, end: entry.end }] : [{ start: '', end: '' }]);
+    modal.dataset.segments = JSON.stringify(segs);
+    delBtn.classList.remove('hidden');
+  } else {
+    title.textContent = 'Home-Office-Tag';
+    idInput.value = '';
+    empSel.value = state.activeEmployerId || state.employers[0]?.id || '';
+    dateInput.value = opts.date || todayISO();
+    noteInput.value = '';
+    modal.dataset.segments = JSON.stringify([{ start: '', end: '' }]);
+    delBtn.classList.add('hidden');
+  }
+
+  renderHomeofficeSegments();
+  modal.classList.remove('hidden');
+}
+
+function readHomeofficeSegmentsFromDom() {
+  const container = document.getElementById('ho-segments');
+  const rows = container.querySelectorAll('.ho-segment-row');
+  const segs = [];
+  rows.forEach(row => {
+    const start = row.querySelector('input[data-seg-start]').value || '';
+    const end = row.querySelector('input[data-seg-end]').value || '';
+    segs.push({ start, end });
+  });
+  return segs;
+}
+
+function persistHomeofficeSegmentsToState() {
+  const modal = document.getElementById('modal-homeoffice');
+  modal.dataset.segments = JSON.stringify(readHomeofficeSegmentsFromDom());
+}
+
+function renderHomeofficeSegments() {
+  const modal = document.getElementById('modal-homeoffice');
+  const container = document.getElementById('ho-segments');
+  let segs;
+  try { segs = JSON.parse(modal.dataset.segments || '[]'); } catch (e) { segs = []; }
+  if (!segs.length) segs = [{ start: '', end: '' }];
+
+  container.innerHTML = segs.map((s, idx) => `
+    <div class="ho-segment-row" data-idx="${idx}">
+      <span class="ho-segment-label">${idx + 1}.</span>
+      <input type="time" data-seg-start value="${s.start || ''}" aria-label="Beginn Block ${idx + 1}" data-testid="input-ho-start-${idx}" />
+      <span class="ho-segment-sep">–</span>
+      <input type="time" data-seg-end value="${s.end || ''}" aria-label="Ende Block ${idx + 1}" data-testid="input-ho-end-${idx}" />
+      <button type="button" class="btn-icon" data-remove-segment="${idx}" aria-label="Block entfernen" data-testid="button-remove-ho-segment-${idx}">✕</button>
+    </div>
+  `).join('');
+  updateHomeofficeLiveTotal();
+}
+
+function addHomeofficeSegment() {
+  persistHomeofficeSegmentsToState();
+  const modal = document.getElementById('modal-homeoffice');
+  const segs = JSON.parse(modal.dataset.segments || '[]');
+  segs.push({ start: '', end: '' });
+  modal.dataset.segments = JSON.stringify(segs);
+  renderHomeofficeSegments();
+}
+
+function removeHomeofficeSegment(idx) {
+  persistHomeofficeSegmentsToState();
+  const modal = document.getElementById('modal-homeoffice');
+  const segs = JSON.parse(modal.dataset.segments || '[]');
+  segs.splice(idx, 1);
+  if (!segs.length) segs.push({ start: '', end: '' });
+  modal.dataset.segments = JSON.stringify(segs);
+  renderHomeofficeSegments();
+}
+
+function updateHomeofficeLiveTotal() {
+  const el = document.getElementById('ho-live-total');
+  if (!el) return;
+  const segs = readHomeofficeSegmentsFromDom();
+  const totalMin = computeHomeofficeMinutes({ segments: segs });
+  el.textContent = minutesToHM(totalMin);
+}
+
+function saveHomeoffice(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const id = document.getElementById('ho-id').value;
+  const employerId = document.getElementById('ho-employer').value;
+  const date = document.getElementById('ho-date').value;
+  const note = document.getElementById('ho-note').value.trim();
+  const rawSegs = readHomeofficeSegmentsFromDom();
+  const segments = rawSegs
+    .filter(s => s.start && s.end)
+    .map(s => ({ start: s.start, end: s.end }));
+
+  if (!employerId) { toast('Bitte Arbeitgeber wählen'); return; }
+  if (!date) { toast('Bitte Datum wählen'); return; }
+  if (!segments.length) { toast('Bitte mindestens einen Arbeitsblock erfassen'); return; }
+
+  // Validate each segment: end > start (allow overnight? unlikely for HO, block it)
+  for (const s of segments) {
+    const sm = hhmmToMinutes(s.start);
+    const em = hhmmToMinutes(s.end);
+    if (em <= sm) { toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen`); return; }
+  }
+
+  if (id) {
+    const idx = state.entries.findIndex(x => x.id === id);
+    if (idx >= 0) {
+      state.entries[idx] = {
+        ...state.entries[idx],
+        employerId, date, type: 'homeoffice',
+        segments, note,
+        // Legacy-Felder aufräumen
+        start: undefined, end: undefined, breakMinutes: undefined, overtimeReason: undefined,
+      };
+    }
+  } else {
+    state.entries.push({
+      id: uid(),
+      employerId, date, type: 'homeoffice',
+      segments, note,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  saveState();
+  closeModals();
+  renderTracker();
+  renderEntries();
+  renderWeek();
+  renderReport();
+  toast('Gespeichert');
+}
+
+function deleteHomeoffice() {
+  const id = document.getElementById('ho-id').value;
+  if (!id) return;
+  if (!confirm('Diesen Home-Office-Tag wirklich löschen?')) return;
+  state.entries = state.entries.filter(e => e.id !== id);
+  saveState();
+  closeModals();
+  renderTracker();
+  renderEntries();
+  renderWeek();
+  renderReport();
+  toast('Gelöscht');
+}
+
+function hhmmToMinutes(hhmm) {
+  if (!hhmm) return 0;
+  const [h, m] = hhmm.split(':').map(n => parseInt(n, 10) || 0);
+  return h * 60 + m;
+}
+
 /* ---------- Entries View ---------- */
 
 function renderEntries() {
@@ -978,6 +1234,12 @@ function renderEntries() {
       right = `<span class="entry-hours ${isOvertime ? 'overtime' : ''}">${minutesToHM(mins)}</span>`;
       details = `${e.start}–${e.end}${e.breakMinutes ? ` • Pause ${e.breakMinutes} Min` : ''}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
       if (e.overtimeReason) typeBadge = `<span class="entry-badge overtime">Überstunden</span>`;
+    } else if (e.type === 'homeoffice') {
+      const mins = computeHomeofficeMinutes(e);
+      const segCount = Array.isArray(e.segments) ? e.segments.filter(s => s && s.start && s.end).length : 0;
+      right = `<span class="entry-hours">${minutesToHM(mins)}</span>`;
+      details = `Home-Office • ${segCount} ${segCount === 1 ? 'Block' : 'Blöcke'}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
+      typeBadge = `<span class="entry-badge homeoffice">Home-Office</span>`;
     } else if (e.type === 'vacation') {
       right = `<span class="entry-hours absence">Urlaub</span>`;
       details = emp ? escapeHtml(emp.name) : '';
@@ -1005,7 +1267,9 @@ function renderEntries() {
   container.querySelectorAll('.entry-card').forEach(card => {
     card.addEventListener('click', () => {
       const entry = state.entries.find(e => e.id === card.dataset.id);
-      if (entry) openEntryModal(entry);
+      if (!entry) return;
+      if (entry.type === 'homeoffice') openHomeofficeModal(entry);
+      else openEntryModal(entry);
     });
   });
 }
@@ -1060,17 +1324,24 @@ function renderWeek() {
   const dayRows = dates.map((d, idx) => {
     const holiday = isHoliday(d, stateCode);
     const dayEntries = state.entries.filter(e => e.employerId === empId && e.date === d);
-    const workMin = dayEntries.filter(e => e.type === 'work').reduce((s, e) => s + computeWorkMinutes(e), 0);
+    const workMin = dayEntries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
     totalMin += workMin;
     const hasVacation = dayEntries.some(e => e.type === 'vacation');
     const hasSick = dayEntries.some(e => e.type === 'sick');
+    const hasHomeoffice = dayEntries.some(e => e.type === 'homeoffice');
 
     let hoursDisplay = workMin ? minutesToHM(workMin) : '–';
     let detail = '';
     if (hasVacation) detail = 'Urlaub';
     else if (hasSick) detail = 'Krank';
-    else if (dayEntries.length) {
-      detail = dayEntries.filter(e => e.type === 'work').map(e => `${e.start}–${e.end}`).join(', ');
+    else if (hasHomeoffice && !dayEntries.some(e => e.type === 'work')) {
+      // Reine Home-Office-Tage: Segmente bleiben privat, nur Label anzeigen
+      detail = 'Home-Office';
+    } else if (dayEntries.length) {
+      const parts = [];
+      for (const e of dayEntries.filter(e => e.type === 'work')) parts.push(`${e.start}–${e.end}`);
+      if (hasHomeoffice) parts.push('Home-Office');
+      detail = parts.join(', ');
     }
 
     const isToday = d === today;
@@ -1114,10 +1385,13 @@ function computeMonthReport(employerId, ym) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const workEntries = entries.filter(e => e.type === 'work');
+  const homeofficeEntries = entries.filter(e => e.type === 'homeoffice');
   const vacationEntries = entries.filter(e => e.type === 'vacation');
   const sickEntries = entries.filter(e => e.type === 'sick');
 
-  const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0);
+  const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
+    + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
+  const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
   const targetMin = computeMonthTargetMinutes(emp, ym);
   const workdays = countWorkdaysInMonth(ym, emp);
   const dailyTargetMin = targetMin / workdays;
@@ -1129,8 +1403,8 @@ function computeMonthReport(employerId, ym) {
   const holidays = getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode);
 
   return {
-    employer: emp, ym, entries, workEntries, vacationEntries, sickEntries, overtimeEntries,
-    workedMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
+    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeEntries,
+    workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
   };
 }
 
@@ -1158,7 +1432,26 @@ function renderReport() {
   const r = computeMonthReport(empId, ym);
   if (!r) { container.innerHTML = '<div class="empty-state">Keine Daten.</div>'; return; }
 
-  const rows = r.workEntries.map(e => {
+  // Gemeinsame, chronologisch sortierte Zeilen aus Arbeit + Home-Office
+  const combined = [
+    ...r.workEntries.map(e => ({ e, isHO: false })),
+    ...r.homeofficeEntries.map(e => ({ e, isHO: true })),
+  ].sort((a, b) => a.e.date.localeCompare(b.e.date));
+
+  const rows = combined.map(({ e, isHO }) => {
+    if (isHO) {
+      const mins = computeHomeofficeMinutes(e);
+      return `
+        <tr class="row-homeoffice">
+          <td data-label="Datum">${formatDateLong(e.date)}</td>
+          <td data-label="Zeit"><span class="cell-badge homeoffice">Home-Office</span></td>
+          <td class="num" data-label="Pause (Min)">—</td>
+          <td class="num" data-label="Std.">${minutesToHM(mins)}</td>
+          <td data-label="Grund Überstunden"></td>
+          <td data-label="Bemerkung">${escapeHtml(e.note || '')}</td>
+        </tr>
+      `;
+    }
     const mins = computeWorkMinutes(e);
     return `
       <tr>
@@ -1174,6 +1467,10 @@ function renderReport() {
 
   const holidayList = r.holidays.length
     ? `<div class="entry-note" style="margin-top: 0.75rem;">Feiertage im Monat: ${r.holidays.map(h => `${formatDate(h.date)} ${escapeHtml(h.name)}`).join(' · ')}</div>`
+    : '';
+
+  const homeofficeFooter = r.homeofficeEntries.length
+    ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
     : '';
 
   container.innerHTML = `
@@ -1193,6 +1490,7 @@ function renderReport() {
         <thead><tr><th>Datum</th><th>Zeit</th><th>Pause (Min)</th><th>Std.</th><th>Grund Überstunden</th><th>Bemerkung</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${homeofficeFooter}
     ` : '<div class="empty-state">Keine Arbeitszeiten in diesem Monat.</div>'}
   `;
 }
@@ -1220,7 +1518,25 @@ async function generateWordBlob(report) {
     children: [new Paragraph({ alignment: align, children: [new TextRun({ text: String(text || ''), size: 20 })] })],
   });
 
-  const workRowsFixed = report.workEntries.map(e => {
+  const combinedRows = [
+    ...report.workEntries.map(e => ({ e, isHO: false })),
+    ...(report.homeofficeEntries || []).map(e => ({ e, isHO: true })),
+  ].sort((a, b) => a.e.date.localeCompare(b.e.date));
+
+  const workRowsFixed = combinedRows.map(({ e, isHO }) => {
+    if (isHO) {
+      const mins = computeHomeofficeMinutes(e);
+      return new TableRow({
+        children: [
+          cellW(formatDateLong(e.date), colWidths[0]),
+          cellW('Home-Office', colWidths[1]),
+          cellW('—', colWidths[2], AlignmentType.RIGHT),
+          cellW(minutesToHM(mins), colWidths[3], AlignmentType.RIGHT),
+          cellW('', colWidths[4]),
+          cellW(e.note || '', colWidths[5]),
+        ],
+      });
+    }
     const mins = computeWorkMinutes(e);
     return new TableRow({
       children: [
@@ -1234,7 +1550,7 @@ async function generateWordBlob(report) {
     });
   });
 
-  const workTable = report.workEntries.length ? new Table({
+  const workTable = combinedRows.length ? new Table({
     width: { size: 9000, type: WidthType.DXA },
     columnWidths: colWidths,
     layout: 'fixed',
@@ -1315,6 +1631,9 @@ async function generateWordBlob(report) {
     ...(workTable ? [
       new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Einzelnachweis', bold: true })] }),
       workTable,
+      ...((report.homeofficeEntries && report.homeofficeEntries.length) ? [new Paragraph({ children: [
+        new TextRun({ text: `davon Home-Office: ${report.homeofficeEntries.length} ${report.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(report.homeofficeMin || 0)}`, italics: true, color: '64748B', size: 18 }),
+      ]})] : []),
       new Paragraph({ text: '' }),
     ] : []),
 
@@ -1420,20 +1739,38 @@ function generatePdfBlob(report) {
 
   y += 4;
 
-  if (report.workEntries.length) {
+  const homeofficeEntries = report.homeofficeEntries || [];
+  if (report.workEntries.length || homeofficeEntries.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text('Einzelnachweis', marginX, y);
     y += 3;
 
-    const body = report.workEntries.map(e => [
-      formatDateLong(e.date),
-      `${e.start}-${e.end}`,
-      String(e.breakMinutes || 0),
-      minutesToHM(computeWorkMinutes(e)),
-      e.overtimeReason || '',
-      e.note || '',
-    ]);
+    const combinedRows = [
+      ...report.workEntries.map(e => ({ e, isHO: false })),
+      ...homeofficeEntries.map(e => ({ e, isHO: true })),
+    ].sort((a, b) => a.e.date.localeCompare(b.e.date));
+
+    const body = combinedRows.map(({ e, isHO }) => {
+      if (isHO) {
+        return [
+          formatDateLong(e.date),
+          'Home-Office',
+          '—',
+          minutesToHM(computeHomeofficeMinutes(e)),
+          '',
+          e.note || '',
+        ];
+      }
+      return [
+        formatDateLong(e.date),
+        `${e.start}-${e.end}`,
+        String(e.breakMinutes || 0),
+        minutesToHM(computeWorkMinutes(e)),
+        e.overtimeReason || '',
+        e.note || '',
+      ];
+    });
     doc.autoTable({
       startY: y + 2,
       head: [['Datum', 'Zeit', 'Pause (Min)', 'Std.', 'Grund Überstunden', 'Bemerkung']],
@@ -1451,6 +1788,16 @@ function generatePdfBlob(report) {
       margin: { left: marginX, right: marginX },
     });
     y = doc.lastAutoTable.finalY + 6;
+
+    if (homeofficeEntries.length) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`davon Home-Office: ${homeofficeEntries.length} ${homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(report.homeofficeMin || 0)}`, marginX, y);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'normal');
+      y += 6;
+    }
   }
 
   if (report.overtimeEntries.length) {
@@ -2676,6 +3023,45 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-end').addEventListener('click', endWork);
   document.getElementById('btn-add-manual').addEventListener('click', () => openEntryModal(null, { presetType: 'work' }));
   document.getElementById('btn-add-absence').addEventListener('click', () => openEntryModal(null, { presetType: 'vacation' }));
+
+  // Mode-Toggle (Präsenz / Home-Office)
+  const modeP = document.getElementById('mode-praesenz');
+  const modeH = document.getElementById('mode-homeoffice');
+  if (modeP) modeP.addEventListener('click', () => {
+    if (state.runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
+    setMode('praesenz');
+  });
+  if (modeH) modeH.addEventListener('click', () => {
+    if (state.runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
+    setMode('homeoffice');
+  });
+
+  // Home-Office Modal
+  const btnAddHO = document.getElementById('btn-add-homeoffice');
+  if (btnAddHO) btnAddHO.addEventListener('click', () => openHomeofficeModal(null, {}));
+  const formHO = document.getElementById('form-homeoffice');
+  if (formHO) formHO.addEventListener('submit', saveHomeoffice);
+  const btnDelHO = document.getElementById('btn-delete-homeoffice');
+  if (btnDelHO) btnDelHO.addEventListener('click', deleteHomeoffice);
+  const btnHoAdd = document.getElementById('btn-ho-add-segment');
+  if (btnHoAdd) btnHoAdd.addEventListener('click', addHomeofficeSegment);
+  const hoSegments = document.getElementById('ho-segments');
+  if (hoSegments) {
+    // Delegation: Segment entfernen
+    hoSegments.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove-segment]');
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.removeSegment, 10);
+      if (!Number.isNaN(idx)) removeHomeofficeSegment(idx);
+    });
+    // Delegation: Live-Total bei Input-Änderung
+    hoSegments.addEventListener('input', (e) => {
+      if (e.target.matches('input[type="time"]')) updateHomeofficeLiveTotal();
+    });
+    hoSegments.addEventListener('change', (e) => {
+      if (e.target.matches('input[type="time"]')) updateHomeofficeLiveTotal();
+    });
+  }
 
   // Entry modal
   document.getElementById('form-entry').addEventListener('submit', saveEntry);
