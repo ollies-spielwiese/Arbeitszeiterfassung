@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.5';
+const APP_VERSION = '3.6';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.6', items: [
+      'Home-Office-Timer über Mitternacht wird korrekt gespeichert und auf beide Kalendertage verteilt',
+      'Update-Prompt erscheint zuverlässig auch nach „Später“ beim nächsten App-Start',
+      'Kein unerwarteter Neustart mehr beim Zurückkehren aus dem Hintergrund',
+  ]},
   { version: '3.5', items: [
       'Home-Office-Tag: alle Blöcke landen automatisch im gleichen Eintrag — egal ob per Timer oder manuell',
       'Bestehende doppelte Home-Office-Einträge werden beim Start automatisch zusammengeführt',
@@ -833,33 +838,69 @@ function startWork() {
   toast(currentMode === 'homeoffice' ? 'Home-Office-Block gestartet' : 'Arbeitsbeginn erfasst');
 }
 
+/**
+ * Splittet ein Segment am Mitternachtsgrenze. Wenn Start und Ende am selben Tag
+ * liegen, wird nur ein Eintrag zurückgegeben. Bei Über-Mitternacht wird das Segment
+ * am Start-Tag um 23:59 (bzw. am Grenzwert 24:00 = 00:00 des Folgetages) geteilt.
+ * Rückgabe: Array von { date, start, end } jeweils innerhalb eines Kalendertags.
+ */
+function splitAcrossMidnight(startJSDate, endJSDate) {
+  const parts = [];
+  const startDay = new Date(startJSDate.getFullYear(), startJSDate.getMonth(), startJSDate.getDate());
+  const endDay = new Date(endJSDate.getFullYear(), endJSDate.getMonth(), endJSDate.getDate());
+  const sameDay = startDay.getTime() === endDay.getTime();
+  const startHHMM = `${pad(startJSDate.getHours())}:${pad(startJSDate.getMinutes())}`;
+  const endHHMM = `${pad(endJSDate.getHours())}:${pad(endJSDate.getMinutes())}`;
+  const startISO = `${startDay.getFullYear()}-${pad(startDay.getMonth()+1)}-${pad(startDay.getDate())}`;
+  if (sameDay) {
+    parts.push({ date: startISO, start: startHHMM, end: endHHMM });
+    return parts;
+  }
+  // Startsegment bis 23:59 des Start-Tages
+  parts.push({ date: startISO, start: startHHMM, end: '23:59' });
+  // Zwischentage komplett (00:00 - 23:59) — in der Praxis bei Home-Office extrem selten,
+  // aber sauber implementieren für den Fall, dass jemand über mehrere Tage läuft.
+  let cursor = new Date(startDay.getTime() + 24*60*60*1000);
+  while (cursor.getTime() < endDay.getTime()) {
+    const iso = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
+    parts.push({ date: iso, start: '00:00', end: '23:59' });
+    cursor = new Date(cursor.getTime() + 24*60*60*1000);
+  }
+  // End-Segment vom Folgetag ab 00:00 bis zur Endzeit
+  const endISO = `${endDay.getFullYear()}-${pad(endDay.getMonth()+1)}-${pad(endDay.getDate())}`;
+  if (endHHMM !== '00:00') {
+    parts.push({ date: endISO, start: '00:00', end: endHHMM });
+  }
+  return parts;
+}
+
 function endWork() {
   const r = state.runningTimer;
   if (!r) return;
   const startDate = new Date(r.startISO);
   const endDate = new Date();
-  const dateISO = `${startDate.getFullYear()}-${pad(startDate.getMonth()+1)}-${pad(startDate.getDate())}`;
-  const startHHMM = `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`;
-  const endHHMM = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
+  const parts = splitAcrossMidnight(startDate, endDate);
 
   if (r.mode === 'homeoffice') {
-    // Ans bestehenden Home-Office-Eintrag desselben Tages/Arbeitgebers anhängen oder neuen anlegen
-    const existing = state.entries.find(e =>
-      e.type === 'homeoffice' && e.employerId === r.employerId && e.date === dateISO
-    );
-    if (existing) {
-      const prev = Array.isArray(existing.segments) ? existing.segments : [];
-      existing.segments = normalizeSegments([...prev, { start: startHHMM, end: endHHMM }]);
-    } else {
-      state.entries.push({
-        id: uid(),
-        employerId: r.employerId,
-        date: dateISO,
-        type: 'homeoffice',
-        segments: [{ start: startHHMM, end: endHHMM }],
-        note: '',
-        createdAt: new Date().toISOString(),
-      });
+    // Für jeden Kalendertag: Segment am bestehenden HO-Entry anhängen oder neuen anlegen
+    for (const p of parts) {
+      const existing = state.entries.find(e =>
+        e.type === 'homeoffice' && e.employerId === r.employerId && e.date === p.date
+      );
+      if (existing) {
+        const prev = Array.isArray(existing.segments) ? existing.segments : [];
+        existing.segments = normalizeSegments([...prev, { start: p.start, end: p.end }]);
+      } else {
+        state.entries.push({
+          id: uid(),
+          employerId: r.employerId,
+          date: p.date,
+          type: 'homeoffice',
+          segments: [{ start: p.start, end: p.end }],
+          note: '',
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
     state.runningTimer = null;
     saveState();
@@ -867,9 +908,19 @@ function endWork() {
     renderEntries();
     renderWeek();
     renderReport();
-    toast('Home-Office-Block gespeichert');
+    toast(parts.length > 1
+      ? `Home-Office-Block auf ${parts.length} Tage verteilt gespeichert`
+      : 'Home-Office-Block gespeichert');
     return;
   }
+
+  // Präsenz: bei Über-Mitternacht das Ende einfach als HH:MM stehen lassen —
+  // computeWorkMinutes rechnet bereits +24h wenn end < start.
+  // (Bewusste Entscheidung: Präsenz-Übernachtungen sind arbeitsrechtlich sinnvoller
+  // als ein Eintrag am Start-Tag mit Endzeit über Mitternacht abgebildet.)
+  const dateISO = parts[0].date;
+  const startHHMM = parts[0].start;
+  const endHHMM = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
 
   const emp = getEmployer(r.employerId);
   const suggestedBreak = computeSuggestedBreak(startHHMM, endHHMM, emp?.breakMode);
@@ -1273,7 +1324,10 @@ function saveHomeoffice(e) {
   for (const s of segments) {
     const sm = hhmmToMinutes(s.start);
     const em = hhmmToMinutes(s.end);
-    if (em <= sm) { toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen`); return; }
+    if (em <= sm) {
+      toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen. Für Über-Mitternacht bitte zwei Blöcke erfassen (bis 23:59 und ab 00:00 am Folgetag).`);
+      return;
+    }
   }
 
   // Aggregations-Prinzip: pro (employerId, date) existiert höchstens ein HO-Entry.
@@ -3393,9 +3447,25 @@ function compareVersions(a, b) {
   return 0;
 }
 
-/* ---------- Service Worker with Update Prompt ---------- */
+/* ---------- Service Worker with Update Prompt ----------
+ *
+ * Update-Strategie:
+ * 1. SW registrieren. Wenn beim Load bereits ein waiting-Worker vorhanden ist,
+ *    Banner zeigen.
+ * 2. "Später" versteckt nur den Banner — keinen Reload. Beim nächsten
+ *    App-Start greift entweder erneut der waiting-Check oder das What's-New-
+ *    Modal (Version-Vergleich über APP_VERSION vs. lastSeenVersion).
+ * 3. Der reg.update()-Aufruf auf visibilitychange löst KEIN automatisches Reload
+ *    mehr aus — der controllerchange-Reload wird nur getriggert, wenn der User
+ *    explizit "Jetzt aktualisieren" gedrückt hat. Damit gibt es keinen
+ *    unerwarteten Neustart mit Blackscreen, wenn die App aus dem Hintergrund
+ *    zurückkommt.
+ * 4. Wenn beim Zurückkommen aus dem Hintergrund ein neuer waiting-SW
+ *    installiert wird, zeigen wir den Banner — nicht mehr, nicht weniger.
+ */
 
 let __swWaitingRegistration = null;
+let __swUserRequestedActivation = false;
 
 function registerServiceWorkerWithUpdatePrompt() {
   if (!('serviceWorker' in navigator)) return;
@@ -3405,7 +3475,7 @@ function registerServiceWorkerWithUpdatePrompt() {
       __swWaitingRegistration = reg;
       showUpdateBanner();
     }
-    // A new worker starts installing
+    // A new worker starts installing (kann auch nach visibilitychange->reg.update() passieren)
     reg.addEventListener('updatefound', () => {
       const installing = reg.installing;
       if (!installing) return;
@@ -3418,14 +3488,18 @@ function registerServiceWorkerWithUpdatePrompt() {
     });
     // Poll for updates on visibility change (helps on iOS PWA)
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      if (document.visibilityState === 'visible') {
+        reg.update().catch(() => {});
+      }
     });
   }).catch(err => console.warn('SW registration failed:', err));
 
-  // When the new worker takes control, reload the page once
+  // Reload NUR wenn der User explizit "Jetzt aktualisieren" gedrückt hat.
+  // Ohne diese Bedingung entstehen unerwartete Reloads beim App-Wechsel auf iOS.
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading) return;
+    if (!__swUserRequestedActivation) return;
     reloading = true;
     window.location.reload();
   });
@@ -3442,7 +3516,14 @@ function hideUpdateBanner() {
 }
 
 function activateWaitingServiceWorker() {
+  __swUserRequestedActivation = true;
   const reg = __swWaitingRegistration;
-  if (!reg || !reg.waiting) { hideUpdateBanner(); return; }
+  if (!reg || !reg.waiting) {
+    // Kein waiting mehr — kann passieren, wenn iOS den SW zwischenzeitlich selbst aktiviert hat.
+    // In diesem Fall: einfach neu laden, damit die neueste Version aus dem SW-Cache greift.
+    hideUpdateBanner();
+    window.location.reload();
+    return;
+  }
   reg.waiting.postMessage({ type: 'SKIP_WAITING' });
 }
