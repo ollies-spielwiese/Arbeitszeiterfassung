@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.4';
+const APP_VERSION = '3.5';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.5', items: [
+      'Home-Office-Tag: alle Blöcke landen automatisch im gleichen Eintrag — egal ob per Timer oder manuell',
+      'Bestehende doppelte Home-Office-Einträge werden beim Start automatisch zusammengeführt',
+      'Home-Office-Editor: Modal-Kopf zeigt Datum und Arbeitgeber; kürzerer Anleitungstext',
+  ]},
   { version: '3.4', items: [
       'Neuer Home-Office-Modus: Multi-Segment-Erfassung für Arbeit mit privaten Unterbrechungen (Einkaufen, Kinder abholen, Pause)',
       'Präsenz/Home-Office-Umschalter im Erfassen-Tab; startet immer auf Präsenz',
@@ -116,17 +121,68 @@ function loadState() {
       // Merge defaults for forward compatibility
       const mergedSettings = { ...DEFAULT_STATE.settings, ...(loaded.settings || {}) };
       mergedSettings.holidayOverrides = normalizeHolidayOverrides(mergedSettings.holidayOverrides);
-      return {
+      const merged = {
         ...DEFAULT_STATE,
         ...loaded,
         settings: mergedSettings,
         templates: loaded.templates && loaded.templates.length ? loaded.templates : DEFAULT_STATE.templates,
       };
+      // v3.5-Migration: mehrere Home-Office-Einträge pro (employerId, date) zu einem einzigen zusammenführen.
+      // Wenn sich dadurch etwas ändert, persistieren, damit die Konsolidierung dauerhaft ist.
+      const beforeEntries = Array.isArray(merged.entries) ? merged.entries : [];
+      const afterEntries = migrateHomeofficeEntries(beforeEntries);
+      merged.entries = afterEntries;
+      if (afterEntries.length !== beforeEntries.length) {
+        try { storage.set(STORAGE_KEY, JSON.stringify(merged)); } catch (e) { /* ignore */ }
+      }
+      return merged;
     }
   } catch (e) {
     console.error('State load failed', e);
   }
   return JSON.parse(JSON.stringify(DEFAULT_STATE));
+}
+
+/**
+ * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
+ * einzigen zusammen. Segmente werden konsolidiert (sortiert, überlappende gemergt),
+ * Notes zusammengehängt. Alle anderen Einträge bleiben unberührt.
+ * Idempotent — mehrfaches Laufen verändert das Ergebnis nicht.
+ */
+function migrateHomeofficeEntries(entries) {
+  const byKey = new Map();
+  const others = [];
+  for (const e of entries) {
+    if (!e || e.type !== 'homeoffice') { others.push(e); continue; }
+    const key = `${e.employerId}||${e.date}`;
+    const segs = Array.isArray(e.segments) && e.segments.length
+      ? e.segments
+      : (e.start && e.end ? [{ start: e.start, end: e.end }] : []);
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        id: e.id || uid(),
+        employerId: e.employerId,
+        date: e.date,
+        type: 'homeoffice',
+        segments: segs.map(s => ({ start: s.start, end: s.end })),
+        note: e.note || '',
+        createdAt: e.createdAt || new Date().toISOString(),
+      });
+    } else {
+      const acc = byKey.get(key);
+      acc.segments = acc.segments.concat(segs.map(s => ({ start: s.start, end: s.end })));
+      if (e.note && !acc.note) acc.note = e.note;
+      else if (e.note && !acc.note.includes(e.note)) acc.note = `${acc.note} · ${e.note}`;
+      if (e.createdAt && e.createdAt < acc.createdAt) acc.createdAt = e.createdAt;
+    }
+  }
+  // Segmente normalisieren (sortiert, gemergt)
+  const merged = [];
+  for (const acc of byKey.values()) {
+    acc.segments = normalizeSegments(acc.segments);
+    merged.push(acc);
+  }
+  return others.concat(merged);
 }
 
 function saveState() {
@@ -792,8 +848,8 @@ function endWork() {
       e.type === 'homeoffice' && e.employerId === r.employerId && e.date === dateISO
     );
     if (existing) {
-      existing.segments = Array.isArray(existing.segments) ? existing.segments : [];
-      existing.segments.push({ start: startHHMM, end: endHHMM });
+      const prev = Array.isArray(existing.segments) ? existing.segments : [];
+      existing.segments = normalizeSegments([...prev, { start: startHHMM, end: endHHMM }]);
     } else {
       state.entries.push({
         id: uid(),
@@ -1049,15 +1105,67 @@ function openHomeofficeModal(entry, opts) {
   } else {
     title.textContent = 'Home-Office-Tag';
     idInput.value = '';
-    empSel.value = state.activeEmployerId || state.employers[0]?.id || '';
+    const preferredEmp = opts.employerId || state.activeEmployerId || state.employers[0]?.id || '';
+    empSel.value = preferredEmp;
     dateInput.value = opts.date || todayISO();
     noteInput.value = '';
-    modal.dataset.segments = JSON.stringify([{ start: '', end: '' }]);
-    delBtn.classList.add('hidden');
+    // Wenn für (employer, date) schon ein Eintrag existiert: dessen Segmente vorbelegen,
+    // damit man ergibige Kontext bekommt und weitere Blöcke direkt ergänzt.
+    const existing = state.entries.find(x =>
+      x.type === 'homeoffice' && x.employerId === empSel.value && x.date === dateInput.value
+    );
+    if (existing) {
+      title.textContent = 'Home-Office-Tag bearbeiten';
+      idInput.value = existing.id;
+      noteInput.value = existing.note || '';
+      const segs = Array.isArray(existing.segments) && existing.segments.length
+        ? existing.segments.map(s => ({ start: s.start || '', end: s.end || '' }))
+        : [{ start: '', end: '' }];
+      // Neuen Leer-Block anhängen, damit der User direkt weiter erfassen kann
+      segs.push({ start: '', end: '' });
+      modal.dataset.segments = JSON.stringify(segs);
+      delBtn.classList.remove('hidden');
+    } else {
+      modal.dataset.segments = JSON.stringify([{ start: '', end: '' }]);
+      delBtn.classList.add('hidden');
+    }
   }
 
+  updateHomeofficeContext();
   renderHomeofficeSegments();
   modal.classList.remove('hidden');
+}
+
+/**
+ * Aktualisiert die Kontext-Zeile im HO-Modal-Header: Wochentag · Datum · Arbeitgeber
+ * plus Hinweis, ob dieser Tag bereits einen Eintrag hat.
+ */
+function updateHomeofficeContext() {
+  const el = document.getElementById('ho-context');
+  if (!el) return;
+  const empId = document.getElementById('ho-employer').value;
+  const dateISO = document.getElementById('ho-date').value;
+  const currentId = document.getElementById('ho-id').value;
+  const emp = getEmployer(empId);
+  const empName = emp ? emp.name : '—';
+  let dateLabel = '—';
+  if (dateISO) {
+    try {
+      const d = new Date(dateISO + 'T00:00:00');
+      const wd = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()];
+      dateLabel = `${wd}. ${formatDate(dateISO)}`;
+    } catch (e) { dateLabel = formatDate(dateISO); }
+  }
+  const existing = state.entries.find(x =>
+    x.type === 'homeoffice' && x.employerId === empId && x.date === dateISO && x.id !== currentId
+  );
+  const hint = (currentId || existing)
+    ? 'Weitere Blöcke werden zu diesem Tag hinzugefügt.'
+    : 'Neuer Eintrag — spätere Blöcke landen automatisch im selben Eintrag.';
+  el.innerHTML = `
+    <div class="ho-context-line">${escapeHtml(dateLabel)} · ${escapeHtml(empName)}</div>
+    <div class="ho-context-hint">${hint}</div>
+  `;
 }
 
 function readHomeofficeSegmentsFromDom() {
@@ -1123,6 +1231,29 @@ function updateHomeofficeLiveTotal() {
   el.textContent = minutesToHM(totalMin);
 }
 
+/**
+ * Normalisiert Segmente: sortiert nach Startzeit, mergt überlappende oder
+ * unmittelbar angrenzende Blöcke. Ergebnis ist eine minimale, sortierte Liste.
+ */
+function normalizeSegments(segments) {
+  const clean = (segments || [])
+    .filter(s => s && s.start && s.end)
+    .map(s => ({ start: s.start, end: s.end }))
+    .filter(s => hhmmToMinutes(s.end) > hhmmToMinutes(s.start))
+    .sort((a, b) => hhmmToMinutes(a.start) - hhmmToMinutes(b.start));
+  const out = [];
+  for (const s of clean) {
+    const last = out[out.length - 1];
+    if (last && hhmmToMinutes(s.start) <= hhmmToMinutes(last.end)) {
+      // Überlappt oder grenzt an — mergen
+      if (hhmmToMinutes(s.end) > hhmmToMinutes(last.end)) last.end = s.end;
+    } else {
+      out.push({ ...s });
+    }
+  }
+  return out;
+}
+
 function saveHomeoffice(e) {
   if (e && e.preventDefault) e.preventDefault();
   const id = document.getElementById('ho-id').value;
@@ -1138,29 +1269,54 @@ function saveHomeoffice(e) {
   if (!date) { toast('Bitte Datum wählen'); return; }
   if (!segments.length) { toast('Bitte mindestens einen Arbeitsblock erfassen'); return; }
 
-  // Validate each segment: end > start (allow overnight? unlikely for HO, block it)
+  // Validate each segment: end > start
   for (const s of segments) {
     const sm = hhmmToMinutes(s.start);
     const em = hhmmToMinutes(s.end);
     if (em <= sm) { toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen`); return; }
   }
 
-  if (id) {
-    const idx = state.entries.findIndex(x => x.id === id);
-    if (idx >= 0) {
-      state.entries[idx] = {
-        ...state.entries[idx],
-        employerId, date, type: 'homeoffice',
-        segments, note,
-        // Legacy-Felder aufräumen
-        start: undefined, end: undefined, breakMinutes: undefined, overtimeReason: undefined,
-      };
+  // Aggregations-Prinzip: pro (employerId, date) existiert höchstens ein HO-Entry.
+  // Beim Speichern immer den Ziel-Entry (für den aktuellen employer/date) suchen und dort hineinschreiben.
+  // Wenn wir einen bestehenden Entry bearbeiten (id gesetzt) und das Ziel ein *anderer* Entry ist,
+  // dann die Segmente in den Ziel-Entry übernehmen und den ursprünglichen Entry entfernen.
+
+  const targetIdx = state.entries.findIndex(x =>
+    x.type === 'homeoffice' && x.employerId === employerId && x.date === date && x.id !== id
+  );
+  const editingIdx = id ? state.entries.findIndex(x => x.id === id) : -1;
+
+  if (id && editingIdx >= 0 && targetIdx < 0) {
+    // Reiner Edit ohne Kollision: eigenen Entry aktualisieren
+    state.entries[editingIdx] = {
+      ...state.entries[editingIdx],
+      employerId, date, type: 'homeoffice',
+      segments: normalizeSegments(segments),
+      note,
+      start: undefined, end: undefined, breakMinutes: undefined, overtimeReason: undefined,
+    };
+  } else if (targetIdx >= 0) {
+    // Ziel-Entry existiert: mergen (existierende Segmente + neue Segmente), Note ergänzen falls leer
+    const target = state.entries[targetIdx];
+    const existingSegs = Array.isArray(target.segments) ? target.segments
+      : (target.start && target.end ? [{ start: target.start, end: target.end }] : []);
+    target.segments = normalizeSegments([...existingSegs, ...segments]);
+    target.type = 'homeoffice';
+    target.start = undefined; target.end = undefined;
+    target.breakMinutes = undefined; target.overtimeReason = undefined;
+    if (note && !target.note) target.note = note;
+    else if (note && target.note && !target.note.includes(note)) target.note = `${target.note} · ${note}`;
+    // Falls wir gerade einen anderen Entry bearbeitet haben, den entfernen
+    if (editingIdx >= 0 && editingIdx !== targetIdx) {
+      state.entries.splice(editingIdx, 1);
     }
   } else {
+    // Neu anlegen
     state.entries.push({
       id: uid(),
       employerId, date, type: 'homeoffice',
-      segments, note,
+      segments: normalizeSegments(segments),
+      note,
       createdAt: new Date().toISOString(),
     });
   }
@@ -3045,6 +3201,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnDelHO) btnDelHO.addEventListener('click', deleteHomeoffice);
   const btnHoAdd = document.getElementById('btn-ho-add-segment');
   if (btnHoAdd) btnHoAdd.addEventListener('click', addHomeofficeSegment);
+  const hoEmpSel = document.getElementById('ho-employer');
+  const hoDateInput = document.getElementById('ho-date');
+  if (hoEmpSel) hoEmpSel.addEventListener('change', updateHomeofficeContext);
+  if (hoDateInput) hoDateInput.addEventListener('change', updateHomeofficeContext);
   const hoSegments = document.getElementById('ho-segments');
   if (hoSegments) {
     // Delegation: Segment entfernen

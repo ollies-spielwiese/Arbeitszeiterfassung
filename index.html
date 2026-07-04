@@ -32,7 +32,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.4</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.5</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -221,6 +221,7 @@
               <li><strong>Live per Timer:</strong> Umschalter auf <em>Home-Office</em> stellen, dann <em>Arbeitsbeginn</em>/<em>Arbeitsende</em> wie gewohnt. Jeder Timer-Lauf am selben Tag wird automatisch als neuer Block an denselben Home-Office-Eintrag angehängt.</li>
               <li><strong>Nachträglich über „+ Home-Office-Tag“:</strong> Öffnet den Editor mit Datum, Arbeitgeber, einer Liste von Arbeitsblöcken (Beginn/Ende) und einer Bemerkung. Beliebig viele Blöcke hinzufügen. Oben rechts siehst du die Netto-Summe live.</li>
             </ol>
+            <p><strong>Ein Tag = ein Eintrag:</strong> Pro Kombination aus Datum und Arbeitgeber gibt es höchstens einen Home-Office-Eintrag. Ergänzt du später am selben Tag weitere Blöcke — egal ob per Timer oder über „+ Home-Office-Tag“ — führt die App sie automatisch mit dem bestehenden Eintrag zusammen. Du bekommst also nie mehrere kleine Einträge pro Tag.</p>
             <p><strong>Wichtig für den Bericht:</strong></p>
             <ul>
               <li>Im Monatsbericht, PDF und Word erscheint pro Home-Office-Tag nur <strong>eine</strong> Zeile mit dem Label <em>Home-Office</em> und der Netto-Summe. Die einzelnen Blöcke und Zeiten bleiben privat und werden nicht ausgewiesen.</li>
@@ -560,6 +561,7 @@
         <div class="ho-live-total" id="ho-live-total" aria-live="polite">0:00</div>
         <button class="modal-close" data-close-modal>✕</button>
       </div>
+      <div class="ho-context" id="ho-context" aria-live="polite"></div>
       <form id="form-homeoffice">
         <input type="hidden" id="ho-id" />
         <div class="form-row">
@@ -572,7 +574,7 @@
         </div>
         <div class="form-row">
           <label>Arbeitsblöcke</label>
-          <small class="hint">Erfasse jeden Arbeitsblock einzeln. Zwischen den Blöcken liegen private Unterbrechungen (Einkaufen, Kinder abholen, Pause). Die Blöcke bleiben privat und erscheinen nicht im Bericht.</small>
+          <small class="hint">Pro Tag ein Eintrag mit beliebig vielen Blöcken. Weitere Blöcke später am selben Tag über diesen Eintrag ergänzen — die App führt sie automatisch zusammen. Die einzelnen Blöcke bleiben privat und erscheinen nicht im Bericht.</small>
           <div id="ho-segments" class="ho-segments"></div>
           <button type="button" id="btn-ho-add-segment" class="btn-secondary btn-small">+ Block hinzufügen</button>
         </div>

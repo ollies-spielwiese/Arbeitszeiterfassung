@@ -1,5 +1,4 @@
-// rebuild trigger 1783185151
-const CACHE_NAME = 'arbeitszeit-v3-4';
+const CACHE_NAME = 'arbeitszeit-v3-5';
 const ASSETS = [
   './',
   './index.html',

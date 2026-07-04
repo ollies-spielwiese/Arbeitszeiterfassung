@@ -1118,6 +1118,24 @@ textarea { resize: vertical; min-height: 3rem; }
   border: 1px solid var(--border);
 }
 
+.ho-context {
+  margin: -0.5rem 0 0.85rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(1, 105, 111, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ho-context-line {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.ho-context-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .btn-small {
   padding: 5px 10px;
   font-size: 0.85rem;
