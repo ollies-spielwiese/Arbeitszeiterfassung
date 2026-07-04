@@ -310,6 +310,15 @@
           <div class="guide-body">
             <p>Neben Name, E‑Mail und Bundesland findest du hier:</p>
             <ul>
+              <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
+                <ul>
+                  <li><strong>Jahr</strong> oben wählen — die Liste zeigt alle Feiertage dieses Jahres im aktuell eingestellten Bundesland.</li>
+                  <li>Berechnete Feiertage sind grau markiert. Per <strong>Deaktivieren</strong> gilt der Feiertag nicht mehr; per <strong>Umbenennen</strong> änderst du die Bezeichnung.</li>
+                  <li>Geänderte Feiertage sind mit einem Punkt gekennzeichnet. Per <strong>Zurücksetzen</strong> stellst du das Original wieder her.</li>
+                  <li>Neu hinzugefügte Feiertage können an ein bestimmtes Bundesland gebunden oder überall aktiv sein. Per Papierkorb wieder löschen.</li>
+                  <li>Alle Änderungen bleiben ausschließlich lokal auf dem Gerät und wandern automatisch ins Backup.</li>
+                </ul>
+              </li>
               <li><strong>Notizvorlagen:</strong> Textbausteine für Bemerkungen (z. B. „Überstunden wegen Projektabschluss"). Mit <strong>+ Neu</strong> anlegen, per <strong>✕</strong> wieder löschen.</li>
               <li><strong>Daten:</strong>
                 <ul>
@@ -396,6 +405,21 @@
           <option value="SH">Schleswig-Holstein</option>
           <option value="TH">Thüringen</option>
         </select>
+      </div>
+
+      <div class="settings-block">
+        <div class="section-header">
+          <h3>Feiertage anpassen</h3>
+          <button type="button" id="btn-add-holiday-override" class="btn-secondary btn-small" data-testid="button-add-holiday-override">+ Feiertag</button>
+        </div>
+        <p class="hint">Die App berechnet gesetzliche Feiertage automatisch. Hier kannst du zusätzliche Feiertage ergänzen, einzelne deaktivieren oder umbenennen — nützlich bei regionalen Feiertagen oder künftigen Gesetzesänderungen. Alle Änderungen bleiben offline auf dem Gerät und werden ins Backup übernommen.</p>
+        <div class="holiday-controls">
+          <label>
+            Jahr
+            <input type="number" id="holiday-year" min="1900" max="2100" step="1" data-testid="input-holiday-year" />
+          </label>
+        </div>
+        <div id="holiday-list" class="holiday-list" data-testid="list-holidays"></div>
       </div>
 
       <div class="settings-block">
@@ -606,6 +630,53 @@
   </div>
 
   <!-- Modal: Template Editor -->
+  <div id="modal-holiday" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-holiday-title">Feiertag hinzufügen</h3>
+        <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <form id="form-holiday" class="modal-body">
+        <input type="hidden" id="holiday-original-date" />
+        <label>
+          Datum
+          <input type="date" id="holiday-date" required data-testid="input-holiday-date" />
+        </label>
+        <label>
+          Bezeichnung
+          <input type="text" id="holiday-name" required maxlength="60" placeholder="z. B. Augsburger Friedensfest" data-testid="input-holiday-name" />
+        </label>
+        <label>
+          Bundesland-Bindung
+          <select id="holiday-state" data-testid="select-holiday-state">
+            <option value="">Alle Bundesländer</option>
+            <option value="BW">Baden-Württemberg</option>
+            <option value="BY">Bayern</option>
+            <option value="BE">Berlin</option>
+            <option value="BB">Brandenburg</option>
+            <option value="HB">Bremen</option>
+            <option value="HH">Hamburg</option>
+            <option value="HE">Hessen</option>
+            <option value="MV">Mecklenburg-Vorpommern</option>
+            <option value="NI">Niedersachsen</option>
+            <option value="NW">Nordrhein-Westfalen</option>
+            <option value="RP">Rheinland-Pfalz</option>
+            <option value="SL">Saarland</option>
+            <option value="SN">Sachsen</option>
+            <option value="ST">Sachsen-Anhalt</option>
+            <option value="SH">Schleswig-Holstein</option>
+            <option value="TH">Thüringen</option>
+          </select>
+          <small class="hint">Leer = gilt für alle Bundesländer.</small>
+        </label>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="submit" class="btn-primary" data-testid="button-save-holiday">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-template" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
       <div class="modal-header">
