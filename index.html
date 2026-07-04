@@ -630,6 +630,29 @@
   </div>
 
   <!-- Modal: Template Editor -->
+  <div id="modal-whatsnew" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-whatsnew-title">Was ist neu</h3>
+        <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="whatsnew-content"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn-primary" data-close-modal data-testid="button-whatsnew-ok">Verstanden</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="update-banner" class="update-banner hidden" role="status" aria-live="polite">
+    <div class="update-banner-text">Neue Version verfügbar</div>
+    <div class="update-banner-actions">
+      <button type="button" id="btn-update-later" class="btn-secondary btn-small" data-testid="button-update-later">Später</button>
+      <button type="button" id="btn-update-now" class="btn-primary btn-small" data-testid="button-update-now">Jetzt aktualisieren</button>
+    </div>
+  </div>
+
   <div id="modal-holiday" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
       <div class="modal-header">

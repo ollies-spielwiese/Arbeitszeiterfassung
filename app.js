@@ -22,6 +22,29 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
+const APP_VERSION = '3.3';
+const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
+
+/* Changelog: keep newest on top. Shown once per new version. */
+const CHANGELOG = [
+  { version: '3.3', items: [
+      'Was-ist-neu-Hinweis nach jedem Update',
+      'Aktualisierungs-Prompt, wenn eine neue Version bereitsteht',
+      'Kleinere Fehlerbereinigungen',
+  ]},
+  { version: '3.2', items: [
+      'Feiertage anpassbar: zusätzliche ergänzen, einzelne deaktivieren oder umbenennen',
+      'Alle Anpassungen bleiben offline auf dem Gerät und wandern ins Backup',
+  ]},
+  { version: '3.1', items: [
+      'Neuer Tab „Übersicht“: alle Arbeitgeber im Monatsvergleich',
+      'PDF-Export der Monatsübersicht',
+  ]},
+  { version: '3.0', items: [
+      'Unterschriften-Zeile Arbeitgeber im PDF',
+      'Anleitungsabschnitt zu Copyright und Datenschutz',
+  ]},
+];
 
 /* ---------- Storage Abstraction ----------
    Uses the browser's persistent key/value store when available (installed PWA, direct access).
@@ -2769,7 +2792,111 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderTracker();
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
-  }
+  // Show what's new on first start of a new version
+  maybeShowWhatsNew();
+
+  registerServiceWorkerWithUpdatePrompt();
+
+  // Update banner buttons
+  const btnLater = document.getElementById('btn-update-later');
+  const btnNow = document.getElementById('btn-update-now');
+  if (btnLater) btnLater.addEventListener('click', hideUpdateBanner);
+  if (btnNow) btnNow.addEventListener('click', activateWaitingServiceWorker);
 });
+
+/* ---------- What's New ---------- */
+
+function maybeShowWhatsNew() {
+  let lastSeen = null;
+  try { lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY); } catch (e) { /* ignore */ }
+  if (lastSeen === APP_VERSION) return;
+  const container = document.getElementById('whatsnew-content');
+  const modal = document.getElementById('modal-whatsnew');
+  if (!container || !modal) return;
+  // Show entries up to and including the new version, since last seen
+  const entries = lastSeen
+    ? CHANGELOG.filter(c => compareVersions(c.version, lastSeen) > 0)
+    : CHANGELOG.slice(0, 1); // First install: only current version
+  if (!entries.length) {
+    try { localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); } catch (e) {}
+    return;
+  }
+  container.innerHTML = entries.map(e => `
+    <div class="whatsnew-block">
+      <div class="whatsnew-version">Version ${escapeHtml(e.version)}</div>
+      <ul class="whatsnew-list">
+        ${e.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+  modal.classList.remove('hidden');
+  const markSeen = () => {
+    try { localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); } catch (e) {}
+  };
+  // Mark seen on any close action
+  modal.querySelectorAll('[data-close-modal]').forEach(btn => btn.addEventListener('click', markSeen, { once: true }));
+}
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const da = pa[i] || 0, db = pb[i] || 0;
+    if (da !== db) return da - db;
+  }
+  return 0;
+}
+
+/* ---------- Service Worker with Update Prompt ---------- */
+
+let __swWaitingRegistration = null;
+
+function registerServiceWorkerWithUpdatePrompt() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // A waiting worker is already available at load time
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      __swWaitingRegistration = reg;
+      showUpdateBanner();
+    }
+    // A new worker starts installing
+    reg.addEventListener('updatefound', () => {
+      const installing = reg.installing;
+      if (!installing) return;
+      installing.addEventListener('statechange', () => {
+        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+          __swWaitingRegistration = reg;
+          showUpdateBanner();
+        }
+      });
+    });
+    // Poll for updates on visibility change (helps on iOS PWA)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
+  }).catch(err => console.warn('SW registration failed:', err));
+
+  // When the new worker takes control, reload the page once
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
+function showUpdateBanner() {
+  const el = document.getElementById('update-banner');
+  if (el) el.classList.remove('hidden');
+}
+
+function hideUpdateBanner() {
+  const el = document.getElementById('update-banner');
+  if (el) el.classList.add('hidden');
+}
+
+function activateWaitingServiceWorker() {
+  const reg = __swWaitingRegistration;
+  if (!reg || !reg.waiting) { hideUpdateBanner(); return; }
+  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+}

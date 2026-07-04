@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-2';
+const CACHE_NAME = 'arbeitszeit-v3-3';
 const ASSETS = [
   './',
   './index.html',
@@ -23,7 +23,13 @@ self.addEventListener('install', (event) => {
       );
     })
   );
-  self.skipWaiting();
+  // Do not skipWaiting automatically — wait for the client to opt in via message.
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
