@@ -24,11 +24,15 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.7.1';
+const APP_VERSION = '3.7.2';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.7.2', items: [
+      'Home-Office-Editor: Notizvorlagen-Picker bei Bemerkung ergänzt (fehlte bisher)',
+      'Filter nach App-Modus greift jetzt auch im Home-Office-Modal',
+  ]},
   { version: '3.7.1', items: [
       'Notizvorlagen können jetzt pro Modus (Beide / Nur Angestellt / Nur Freiberuflich) sichtbar geschaltet werden',
       'Vorlagen-Editor mit neuem Sichtbarkeits-Dropdown; Karten zeigen Scope-Badge',
@@ -1261,6 +1265,7 @@ function openHomeofficeModal(entry, opts) {
 
   updateHomeofficeContext();
   renderHomeofficeSegments();
+  populateTemplatePicker('ho-note-tpl');
   modal.classList.remove('hidden');
 }
 
