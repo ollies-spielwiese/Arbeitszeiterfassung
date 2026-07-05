@@ -12,7 +12,6 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
-<!-- build-retrigger: 2026-07-05T01:51+02:00 -->
 </head>
 <body>
   <header class="app-header">
@@ -33,7 +32,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.6</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.7</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -161,7 +160,7 @@
     <!-- Employers View -->
     <section id="view-employers" class="view">
       <div class="section-header">
-        <h2>Arbeitgeber verwalten</h2>
+        <h2 id="employers-view-title">Arbeitgeber verwalten</h2>
         <button id="btn-add-employer" class="btn-primary" data-testid="button-add-employer">
           + Neu
         </button>
@@ -265,7 +264,7 @@
               <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo.</li>
               <li>Am Ende der Seite stehen vier Aktionen zur Verfügung:
                 <ul>
-                  <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile.</li>
+                  <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile. <em>Hinweis:</em> Für das Öffnen und Bearbeiten der .docx-Datei muss auf dem Endgerät Microsoft Word oder eine kompatible Anwendung (Pages, LibreOffice/OpenOffice, Google Docs) installiert sein. Ohne solche Software lässt sich die Datei nur eingeschränkt anzeigen – in dem Fall empfehlen wir stattdessen den PDF‑Export.</li>
                   <li><strong>📕 PDF:</strong> erstellt dieselbe Auswertung als PDF.</li>
                   <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 9).</li>
                   <li><strong>🗄 Monat archivieren:</strong> verschiebt den fertigen Monat ins Archiv, damit er nicht mehr aus Versehen geändert wird.</li>
@@ -388,6 +387,21 @@
         </details>
 
         <details class="guide-section">
+          <summary>12a. Freiberufler-Modus</summary>
+          <div class="guide-body">
+            <p>Die App unterstützt neben klassischer Arbeitszeiterfassung auch die Nutzung als Freiberufler oder Selbständiger.</p>
+            <ol>
+              <li>Wechsle in den <strong>Einstellungen</strong> ganz oben den <strong>Modus</strong> auf <em>Freiberuflich</em>. Die App-Terminologie stellt sich um: aus „Arbeitgeber“ wird „Kunde“, aus „Arbeitgeber“-Tab wird „Kunden“.</li>
+              <li>Lege pro Kunde einen Eintrag im Kunden-Reiter an. Im Kunden-Formular erscheint zusätzlich der Bereich <strong>Abrechnung</strong> mit optionalem <strong>Stundensatz</strong> und <strong>Währung</strong>.</li>
+              <li>Erfasse Zeiten wie gewohnt – pro Kunde können mehrere Projekte über das Notizfeld oder Vorlagen unterschieden werden.</li>
+              <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
+              <li>Feiertags- und Urlaubsfunktionen sind im Freiberufler-Modus ausgeblendet. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben aber erhalten und werden bei Rückwechsel wieder angezeigt.</li>
+            </ol>
+            <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
           <summary>13. Rechtliches, Datenschutz und Copyright</summary>
           <div class="guide-body">
             <p><strong>Urheberrecht.</strong> © 2026 Oliver Gläser. Alle Rechte vorbehalten. Diese Anwendung, ihr Quellcode, Layout, Texte und Grafiken sind urheberrechtlich geschützt. Eine Weitergabe, Veröffentlichung, Bearbeitung oder kommerzielle Nutzung ist nur mit ausdrücklicher Zustimmung des Urhebers zulässig.</p>
@@ -405,6 +419,27 @@
       <h2>Einstellungen</h2>
 
       <div class="settings-block">
+        <h3>Modus</h3>
+        <p class="hint">Wähle, wie du die App nutzen möchtest. Der Modus lässt sich jederzeit umschalten. Deine Daten bleiben in beiden Modi erhalten.</p>
+        <div class="appmode-toggle" role="radiogroup" aria-label="App-Modus">
+          <label class="appmode-option">
+            <input type="radio" name="setting-app-mode" value="employee" data-testid="radio-mode-employee" />
+            <div>
+              <strong>Angestellt</strong>
+              <span class="hint">Arbeitgeber, Sollstunden, Feiertage und Urlaub.</span>
+            </div>
+          </label>
+          <label class="appmode-option">
+            <input type="radio" name="setting-app-mode" value="freelance" data-testid="radio-mode-freelance" />
+            <div>
+              <strong>Freiberuflich</strong>
+              <span class="hint">Kunden mit Stundensatz. Netto-Summe in Berichten. Ohne Feiertage/Urlaub.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-block">
         <h3>Arbeitnehmer/in – Name</h3>
         <p class="hint">Erscheint im Kopf und in der Unterschriftszeile von Word- und PDF-Nachweisen.</p>
         <input type="text" id="setting-employee-name" placeholder="Vor- und Nachname" data-testid="input-employee-name" autocomplete="name" />
@@ -416,7 +451,7 @@
         <input type="email" id="setting-own-email" placeholder="mich@example.de" data-testid="input-own-email" />
       </div>
 
-      <div class="settings-block">
+      <div class="settings-block" id="settings-block-state">
         <h3>Bundesland (für Feiertage)</h3>
         <p class="hint">Feiertage werden automatisch von den Sollstunden abgezogen.</p>
         <select id="setting-state" data-testid="select-state">
@@ -439,7 +474,7 @@
         </select>
       </div>
 
-      <div class="settings-block">
+      <div class="settings-block" id="settings-block-holidays">
         <div class="section-header">
           <h3>Feiertage anpassen</h3>
           <button type="button" id="btn-add-holiday-override" class="btn-secondary btn-small" data-testid="button-add-holiday-override">+ Feiertag</button>
@@ -671,9 +706,29 @@
               <option value="none">Keine Pause (z.B. Minijob)</option>
             </select>
           </div>
-          <div class="form-row">
+          <div class="form-row" id="employer-vacation-row">
             <label for="employer-annual-vacation">Urlaubsanspruch / Jahr (Tage)</label>
             <input type="number" id="employer-annual-vacation" min="0" value="0" />
+          </div>
+        </fieldset>
+
+        <fieldset class="fs fs-billing hidden" id="fs-employer-billing">
+          <legend>Abrechnung</legend>
+          <p class="hint">Nur für Freiberufler-Modus. Der Stundensatz wird am Ende der PDF-/Word-Berichte als Netto-Betrag ausgewiesen (Zeit × Stundensatz). Keine Rechnung im Rechtssinne — nur Grundlage für Ihre eigene Fakturierung.</p>
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <div>
+              <label for="employer-hourly-rate">Stundensatz (netto)</label>
+              <input type="number" id="employer-hourly-rate" min="0" step="0.01" placeholder="z. B. 85" />
+            </div>
+            <div>
+              <label for="employer-currency">Währung</label>
+              <select id="employer-currency">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="CHF">CHF</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
           </div>
         </fieldset>
 

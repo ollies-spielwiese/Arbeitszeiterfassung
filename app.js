@@ -24,11 +24,17 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.6';
+const APP_VERSION = '3.7';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.7', items: [
+      'Neu: Freiberufler-Modus – in den Einstellungen zwischen „Angestellt“ und „Freiberuflich“ umschalten',
+      'Im Freiberufler-Modus heißen Arbeitgeber jetzt Kunden; Feiertage und Urlaub sind ausgeblendet',
+      'Optionaler Stundensatz pro Kunde; Netto-Summe erscheint automatisch in PDF- und Word-Berichten',
+      'Anleitung um Word-Hinweis und Freiberufler-Abschnitt erweitert',
+  ]},
   { version: '3.6', items: [
       'Home-Office-Timer über Mitternacht wird korrekt gespeichert und auf beide Kalendertage verteilt',
       'Update-Prompt erscheint zuverlässig auch nach „Später“ beim nächsten App-Start',
@@ -111,10 +117,53 @@ const DEFAULT_STATE = {
     { id: 'tpl-3', label: 'Kundentermin', text: 'Kundentermin außerhalb der regulären Arbeitszeit.' },
     { id: 'tpl-4', label: 'Notfall', text: 'Betrieblich notwendiger Einsatz aufgrund eines Notfalls.' },
   ],
-  settings: { employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} } },
+  settings: { employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} }, appMode: 'employee', currency: 'EUR' },
   activeEmployerId: null,
   runningTimer: null,
 };
+
+/* Label-Mapping für Angestellten- vs. Freiberufler-Modus.
+ * Zentraler Anlaufpunkt: Alle UI-Texte, die vom Modus abhängen, holen ihren
+ * String über L() bzw. das Alias t(). So bleibt die Terminologie konsistent.
+ */
+const LABELS = {
+  employee: {
+    employer: 'Arbeitgeber',
+    employers: 'Arbeitgeber',
+    activeEmployer: 'Aktueller Arbeitgeber',
+    newEmployer: 'Neuer Arbeitgeber',
+    editEmployer: 'Arbeitgeber bearbeiten',
+    employerName: 'Name des Arbeitgebers',
+    noEmployer: 'Bitte legen Sie zuerst unter Arbeitgeber mindestens einen Arbeitgeber an.',
+    modeName: 'Angestellt',
+  },
+  freelance: {
+    employer: 'Kunde',
+    employers: 'Kunden',
+    activeEmployer: 'Aktueller Kunde',
+    newEmployer: 'Neuer Kunde',
+    editEmployer: 'Kunde bearbeiten',
+    employerName: 'Name des Kunden',
+    noEmployer: 'Bitte legen Sie zuerst unter Kunden mindestens einen Kunden an.',
+    modeName: 'Freiberuflich',
+  },
+};
+function getAppMode() {
+  return (state && state.settings && state.settings.appMode === 'freelance') ? 'freelance' : 'employee';
+}
+function L(key) {
+  const m = getAppMode();
+  return (LABELS[m] && LABELS[m][key]) || (LABELS.employee[key] || key);
+}
+function isFreelance() { return getAppMode() === 'freelance'; }
+function formatMoney(amount, currency) {
+  const cur = currency || (state && state.settings && state.settings.currency) || 'EUR';
+  try {
+    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur, minimumFractionDigits: 2 }).format(amount || 0);
+  } catch (e) {
+    return (Math.round((amount||0)*100)/100).toFixed(2) + ' ' + cur;
+  }
+}
 
 let state = loadState();
 
@@ -730,10 +779,15 @@ function renderTracker() {
   const sel = document.getElementById('active-employer');
   sel.innerHTML = state.employers.length
     ? state.employers.map(e => `<option value="${e.id}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}</option>`).join('')
-    : '<option value="">— Bitte Arbeitgeber anlegen —</option>';
+    : `<option value="">— Bitte ${L('employer')} anlegen —</option>`;
 
   const hint = document.getElementById('onboarding-hint');
-  if (hint) hint.style.display = state.employers.length ? 'none' : '';
+  if (hint) {
+    hint.style.display = state.employers.length ? 'none' : '';
+    if (!state.employers.length) {
+      hint.innerHTML = `<strong>Willkommen 👋</strong><br>Bitte legen Sie zuerst unter <em>${L('employers')}</em> mindestens ${isFreelance() ? 'einen Kunden' : 'einen Arbeitgeber'} an. Danach können Sie hier Ihre Arbeitszeiten erfassen.`;
+    }
+  }
 
   const running = state.runningTimer;
   const hasEmployers = state.employers.length > 0;
@@ -1829,12 +1883,17 @@ async function generateWordBlob(report) {
       new TextRun({ text: 'Saldo: ', bold: true }),
       new TextRun({ text: `${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`, bold: true, color: report.balance >= 0 ? '15803D' : 'B91C1C' }),
     ]}),
-    new Paragraph({ children: [
+    ...((Number(report.employer.hourlyRate) > 0) ? [new Paragraph({ children: [
+      new TextRun({ text: 'Netto-Summe: ', bold: true }),
+      new TextRun({ text: `${formatMoney((report.workedMin / 60) * Number(report.employer.hourlyRate), report.employer.currency || 'EUR')}`, bold: true }),
+      new TextRun({ text: `  (${hoursDecimal(report.workedMin)} h × ${formatMoney(Number(report.employer.hourlyRate), report.employer.currency || 'EUR')}/h)`, color: '64748B' }),
+    ]})] : []),
+    ...(isFreelance() ? [] : [new Paragraph({ children: [
       new TextRun({ text: 'Urlaubstage: ', bold: true }),
       new TextRun({ text: `${report.vacationEntries.length}` }),
       new TextRun({ text: '   Krankheitstage: ', bold: true }),
       new TextRun({ text: `${report.sickEntries.length}` }),
-    ]}),
+    ]})]),
     ...absenceLines,
     new Paragraph({ text: '' }),
 
@@ -1929,22 +1988,32 @@ function generatePdfBlob(report) {
     `Ist-Stunden: ${minutesToHM(report.workedMin)} (${hoursDecimal(report.workedMin)} h)`,
     `Soll-Stunden: ${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)`,
     `Saldo: ${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`,
-    `Urlaubstage: ${report.vacationEntries.length}   Krankheitstage: ${report.sickEntries.length}`,
   ];
+  const hourlyRate = Number(report.employer.hourlyRate) || 0;
+  if (hourlyRate > 0) {
+    const currency = report.employer.currency || 'EUR';
+    const netTotal = (report.workedMin / 60) * hourlyRate;
+    lines.push(`Netto-Summe: ${formatMoney(netTotal, currency)}  (${hoursDecimal(report.workedMin)} h × ${formatMoney(hourlyRate, currency)}/h)`);
+  }
+  if (!isFreelance()) {
+    lines.push(`Urlaubstage: ${report.vacationEntries.length}   Krankheitstage: ${report.sickEntries.length}`);
+  }
   for (const line of lines) { doc.text(line, marginX, y); y += 5; }
 
-  if (report.vacationEntries.length) {
-    y += 1;
-    const t = 'Urlaub: ' + report.vacationEntries.map(e => formatDate(e.date)).join(', ');
-    y = wrapText(doc, t, marginX, y, 180);
-  }
-  if (report.sickEntries.length) {
-    const t = 'Krankheit: ' + report.sickEntries.map(e => formatDate(e.date)).join(', ');
-    y = wrapText(doc, t, marginX, y, 180);
-  }
-  if (report.holidays && report.holidays.length) {
-    const t = 'Feiertage: ' + report.holidays.map(h => `${formatDate(h.date)} ${h.name}`).join(', ');
-    y = wrapText(doc, t, marginX, y, 180);
+  if (!isFreelance()) {
+    if (report.vacationEntries.length) {
+      y += 1;
+      const t = 'Urlaub: ' + report.vacationEntries.map(e => formatDate(e.date)).join(', ');
+      y = wrapText(doc, t, marginX, y, 180);
+    }
+    if (report.sickEntries.length) {
+      const t = 'Krankheit: ' + report.sickEntries.map(e => formatDate(e.date)).join(', ');
+      y = wrapText(doc, t, marginX, y, 180);
+    }
+    if (report.holidays && report.holidays.length) {
+      const t = 'Feiertage: ' + report.holidays.map(h => `${formatDate(h.date)} ${h.name}`).join(', ');
+      y = wrapText(doc, t, marginX, y, 180);
+    }
   }
 
   y += 4;
@@ -2716,20 +2785,27 @@ function renderArchive() {
 
 function renderEmployers() {
   const container = document.getElementById('employers-list');
+  // Tab-Beschriftung an Modus anpassen
+  const empTabBtn = document.querySelector('.tab[data-view="employers"]');
+  if (empTabBtn) empTabBtn.textContent = L('employers');
+  const empViewTitle = document.getElementById('employers-view-title');
+  if (empViewTitle) empViewTitle.textContent = `${L('employers')} verwalten`;
   if (!state.employers.length) {
-    container.innerHTML = '<div class="empty-state">Noch kein Arbeitgeber angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>';
+    container.innerHTML = `<div class="empty-state">Noch kein ${escapeHtml(L('employer'))} angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>`;
     return;
   }
+  const showRate = isFreelance();
   container.innerHTML = state.employers.map(e => {
     const hoursDesc = e.hoursMode === 'week' ? `${e.weeklyHours || 0} h/Woche` : `${e.monthlyHours || 0} h/Monat`;
     const contacts = (e.contacts || []).filter(c => c.name || c.email).map(c => c.name || c.email).join(', ');
+    const rateDesc = showRate && e.hourlyRate ? ` • ${formatMoney(e.hourlyRate, e.currency)}/h` : '';
     return `
       <div class="employer-card" data-id="${e.id}">
         <div class="employer-color" style="background:${e.color}"></div>
         <div class="employer-info">
           <div class="employer-name">${escapeHtml(e.name)}</div>
           <div class="employer-meta">
-            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}
+            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${rateDesc}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}
           </div>
           ${contacts ? `<div class="employer-meta">👤 ${escapeHtml(contacts)}</div>` : ''}
         </div>
@@ -2797,12 +2873,13 @@ function readScheduleFromGrid() {
 function openEmployerModal(emp) {
   const modal = document.getElementById('modal-employer');
   const isNew = !emp;
-  document.getElementById('modal-employer-title').textContent = isNew ? 'Neuer Arbeitgeber' : 'Arbeitgeber bearbeiten';
+  document.getElementById('modal-employer-title').textContent = isNew ? L('newEmployer') : L('editEmployer');
   const e = emp || {
     id: '', name: '', color: '#3b82f6', phone: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: 40, monthlyHours: 160,
     breakMode: 'legal', annualVacation: 0,
+    hourlyRate: 0, currency: (state.settings && state.settings.currency) || 'EUR',
     schedule: defaultSchedule(40),
     notes: '',
   };
@@ -2821,6 +2898,14 @@ function openEmployerModal(emp) {
   document.getElementById('employer-break-mode').value = e.breakMode || 'legal';
   document.getElementById('employer-annual-vacation').value = e.annualVacation || 0;
   document.getElementById('employer-notes').value = e.notes || '';
+  const rateEl = document.getElementById('employer-hourly-rate');
+  if (rateEl) rateEl.value = e.hourlyRate ? String(e.hourlyRate) : '';
+  const curEl = document.getElementById('employer-currency');
+  if (curEl) curEl.value = e.currency || (state.settings && state.settings.currency) || 'EUR';
+  // Namens-Label und Abrechnungs-Sichtbarkeit dem aktuellen Modus anpassen
+  const nameLbl = document.querySelector('label[for="employer-name"]');
+  if (nameLbl) nameLbl.textContent = L('employerName');
+  document.getElementById('fs-employer-billing').classList.toggle('hidden', !isFreelance());
   buildScheduleGrid(e.schedule || defaultSchedule(e.weeklyHours || 40));
   updateHoursModeVisibility();
   document.getElementById('btn-delete-employer').classList.toggle('hidden', isNew);
@@ -2855,6 +2940,8 @@ function saveEmployer(ev) {
     monthlyHours: parseFloat(document.getElementById('employer-monthly-hours').value) || 0,
     breakMode: document.getElementById('employer-break-mode').value,
     annualVacation: parseInt(document.getElementById('employer-annual-vacation').value) || 0,
+    hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
+    currency: document.getElementById('employer-currency')?.value || 'EUR',
     schedule: readScheduleFromGrid(),
     notes: document.getElementById('employer-notes').value.trim(),
   };
@@ -2900,12 +2987,40 @@ function renderSettings() {
   document.getElementById('setting-employee-name').value = state.settings.employeeName || '';
   document.getElementById('setting-own-email').value = state.settings.ownEmail || '';
   document.getElementById('setting-state').value = state.settings.state || 'HE';
+  // Modus-Radios
+  const mode = getAppMode();
+  document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
+    r.checked = (r.value === mode);
+  });
   const yearInput = document.getElementById('holiday-year');
   if (yearInput && !yearInput.value) {
     yearInput.value = String(new Date().getFullYear());
   }
   renderHolidayList();
   renderTemplates();
+  updateModeVisibility();
+}
+
+/**
+ * Zentraler Sichtbarkeits-Toggle für modusabhängige UI-Bereiche.
+ * Wird bei renderSettings() und bei Modus-Wechsel aufgerufen.
+ */
+function updateModeVisibility() {
+  const freelance = isFreelance();
+  // Settings: Bundesland + Feiertage im Freelance-Modus ausblenden
+  const blockState = document.getElementById('settings-block-state');
+  const blockHolidays = document.getElementById('settings-block-holidays');
+  if (blockState) blockState.classList.toggle('hidden', freelance);
+  if (blockHolidays) blockHolidays.classList.toggle('hidden', freelance);
+  // Tracker: "+ Urlaub / Krankheit"-Button im Freelance-Modus verstecken
+  const btnAbsence = document.getElementById('btn-add-absence');
+  if (btnAbsence) btnAbsence.style.display = freelance ? 'none' : '';
+  // Employer-Modal: Urlaubsanspruch-Zeile ausblenden
+  const vacRow = document.getElementById('employer-vacation-row');
+  if (vacRow) vacRow.classList.toggle('hidden', freelance);
+  // Tab-Beschriftung Arbeitgeber ↔ Kunden anpassen
+  const tabEmployers = document.querySelector('[data-view="employers"]');
+  if (tabEmployers) tabEmployers.textContent = L('employers');
 }
 
 /* ---------- Holiday Overrides UI ---------- */
@@ -3359,6 +3474,21 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHolidayList();
   });
 
+  // Modus-Umschalter
+  document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
+    r.addEventListener('change', (e) => {
+      if (!e.target.checked) return;
+      state.settings.appMode = e.target.value === 'freelance' ? 'freelance' : 'employee';
+      saveState();
+      updateModeVisibility();
+      // Views neu rendern, da Labels sich ändern können
+      renderTracker();
+      renderEmployers();
+      renderEntries();
+      if (typeof renderOverview === 'function') { try { renderOverview(); } catch (err) {} }
+    });
+  });
+
   // Holiday overrides
   const holidayYear = document.getElementById('holiday-year');
   if (holidayYear) holidayYear.addEventListener('change', renderHolidayList);
@@ -3391,6 +3521,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   renderTracker();
+  updateModeVisibility();
 
   // Show what's new on first start of a new version
   maybeShowWhatsNew();

@@ -1179,3 +1179,49 @@ textarea { resize: vertical; min-height: 3rem; }
     padding: 2px 8px;
   }
 }
+
+/* --- v3.7 Freiberufler-Modus: App-Modus-Umschalter --- */
+.appmode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+.appmode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.appmode-option:hover { border-color: var(--primary); }
+.appmode-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
+.appmode-option > div { display: flex; flex-direction: column; gap: 2px; }
+.appmode-option strong { font-size: 0.95rem; }
+.appmode-option .hint { font-size: 0.78rem; }
+.appmode-option:has(input:checked) {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 6%, var(--surface));
+}
+@media (max-width: 640px) {
+  .appmode-toggle { grid-template-columns: 1fr; }
+}
+
+/* Employer-Karte: Stundensatz-Chip */
+.employer-rate-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 12%, var(--surface));
+  color: var(--primary);
+  font-weight: 600;
+  margin-left: 6px;
+}
