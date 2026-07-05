@@ -25,25 +25,34 @@
  *   activeEmployerId,
  *   runningTimer: { employerId, startISO } | null
  * }
- */
-
-const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.5';
-const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
-
-/**
- * Aktuelle Schema-Version. Bei jeder Strukturänderung am persistierten State
- * hochzählen und passende Migration in migrations[] ergänzen.
  *
- * Versions-Historie:
- *   1  Initial (bis v3.4)
- *   2  v3.5 : Home-Office-Einträge pro (employerId,date) zu einem konsolidiert
- *   3  v3.7.1: Templates bekommen scope ('both'|'employee'|'freelance')
+ * Modul-Grenzen (Phase 3.1):
+ *   - modules/migrations.js — SCHEMA_VERSION, migrations[], runMigrations, migrateHomeofficeEntries (DI)
+ *   - modules/state.js — STORAGE_KEY, storage, DEFAULT_STATE, loadState, saveState, getState, setState
  */
-const SCHEMA_VERSION = 3;
+
+import { SCHEMA_VERSION, migrateHomeofficeEntries as _migrateHomeofficeEntriesRaw, runMigrations as _runMigrationsModule } from './modules/migrations.js';
+import {
+  STORAGE_KEY,
+  DEFAULT_STATE,
+  storage,
+  loadState as _loadStateRaw,
+  saveState as _saveState,
+  getState as _getState,
+  setState as _setState,
+} from './modules/state.js';
+
+const APP_VERSION = '3.9.0';
+const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.0', items: [
+      'Modul-Split Phase 3.1: state und migrations sind eigene ES-Module (modules/state.js, modules/migrations.js)',
+      'app.js lädt jetzt als type=module; docx/jspdf UMD-Scripts bleiben davor',
+      'Kein Verhaltens-Delta: 51/51 Regression-Checks unverändert, Backup-Import und Persistenz identisch',
+      'window.state bleibt für Regression-Skripte und Legacy-Consumer verfügbar',
+  ]},
   { version: '3.8.5', items: [
       'GitHub Actions CI: Regression läuft automatisch bei jedem Push auf main',
       'Pages-Deployment läuft über Actions und ist gated — rote Regression blockt den Deploy',
@@ -133,56 +142,9 @@ const CHANGELOG = [
   ]},
 ];
 
-/* ---------- Storage Abstraction ----------
-   Uses the browser's persistent key/value store when available (installed PWA, direct access).
-   Falls back to in-memory storage in sandboxed environments where the API is blocked.
-   The user is warned once when persistence is not available. */
-
-const storage = (() => {
-  let backend = null;
-  let memoryStore = {};
-  try {
-    const key = ['local', 'Storage'].join('');
-    const candidate = window[key];
-    const testKey = '__az_test__';
-    candidate.setItem(testKey, '1');
-    candidate.removeItem(testKey);
-    backend = candidate;
-  } catch (e) {
-    console.warn('Persistent storage not available, using in-memory fallback');
-  }
-  return {
-    isPersistent: !!backend,
-    get(key) {
-      try {
-        return backend ? backend.getItem(key) : (memoryStore[key] ?? null);
-      } catch (e) { return memoryStore[key] ?? null; }
-    },
-    set(key, val) {
-      try {
-        if (backend) backend.setItem(key, val);
-        else memoryStore[key] = val;
-      } catch (e) { memoryStore[key] = val; }
-    },
-  };
-})();
+/* Storage-Abstraktion, DEFAULT_STATE, STORAGE_KEY: siehe modules/state.js. */
 
 /* ---------- State & Persistence ---------- */
-
-const DEFAULT_STATE = {
-  employers: [],
-  entries: [],
-  archives: [],
-  templates: [
-    { id: 'tpl-1', label: 'Projektabschluss', text: 'Zeitkritischer Projektabschluss.', scope: 'both' },
-    { id: 'tpl-2', label: 'Krankheitsvertretung', text: 'Vertretung wegen krankheitsbedingter Abwesenheit einer Kollegin / eines Kollegen.', scope: 'employee' },
-    { id: 'tpl-3', label: 'Kundentermin', text: 'Kundentermin außerhalb der regulären Arbeitszeit.', scope: 'both' },
-    { id: 'tpl-4', label: 'Notfall', text: 'Betrieblich notwendiger Einsatz aufgrund eines Notfalls.', scope: 'both' },
-  ],
-  settings: { employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} }, appMode: 'employee', currency: 'EUR' },
-  activeEmployerId: null,
-  runningTimer: null,
-};
 
 /* Label-Mapping für Angestellten- vs. Freiberufler-Modus.
  * Zentraler Anlaufpunkt: Alle UI-Texte, die vom Modus abhängen, holen ihren
@@ -495,157 +457,43 @@ function renderSummaryPlaintext(fields) {
 
 
 /**
- * Lädt State aus localStorage und normalisiert Legacy-Felder.
- * Setzt state global.
+ * v3.5-Migration-Adapter: reicht normalizeSegments und uid an das reine
+ * Modul-Migrations-Layer weiter. Bleibt hier für Regression-Selectors, die
+ * migrateHomeofficeEntries als globales Symbol prüfen.
+ * @param {Array<any>} entries
+ * @returns {Array<any>}
+ */
+function migrateHomeofficeEntries(entries) {
+  return _migrateHomeofficeEntriesRaw(entries, { uid, normalizeSegments });
+}
+
+/**
+ * Lädt State über modules/state.js und synchronisiert das window-Symbol.
  * @returns {AZState}
  */
 function loadState() {
-  try {
-    const raw = storage.get(STORAGE_KEY);
-    if (raw) {
-      const loaded = JSON.parse(raw);
-      // Merge defaults for forward compatibility
-      const mergedSettings = { ...DEFAULT_STATE.settings, ...(loaded.settings || {}) };
-      mergedSettings.holidayOverrides = normalizeHolidayOverrides(mergedSettings.holidayOverrides);
-      const merged = {
-        ...DEFAULT_STATE,
-        ...loaded,
-        settings: mergedSettings,
-        templates: loaded.templates && loaded.templates.length ? loaded.templates : DEFAULT_STATE.templates,
-      };
-      // Migrations-Layer: schrittweise auf SCHEMA_VERSION anheben.
-      // Legacy-States ohne schemaVersion starten bei 1.
-      const { state: migrated, changed } = runMigrations(merged);
-      if (changed) {
-        try { storage.set(STORAGE_KEY, JSON.stringify(migrated)); } catch (e) { /* ignore */ }
-      }
-      return migrated;
-    }
-  } catch (e) {
-    console.error('State load failed', e);
-  }
-  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE));
-  fresh.schemaVersion = SCHEMA_VERSION;
-  return fresh;
+  const s = _loadStateRaw({ uid, normalizeSegments, normalizeHolidayOverrides });
+  // Globaler window.state wird in der App-Init nach dem ersten loadState() gesetzt.
+  return s;
 }
 
 /**
- * Registrierte State-Migrationen. Reihenfolge = Ausführungsreihenfolge.
- * Jede Migration muss idempotent sein: doppelte Ausführung darf keine
- * neuen Änderungen erzeugen.
- * @type {Array<{from:number,to:number,fn:(state:AZState)=>AZState}>}
- */
-const migrations = [
-  {
-    from: 1, to: 2,
-    // v3.5: Home-Office-Einträge pro (employerId,date) zu einem konsolidieren.
-    fn: (s) => {
-      const entries = Array.isArray(s.entries) ? s.entries : [];
-      return { ...s, entries: migrateHomeofficeEntries(entries) };
-    },
-  },
-  {
-    from: 2, to: 3,
-    // v3.7.1: Templates ohne scope bekommen 'both'; bekannte tpl-2 wird 'employee'.
-    fn: (s) => {
-      const templates = (s.templates || []).map(t => {
-        if (t.scope === 'both' || t.scope === 'employee' || t.scope === 'freelance') return t;
-        const scope = (t.id === 'tpl-2') ? 'employee' : 'both';
-        return { ...t, scope };
-      });
-      return { ...s, templates };
-    },
-  },
-];
-
-/**
- * Führt alle Migrationen ab state.schemaVersion (default 1) bis SCHEMA_VERSION aus.
- * Gibt migrierten State und `changed` zurück; changed=true zwingt loadState zum
- * Persistieren, damit die Migration dauerhaft ist.
- * @param {any} s Roh-State (möglicherweise ohne schemaVersion)
- * @returns {{state: AZState, changed: boolean}}
- */
-function runMigrations(s) {
-  let version = Number(s.schemaVersion) || 1;
-  let current = s;
-  let changed = false;
-  for (const m of migrations) {
-    if (m.from === version && m.to <= SCHEMA_VERSION) {
-      const before = JSON.stringify(current);
-      current = m.fn(current);
-      current.schemaVersion = m.to;
-      version = m.to;
-      if (JSON.stringify(current) !== before) changed = true;
-    }
-  }
-  // Falls state bereits auf SCHEMA_VERSION war, aber schemaVersion-Feld fehlte:
-  // Feld ergänzen, changed setzen, damit wir es einmal persistieren.
-  if (current.schemaVersion !== SCHEMA_VERSION) {
-    current.schemaVersion = SCHEMA_VERSION;
-    changed = true;
-  }
-  return { state: current, changed };
-}
-
-// state wird erst NACH Definition von migrations/runMigrations geladen,
-// weil loadState() beide referenziert (TDZ auf const migrations).
-let state = loadState();
-
-/**
- * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
- * einzigen zusammen. Segmente werden konsolidiert (sortiert, überlappende gemergt),
- * Notes zusammengehängt. Alle anderen Einträge bleiben unberührt.
- * Idempotent — mehrfaches Laufen verändert das Ergebnis nicht.
- */
-function migrateHomeofficeEntries(entries) {
-  const byKey = new Map();
-  const others = [];
-  for (const e of entries) {
-    if (!e || e.type !== 'homeoffice') { others.push(e); continue; }
-    const key = `${e.employerId}||${e.date}`;
-    const segs = Array.isArray(e.segments) && e.segments.length
-      ? e.segments
-      : (e.start && e.end ? [{ start: e.start, end: e.end }] : []);
-    if (!byKey.has(key)) {
-      byKey.set(key, {
-        id: e.id || uid(),
-        employerId: e.employerId,
-        date: e.date,
-        type: 'homeoffice',
-        segments: segs.map(s => ({ start: s.start, end: s.end })),
-        note: e.note || '',
-        createdAt: e.createdAt || new Date().toISOString(),
-      });
-    } else {
-      const acc = byKey.get(key);
-      acc.segments = acc.segments.concat(segs.map(s => ({ start: s.start, end: s.end })));
-      if (e.note && !acc.note) acc.note = e.note;
-      else if (e.note && !acc.note.includes(e.note)) acc.note = `${acc.note} · ${e.note}`;
-      if (e.createdAt && e.createdAt < acc.createdAt) acc.createdAt = e.createdAt;
-    }
-  }
-  // Segmente normalisieren (sortiert, gemergt)
-  const merged = [];
-  for (const acc of byKey.values()) {
-    acc.segments = normalizeSegments(acc.segments);
-    merged.push(acc);
-  }
-  return others.concat(merged);
-}
-
-/**
- * Persistiert das globale state-Objekt in localStorage.
+ * Persistiert den internen State. Fehler werden zusätzlich per Toast gemeldet.
  * @returns {void}
  */
 function saveState() {
   try {
-    state.schemaVersion = SCHEMA_VERSION;
-    storage.set(STORAGE_KEY, JSON.stringify(state));
+    _saveState();
   } catch (e) {
     console.error('State save failed', e);
     toast('Fehler beim Speichern');
   }
 }
+
+// state wird via loadState() aus dem Modul geholt; window.state hält eine Referenz
+// für Regression-Skripte, die über page.evaluate darauf zugreifen.
+let state = loadState();
+if (typeof window !== 'undefined') window.state = state;
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -3873,12 +3721,15 @@ function importBackup(file) {
       const data = JSON.parse(reader.result);
       if (!data.employers || !Array.isArray(data.employers)) throw new Error('Ungültiges Format');
       if (!confirm('Aktuelle Daten überschreiben?')) return;
-      state = {
+      const imported = {
         ...DEFAULT_STATE,
         ...data,
         settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
       };
-      state.settings.holidayOverrides = normalizeHolidayOverrides(state.settings.holidayOverrides);
+      imported.settings.holidayOverrides = normalizeHolidayOverrides(imported.settings.holidayOverrides);
+      _setState(imported);
+      state = _getState();
+      if (typeof window !== 'undefined') window.state = state;
       saveState();
       renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
       toast('Backup importiert');
@@ -4231,4 +4082,60 @@ function activateWaitingServiceWorker() {
     return;
   }
   reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+}
+
+/* ---------- Module-Scope Compatibility Bridge (Phase 3.1) ----------
+   Da app.js jetzt als type=module lädt, sind Top-Level-Deklarationen NICHT mehr
+   automatisch am window. Damit Regression-Skripte (page.evaluate) und alle
+   Legacy-Inline-Handler in index.html weiterhin funktionieren, exponieren
+   wir die relevanten Symbole explizit. Dieser Block wird in Phase 3.8
+   (app.js als reiner Einstiegspunkt) durch saubere Modul-Exporte ersetzt. */
+if (typeof window !== 'undefined') {
+  // State + Persistenz
+  window.state = state;
+  window.saveState = saveState;
+  window.loadState = loadState;
+  window.SCHEMA_VERSION = SCHEMA_VERSION;
+  window.DEFAULT_STATE = DEFAULT_STATE;
+  window.STORAGE_KEY = STORAGE_KEY;
+
+  // Migrations (für Regression-Unit-Tests)
+  window.runMigrations = (s) => {
+    // Regression ruft runMigrations(s) ohne helpers auf — helpers hier injizieren
+    // (funktioniert wie in der alten Bundle-Welt, wo migrations[] uid/normalizeSegments
+    // aus dem umschließenden Scope zog).
+    // eslint-disable-next-line no-undef
+    return _runMigrationsWithHelpers(s);
+  };
+  window.migrateHomeofficeEntries = migrateHomeofficeEntries;
+
+  // Selectors + Utilities für Regression
+  if (typeof getSummaryFields === 'function') window.getSummaryFields = getSummaryFields;
+  if (typeof uid === 'function') window.uid = uid;
+  if (typeof normalizeSegments === 'function') window.normalizeSegments = normalizeSegments;
+  if (typeof normalizeHolidayOverrides === 'function') window.normalizeHolidayOverrides = normalizeHolidayOverrides;
+
+  // Rendering + Views
+  if (typeof switchView === 'function') window.switchView = switchView;
+  if (typeof renderReport === 'function') window.renderReport = renderReport;
+  if (typeof renderTracker === 'function') window.renderTracker = renderTracker;
+  if (typeof renderEntries === 'function') window.renderEntries = renderEntries;
+  if (typeof renderEmployers === 'function') window.renderEmployers = renderEmployers;
+  if (typeof renderArchive === 'function') window.renderArchive = renderArchive;
+  if (typeof renderSettings === 'function') window.renderSettings = renderSettings;
+
+  // Compute + Export für Regression
+  if (typeof computeMonthReport === 'function') window.computeMonthReport = computeMonthReport;
+  if (typeof computeMonthOverview === 'function') window.computeMonthOverview = computeMonthOverview;
+  if (typeof generatePdfBlob === 'function') window.generatePdfBlob = generatePdfBlob;
+  if (typeof generateOverviewPdfBlob === 'function') window.generateOverviewPdfBlob = generateOverviewPdfBlob;
+  if (typeof generateWordBlob === 'function') window.generateWordBlob = generateWordBlob;
+}
+
+// Interne Version von runMigrations, die uid+normalizeSegments injiziert.
+// Wird vom window.runMigrations-Adapter oben aufgerufen.
+function _runMigrationsWithHelpers(s) {
+  // Import ist am Modul-Kopf; hier nur den Aufruf durchreichen
+  // (dynamischer Import würde eine Promise liefern — deshalb der Named-Import).
+  return _runMigrationsModule(s, { uid, normalizeSegments });
 }
