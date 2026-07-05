@@ -10,6 +10,8 @@
     "qa:headed": "HEADLESS=0 node scripts/regression.mjs"
   },
   "devDependencies": {
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
     "playwright": "^1.59.0",
     "typescript": "5.4"
   }

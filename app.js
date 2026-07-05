@@ -28,7 +28,7 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.3';
+const APP_VERSION = '3.8.4';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /**
@@ -44,6 +44,12 @@ const SCHEMA_VERSION = 3;
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.4', items: [
+      'Regression prüft jetzt PDF- und Word-Inhalt inhaltlich (pdf-parse + mammoth in Node)',
+      'Freelance: 595,00 €, Kunde Alpha, 7:00 Ist müssen in PDF/Word auftauchen',
+      'Employee: Ist/Soll/Saldo/Arbeitgeber A müssen in PDF/Word auftauchen',
+      'Overview-PDF wird ebenfalls textuell gegen erwartete Werte geprüft (51/51 Checks)',
+  ]},
   { version: '3.8.3', items: [
       'Interner State-Migrations-Layer: SCHEMA_VERSION + migrations[]-Array in loadState',
       'Bisherige Ad-hoc-Migrationen (v3.5 Home-Office-Merge, v3.7.1 Template-Scope) formalisiert',

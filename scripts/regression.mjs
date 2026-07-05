@@ -19,6 +19,8 @@
  */
 
 import { chromium } from 'playwright';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8765';
 const HEADLESS = process.env.HEADLESS !== '0';
@@ -235,22 +237,39 @@ async function checkView(page, viewName) {
 }
 
 async function checkBlob(page, label, kind) {
-  const size = await page.evaluate(async ({ k }) => {
+  const result = await page.evaluate(async ({ k }) => {
     const d = new Date();
     const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    let blob = null;
     if (k === 'overviewPdf') {
       const ov = computeMonthOverview(ym);
-      const blob = generateOverviewPdfBlob(ov);
-      return blob?.size || 0;
+      blob = generateOverviewPdfBlob(ov);
+    } else {
+      const r = computeMonthReport(state.activeEmployerId, ym);
+      if (!r) return null;
+      if (k === 'pdf') blob = generatePdfBlob(r);
+      else if (k === 'word') blob = await generateWordBlob(r);
     }
-    const r = computeMonthReport(state.activeEmployerId, ym);
-    if (!r) return -1;
-    if (k === 'pdf') return generatePdfBlob(r)?.size || 0;
-    if (k === 'word') { const b = await generateWordBlob(r); return b?.size || 0; }
-    return 0;
+    if (!blob) return null;
+    const buf = await blob.arrayBuffer();
+    return { size: blob.size, bytes: Array.from(new Uint8Array(buf)) };
   }, { k: kind });
+  const size = result?.size ?? -1;
   assertAtLeast(`${label} — ${kind} > 500 bytes`, size, 500);
-  return size;
+  return result ? Buffer.from(result.bytes) : null;
+}
+
+async function extractPdfText(buf) {
+  // pdf-parse referenziert intern eine Test-Datei beim direkten Require des Index — Lib-Datei direkt laden
+  const pdfParse = require('pdf-parse/lib/pdf-parse.js');
+  const { text } = await pdfParse(buf);
+  return text || '';
+}
+
+async function extractWordText(buf) {
+  const mammoth = require('mammoth');
+  const { value } = await mammoth.extractRawText({ buffer: buf });
+  return value || '';
 }
 
 // ---------- 2) Freelance E2E ----------
@@ -290,9 +309,31 @@ async function runFreelance(page) {
   const overview = await checkView(page, 'overview');
   assertTrue('freelance overview: 595,00 € aggregiert', /595,00\s*€/.test(overview));
 
-  await checkBlob(page, 'freelance', 'pdf');
-  await checkBlob(page, 'freelance', 'word');
-  await checkBlob(page, 'freelance', 'overviewPdf');
+  const flPdf = await checkBlob(page, 'freelance', 'pdf');
+  if (flPdf) {
+    const t = await extractPdfText(flPdf);
+    assertTrue('freelance pdf-content: 595,00 € enthalten', /595,00\s*€?/.test(t), snippet(t));
+    assertTrue('freelance pdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
+    assertTrue('freelance pdf-content: 7:00 (Ist-Stunden)', /7:00|07:00/.test(t), snippet(t));
+  }
+  const flWord = await checkBlob(page, 'freelance', 'word');
+  if (flWord) {
+    const t = await extractWordText(flWord);
+    assertTrue('freelance word-content: 595,00 enthalten', /595,00/.test(t), snippet(t));
+    assertTrue('freelance word-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
+  }
+  const flOv = await checkBlob(page, 'freelance', 'overviewPdf');
+  if (flOv) {
+    const t = await extractPdfText(flOv);
+    assertTrue('freelance overviewPdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
+    assertTrue('freelance overviewPdf-content: 595,00 aggregiert', /595,00/.test(t), snippet(t));
+  }
+}
+
+function snippet(s) {
+  if (!s) return '';
+  const clean = s.replace(/\s+/g, ' ').trim();
+  return clean.length > 120 ? clean.slice(0, 120) + '…' : clean;
 }
 
 // ---------- 3) Employee E2E ----------
@@ -331,9 +372,29 @@ async function runEmployee(page) {
   const overview = await checkView(page, 'overview');
   assertTrue('employee overview: Ist gesamt sichtbar', /Ist/i.test(overview));
 
-  await checkBlob(page, 'employee', 'pdf');
-  await checkBlob(page, 'employee', 'word');
-  await checkBlob(page, 'employee', 'overviewPdf');
+  const emPdf = await checkBlob(page, 'employee', 'pdf');
+  if (emPdf) {
+    const t = await extractPdfText(emPdf);
+    assertTrue('employee pdf-content: Ist sichtbar', /\bIst\b/i.test(t), snippet(t));
+    assertTrue('employee pdf-content: Soll sichtbar', /\bSoll\b/i.test(t), snippet(t));
+    assertTrue('employee pdf-content: Saldo sichtbar', /\bSaldo\b/i.test(t), snippet(t));
+    assertTrue('employee pdf-content: 7:00 (Ist-Stunden)', /7:00|07:00/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
+  }
+  const emWord = await checkBlob(page, 'employee', 'word');
+  if (emWord) {
+    const t = await extractWordText(emWord);
+    assertTrue('employee word-content: Ist sichtbar', /\bIst\b/i.test(t), snippet(t));
+    assertTrue('employee word-content: Soll sichtbar', /\bSoll\b/i.test(t), snippet(t));
+    assertTrue('employee word-content: Saldo sichtbar', /\bSaldo\b/i.test(t), snippet(t));
+    assertTrue('employee word-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
+  }
+  const emOv = await checkBlob(page, 'employee', 'overviewPdf');
+  if (emOv) {
+    const t = await extractPdfText(emOv);
+    assertTrue('employee overviewPdf-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
+    assertTrue('employee overviewPdf-content: Ist gesamt sichtbar', /\bIst\b/i.test(t), snippet(t));
+  }
 }
 
 // ---------- Runner ----------
