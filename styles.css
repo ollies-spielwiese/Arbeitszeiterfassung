@@ -1225,3 +1225,28 @@ textarea { resize: vertical; min-height: 3rem; }
   font-weight: 600;
   margin-left: 6px;
 }
+
+/* --- v3.7.1: Notizvorlagen-Scope-Badge --- */
+.tpl-scope {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.tpl-scope-both {
+  background: color-mix(in oklab, var(--text-muted) 15%, var(--surface));
+  color: var(--text-muted);
+}
+.tpl-scope-employee {
+  background: color-mix(in oklab, #3b82f6 18%, var(--surface));
+  color: #1d4ed8;
+}
+.tpl-scope-freelance {
+  background: color-mix(in oklab, var(--primary) 18%, var(--surface));
+  color: var(--primary);
+}

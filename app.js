@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.7';
+const APP_VERSION = '3.7.1';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.7.1', items: [
+      'Notizvorlagen können jetzt pro Modus (Beide / Nur Angestellt / Nur Freiberuflich) sichtbar geschaltet werden',
+      'Vorlagen-Editor mit neuem Sichtbarkeits-Dropdown; Karten zeigen Scope-Badge',
+      'Notiz-Auswahl im Eintrag-Modal filtert automatisch nach aktivem App-Modus',
+  ]},
   { version: '3.7', items: [
       'Neu: Freiberufler-Modus – in den Einstellungen zwischen „Angestellt“ und „Freiberuflich“ umschalten',
       'Im Freiberufler-Modus heißen Arbeitgeber jetzt Kunden; Feiertage und Urlaub sind ausgeblendet',
@@ -112,10 +117,10 @@ const DEFAULT_STATE = {
   entries: [],
   archives: [],
   templates: [
-    { id: 'tpl-1', label: 'Projektabschluss', text: 'Zeitkritischer Projektabschluss.' },
-    { id: 'tpl-2', label: 'Krankheitsvertretung', text: 'Vertretung wegen krankheitsbedingter Abwesenheit einer Kollegin / eines Kollegen.' },
-    { id: 'tpl-3', label: 'Kundentermin', text: 'Kundentermin außerhalb der regulären Arbeitszeit.' },
-    { id: 'tpl-4', label: 'Notfall', text: 'Betrieblich notwendiger Einsatz aufgrund eines Notfalls.' },
+    { id: 'tpl-1', label: 'Projektabschluss', text: 'Zeitkritischer Projektabschluss.', scope: 'both' },
+    { id: 'tpl-2', label: 'Krankheitsvertretung', text: 'Vertretung wegen krankheitsbedingter Abwesenheit einer Kollegin / eines Kollegen.', scope: 'employee' },
+    { id: 'tpl-3', label: 'Kundentermin', text: 'Kundentermin außerhalb der regulären Arbeitszeit.', scope: 'both' },
+    { id: 'tpl-4', label: 'Notfall', text: 'Betrieblich notwendiger Einsatz aufgrund eines Notfalls.', scope: 'both' },
   ],
   settings: { employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} }, appMode: 'employee', currency: 'EUR' },
   activeEmployerId: null,
@@ -181,6 +186,12 @@ function loadState() {
         settings: mergedSettings,
         templates: loaded.templates && loaded.templates.length ? loaded.templates : DEFAULT_STATE.templates,
       };
+      // v3.7.1-Migration: Templates ohne scope bekommen 'both'; bekannte tpl-2 wird 'employee'
+      merged.templates = merged.templates.map(t => {
+        if (t.scope === 'both' || t.scope === 'employee' || t.scope === 'freelance') return t;
+        const scope = (t.id === 'tpl-2') ? 'employee' : 'both';
+        return { ...t, scope };
+      });
       // v3.5-Migration: mehrere Home-Office-Einträge pro (employerId, date) zu einem einzigen zusammenführen.
       // Wenn sich dadurch etwas ändert, persistieren, damit die Konsolidierung dauerhaft ist.
       const beforeEntries = Array.isArray(merged.entries) ? merged.entries : [];
@@ -1080,11 +1091,23 @@ function applyScheduleToEntry() {
   toast('Wochenschema übernommen');
 }
 
+/**
+ * Liefert true, wenn die Vorlage im aktuellen App-Modus verwendbar ist.
+ * scope 'both' ist immer sichtbar, 'employee' nur im Angestellt-Modus, 'freelance' nur im Freelance-Modus.
+ * Vorlagen ohne scope werden als 'both' behandelt (defensive Vorsichtsmaßnahme).
+ */
+function templateMatchesMode(tpl) {
+  const s = tpl && tpl.scope;
+  if (!s || s === 'both') return true;
+  return s === getAppMode();
+}
+
 function populateTemplatePicker(selectId) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
+  const visible = state.templates.filter(templateMatchesMode);
   sel.innerHTML = '<option value="">Vorlage einfügen …</option>' +
-    state.templates.map(t => `<option value="${escapeHtml(t.text)}">${escapeHtml(t.label)}</option>`).join('');
+    visible.map(t => `<option value="${escapeHtml(t.text)}">${escapeHtml(t.label)}</option>`).join('');
   sel.value = '';
 }
 
@@ -3216,15 +3239,20 @@ function renderTemplates() {
     container.innerHTML = '<div class="empty-state" style="padding:1rem;">Keine Vorlagen.</div>';
     return;
   }
-  container.innerHTML = state.templates.map(t => `
+  container.innerHTML = state.templates.map(t => {
+    const scope = t.scope || 'both';
+    const scopeLabel = scope === 'employee' ? 'Nur Angestellt' : scope === 'freelance' ? 'Nur Freiberuflich' : 'Beide Modi';
+    const scopeCls = `tpl-scope tpl-scope-${scope}`;
+    return `
     <div class="template-card" data-id="${t.id}">
       <div class="template-body" data-role="edit">
-        <div class="label">${escapeHtml(t.label)}</div>
+        <div class="label">${escapeHtml(t.label)} <span class="${scopeCls}">${scopeLabel}</span></div>
         <div class="preview">${escapeHtml(t.text)}</div>
       </div>
       <button type="button" class="template-delete" data-role="delete" aria-label="Vorlage löschen" title="Vorlage löschen">✕</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
   container.querySelectorAll('.template-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-role="edit"]').addEventListener('click', () => {
@@ -3250,6 +3278,17 @@ function openTemplateModal(tpl) {
   document.getElementById('template-id').value = tpl?.id || '';
   document.getElementById('template-label').value = tpl?.label || '';
   document.getElementById('template-text').value = tpl?.text || '';
+  // Vor-Belegung des Scope-Feldes: bestehende Vorlage übernehmen; bei neuer Vorlage sinnvoller Default
+  const scopeSel = document.getElementById('template-scope');
+  if (scopeSel) {
+    if (isNew) {
+      // Beim Neuanlegen im Freelance-Modus 'freelance' vorschlagen, sonst 'both'
+      scopeSel.value = isFreelance() ? 'freelance' : 'both';
+    } else {
+      const s = tpl.scope;
+      scopeSel.value = (s === 'employee' || s === 'freelance') ? s : 'both';
+    }
+  }
   document.getElementById('btn-delete-template').classList.toggle('hidden', isNew);
   modal.classList.remove('hidden');
 }
@@ -3257,9 +3296,12 @@ function openTemplateModal(tpl) {
 function saveTemplate(ev) {
   ev.preventDefault();
   const id = document.getElementById('template-id').value;
+  const scopeVal = document.getElementById('template-scope')?.value;
+  const scope = (scopeVal === 'employee' || scopeVal === 'freelance') ? scopeVal : 'both';
   const data = {
     label: document.getElementById('template-label').value.trim(),
     text: document.getElementById('template-text').value.trim(),
+    scope,
   };
   if (!data.label || !data.text) { toast('Bitte Bezeichnung und Text angeben'); return; }
   if (id) {
@@ -3485,6 +3527,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTracker();
       renderEmployers();
       renderEntries();
+      renderTemplates();
       if (typeof renderOverview === 'function') { try { renderOverview(); } catch (err) {} }
     });
   });

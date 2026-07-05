@@ -32,7 +32,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.7</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.7.1</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -840,6 +840,15 @@
         <div class="form-row">
           <label for="template-text">Text</label>
           <textarea id="template-text" rows="3" required placeholder="Der eigentliche Textbaustein …"></textarea>
+        </div>
+        <div class="form-row">
+          <label for="template-scope">Sichtbar in</label>
+          <select id="template-scope" data-testid="select-template-scope">
+            <option value="both">Beiden Modi</option>
+            <option value="employee">Nur Angestellt</option>
+            <option value="freelance">Nur Freiberuflich</option>
+          </select>
+          <small class="hint">Legt fest, in welchem App-Modus diese Vorlage im Notizfeld angeboten wird.</small>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
