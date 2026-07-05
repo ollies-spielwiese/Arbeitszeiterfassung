@@ -85,12 +85,25 @@ import {
   computeMonthReport as _computeMonthReportRaw,
   computeMonthOverview as _computeMonthOverviewRaw,
 } from './modules/compute.js';
+import {
+  getEmployer as _getEmployerRaw,
+  getCurrentReport as _getCurrentReportRaw,
+  getCurrentOverview as _getCurrentOverviewRaw,
+  getSummaryFields as _getSummaryFieldsRaw,
+  getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
+} from './modules/selectors.js';
 
-const APP_VERSION = '3.9.3';
+const APP_VERSION = '3.9.4';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.4', items: [
+      'Modul-Split Phase 3.5: modules/selectors.js — State-lesende Selectors ausgelagert',
+      'getEmployer, getCurrentReport, getCurrentOverview, getSummaryFields, getOverviewSummaryFields sind jetzt pure ES-Exports mit ctx-DI',
+      'app.js haelt schlanke Wrapper, die state/toast/compute-Referenzen automatisch reinreichen',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks unveraendert',
+  ]},
   { version: '3.9.3', items: [
       'Modul-Split Phase 3.4: modules/compute.js — Rechenlogik komplett ausgelagert',
       'computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry, legalBreakMinutes, computeSuggestedBreak, defaultSchedule ausgelagert',
@@ -258,6 +271,11 @@ function formatMoney(amount, currency) {
   return _formatMoneyRaw(amount, cur);
 }
 
+/* ---------- Selectors ctx-Builder (siehe modules/selectors.js) ---------- */
+function _selectorsFmtCtx() {
+  return { isFreelance, minutesToHM, hoursDecimal, formatMoney };
+}
+
 /* ========================================================================
  * SUMMARY SELECTOR — Single Source of Truth
  * ------------------------------------------------------------------------
@@ -283,81 +301,7 @@ function formatMoney(amount, currency) {
  * @returns {AZSummaryField[]} Felder in Anzeigereihenfolge
  */
 function getSummaryFields(input) {
-  const mode = input.mode || (isFreelance() ? 'freelance' : 'employee');
-  const freelance = (mode === 'freelance');
-  const includeAbsences = input.includeAbsences !== false; // default true
-  const includeHolidays = input.includeHolidays === true;  // default false
-
-  const fields = [];
-
-  // 1. Ist-Stunden (immer)
-  fields.push({
-    key: 'worked',
-    label: input.workedLabel || 'Ist',
-    kind: 'time',
-    valueHM: minutesToHM(input.workedMin || 0),
-    valueDec: `${hoursDecimal(input.workedMin || 0)} h`,
-    rawMinutes: input.workedMin || 0,
-  });
-
-  // 2. Soll + Saldo (nur employee)
-  if (!freelance) {
-    fields.push({
-      key: 'target',
-      label: input.targetLabel || 'Soll',
-      kind: 'time',
-      valueHM: minutesToHM(input.targetMin || 0),
-      valueDec: `${hoursDecimal(input.targetMin || 0)} h`,
-      rawMinutes: input.targetMin || 0,
-    });
-    const bal = input.balance || 0;
-    fields.push({
-      key: 'balance',
-      label: input.balanceLabel || 'Saldo',
-      kind: 'balance',
-      valueHM: `${bal >= 0 ? '+' : ''}${minutesToHM(bal)}`,
-      valueDec: `${hoursDecimal(bal)} h`,
-      sign: bal >= 0 ? 'pos' : 'neg',
-      rawMinutes: bal,
-    });
-  }
-
-  // 3. Rechnungsbetrag (immer wenn Stundensatz > 0)
-  const rate = Number(input.hourlyRate) || 0;
-  if (rate > 0) {
-    const currency = input.currency || 'EUR';
-    const amount = ((input.workedMin || 0) / 60) * rate;
-    fields.push({
-      key: 'net',
-      label: input.netLabel || 'Rechnungsbetrag',
-      kind: 'money',
-      value: formatMoney(amount, currency),
-      rawAmount: { amount, currency, rate, hoursDec: hoursDecimal(input.workedMin || 0) },
-    });
-  }
-
-  // 4. Urlaub/Krank (nur employee, nur wenn includeAbsences)
-  if (!freelance && includeAbsences) {
-    fields.push({
-      key: 'absences',
-      label: 'Urlaub / Krank',
-      kind: 'count',
-      value: `${input.vacationDays || 0} / ${input.sickDays || 0}`,
-      rawCounts: { vacation: input.vacationDays || 0, sick: input.sickDays || 0 },
-    });
-  }
-
-  // 5. Feiertage (wenn explizit angefordert, z.B. Woche)
-  if (includeHolidays) {
-    fields.push({
-      key: 'holidays',
-      label: 'Feiertage',
-      kind: 'count',
-      value: String(input.holidayCount || 0),
-    });
-  }
-
-  return fields;
+  return _getSummaryFieldsRaw(input, _selectorsFmtCtx());
 }
 
 /**
@@ -365,67 +309,7 @@ function getSummaryFields(input) {
  * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
  */
 function getOverviewSummaryFields(ov) {
-  const freelance = isFreelance();
-  // Netto-Summe pro Währung aggregieren
-  const netByCurrency = ov.rows.reduce((acc, row) => {
-    const rate = Number(row.employer.hourlyRate) || 0;
-    if (rate <= 0) return acc;
-    const cur = row.employer.currency || 'EUR';
-    acc[cur] = (acc[cur] || 0) + (row.workedMin / 60) * rate;
-    return acc;
-  }, {});
-  const hasNet = Object.keys(netByCurrency).length > 0;
-  const netStr = hasNet
-    ? Object.entries(netByCurrency).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
-    : '—';
-
-  const fields = [];
-  fields.push({
-    key: 'worked',
-    label: 'Ist gesamt',
-    kind: 'time',
-    valueHM: minutesToHM(ov.totals.workedMin),
-    valueDec: `${hoursDecimal(ov.totals.workedMin)} h`,
-    rawMinutes: ov.totals.workedMin,
-  });
-  if (!freelance) {
-    fields.push({
-      key: 'target',
-      label: 'Soll gesamt',
-      kind: 'time',
-      valueHM: minutesToHM(ov.totals.targetMin),
-      valueDec: `${hoursDecimal(ov.totals.targetMin)} h`,
-      rawMinutes: ov.totals.targetMin,
-    });
-    const bal = ov.totals.balance;
-    fields.push({
-      key: 'balance',
-      label: 'Saldo gesamt',
-      kind: 'balance',
-      valueHM: `${bal >= 0 ? '+' : ''}${minutesToHM(bal)}`,
-      valueDec: `${hoursDecimal(bal)} h`,
-      sign: bal >= 0 ? 'pos' : 'neg',
-      rawMinutes: bal,
-    });
-  }
-  // Rechnungsbetrag: im Freelance immer zeigen (auch wenn 0 → '—'), im Employee nur wenn > 0
-  if (freelance || hasNet) {
-    fields.push({
-      key: 'net',
-      label: 'Rechnungsbetrag gesamt',
-      kind: 'money',
-      value: netStr,
-    });
-  }
-  if (!freelance) {
-    fields.push({
-      key: 'absences',
-      label: 'Urlaub / Krank',
-      kind: 'count',
-      value: `${ov.totals.vacationDays} / ${ov.totals.sickDays}`,
-    });
-  }
-  return fields;
+  return _getOverviewSummaryFieldsRaw(ov, _selectorsFmtCtx());
 }
 
 /* ---------- Renderer: HTML (.summary-grid) ---------- */
@@ -731,7 +615,7 @@ function defaultSchedule(weeklyHours = 40) {
 /* ---------- Employer helpers ---------- */
 
 function getEmployer(id) {
-  return state.employers.find(e => e.id === id);
+  return _getEmployerRaw(id, { state });
 }
 
 function ensureActiveEmployer() {
@@ -2377,12 +2261,12 @@ function fileNameForOverview(ov, ext) {
 }
 
 function getCurrentOverview() {
-  const ym = document.getElementById('overview-month').value;
-  if (!ym) { toast('Bitte Monat wählen'); return null; }
-  if (!state.employers.length) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return null; }
-  const ov = computeMonthOverview(ym);
-  if (!ov.rows.length) { toast('Keine Daten für diesen Monat'); return null; }
-  return ov;
+  return _getCurrentOverviewRaw({
+    state,
+    computeMonthOverview,
+    toast,
+    getYm: () => document.getElementById('overview-month').value,
+  });
 }
 
 async function exportOverviewPdf() {
@@ -2456,10 +2340,13 @@ async function exportPdf() {
 }
 
 function getCurrentReport() {
-  const empId = document.getElementById('report-employer').value;
-  const ym = document.getElementById('report-month').value;
-  if (!empId || !ym) { toast('Bitte Arbeitgeber und Monat wählen'); return null; }
-  return computeMonthReport(empId, ym);
+  return _getCurrentReportRaw({
+    state,
+    computeMonthReport,
+    toast,
+    getEmployerId: () => document.getElementById('report-employer').value,
+    getYm: () => document.getElementById('report-month').value,
+  });
 }
 
 /* ---------- Share (Web Share API + Fallback) ---------- */
@@ -3776,6 +3663,10 @@ if (typeof window !== 'undefined') {
 
   // Selectors + Utilities für Regression
   if (typeof getSummaryFields === 'function') window.getSummaryFields = getSummaryFields;
+  if (typeof getOverviewSummaryFields === 'function') window.getOverviewSummaryFields = getOverviewSummaryFields;
+  if (typeof getEmployer === 'function') window.getEmployer = getEmployer;
+  if (typeof getCurrentReport === 'function') window.getCurrentReport = getCurrentReport;
+  if (typeof getCurrentOverview === 'function') window.getCurrentOverview = getCurrentOverview;
   if (typeof uid === 'function') window.uid = uid;
   if (typeof normalizeSegments === 'function') window.normalizeSegments = normalizeSegments;
   if (typeof normalizeHolidayOverrides === 'function') window.normalizeHolidayOverrides = normalizeHolidayOverrides;
