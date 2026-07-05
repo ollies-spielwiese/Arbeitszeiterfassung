@@ -124,6 +124,71 @@ async function runSelectorUnits(page) {
     `keys=${eKeys.join(',')}`);
 }
 
+// ---------- 1b) Migrations-Unit-Tests ----------
+
+async function runMigrationUnits(page) {
+  console.log('\n=== 1b) Migrations-Unit-Tests ===');
+
+  // Fall M1: Legacy-State ohne schemaVersion mit einem tpl-2 ohne scope
+  const m1 = await page.evaluate(() => {
+    const legacy = {
+      employers: [], entries: [], archives: [],
+      templates: [{ id: 'tpl-2', label: 'Alt', text: 'x' }, { id: 'tpl-9', label: 'Y', text: 'y' }],
+      settings: { state: 'HE' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertTrue('mig-M1: changed=true bei Legacy-State', m1.changed === true, `changed=${m1.changed}`);
+  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 3);
+  const tpl2 = m1.state.templates.find(t => t.id === 'tpl-2');
+  const tpl9 = m1.state.templates.find(t => t.id === 'tpl-9');
+  assertEq('mig-M1: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
+  assertEq('mig-M1: tpl-9 bekommt scope=both', tpl9?.scope, 'both');
+
+  // Fall M2: State bereits auf aktueller Version darf nicht als changed markiert werden
+  const m2 = await page.evaluate(() => {
+    const currentState = {
+      schemaVersion: 3,
+      employers: [], entries: [], archives: [],
+      templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
+      settings: { state: 'HE' }, runningTimer: null,
+    };
+    return runMigrations(currentState);
+  });
+  assertTrue('mig-M2: aktueller State bleibt unverändert', m2.changed === false, `changed=${m2.changed}`);
+
+  // Fall M3: Idempotenz — zweimal migrieren ändert nichts mehr
+  const m3 = await page.evaluate(() => {
+    const legacy = {
+      employers: [], entries: [], archives: [],
+      templates: [{ id: 'tpl-2', label: 'Alt', text: 'x' }],
+      settings: { state: 'HE' }, runningTimer: null,
+    };
+    const first = runMigrations(legacy);
+    const second = runMigrations(first.state);
+    return { firstChanged: first.changed, secondChanged: second.changed };
+  });
+  assertTrue('mig-M3: erste Migration ändert', m3.firstChanged === true, '');
+  assertTrue('mig-M3: zweite Migration ändert nichts', m3.secondChanged === false, '');
+
+  // Fall M4: Legacy Home-Office-Duplikate werden konsolidiert (schemaVersion 1 → 2)
+  const m4 = await page.evaluate(() => {
+    const legacy = {
+      employers: [{ id: 'e1', name: 'X' }],
+      entries: [
+        { id: 'a', employerId: 'e1', date: '2026-01-15', type: 'homeoffice', segments: [{ start: '09:00', end: '11:00' }] },
+        { id: 'b', employerId: 'e1', date: '2026-01-15', type: 'homeoffice', segments: [{ start: '13:00', end: '17:00' }] },
+      ],
+      archives: [], templates: [], settings: { state: 'HE' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  const hoOn15 = m4.state.entries.filter(e => e.type === 'homeoffice' && e.date === '2026-01-15');
+  assertTrue('mig-M4: zwei Legacy-Home-Office-Einträge → einer', hoOn15.length === 1, `count=${hoOn15.length}`);
+  assertTrue('mig-M4: konsolidierter Eintrag hat 2 Segmente',
+    hoOn15[0]?.segments?.length === 2, `segs=${hoOn15[0]?.segments?.length}`);
+}
+
 // ---------- Helpers für E2E ----------
 
 /*
@@ -279,6 +344,7 @@ async function runEmployee(page) {
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);
+    await runMigrationUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

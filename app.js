@@ -28,11 +28,28 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.2';
+const APP_VERSION = '3.8.3';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
+
+/**
+ * Aktuelle Schema-Version. Bei jeder Strukturänderung am persistierten State
+ * hochzählen und passende Migration in migrations[] ergänzen.
+ *
+ * Versions-Historie:
+ *   1  Initial (bis v3.4)
+ *   2  v3.5 : Home-Office-Einträge pro (employerId,date) zu einem konsolidiert
+ *   3  v3.7.1: Templates bekommen scope ('both'|'employee'|'freelance')
+ */
+const SCHEMA_VERSION = 3;
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.3', items: [
+      'Interner State-Migrations-Layer: SCHEMA_VERSION + migrations[]-Array in loadState',
+      'Bisherige Ad-hoc-Migrationen (v3.5 Home-Office-Merge, v3.7.1 Template-Scope) formalisiert',
+      'Regression um Migrations-Unit-Tests erweitert (33/33 Checks)',
+      'Keine Verhaltensänderung für Bestandsdaten',
+  ]},
   { version: '3.8.2', items: [
       'Interne Codehygiene: zentrale JSDoc-Typen in types.js (AZState, AZEntry, AZEmployer, AZMonthReport, AZSummaryField)',
       'Kernfunktionen mit @param/@returns annotiert (loadState, saveState, getSummaryFields, computeMonthReport, computeMonthOverview, computeWorkMinutes, getHolidays, isHoliday)',
@@ -465,8 +482,6 @@ function renderSummaryPlaintext(fields) {
 }
 
 
-let state = loadState();
-
 /**
  * Lädt State aus localStorage und normalisiert Legacy-Felder.
  * Setzt state global.
@@ -486,27 +501,83 @@ function loadState() {
         settings: mergedSettings,
         templates: loaded.templates && loaded.templates.length ? loaded.templates : DEFAULT_STATE.templates,
       };
-      // v3.7.1-Migration: Templates ohne scope bekommen 'both'; bekannte tpl-2 wird 'employee'
-      merged.templates = merged.templates.map(t => {
-        if (t.scope === 'both' || t.scope === 'employee' || t.scope === 'freelance') return t;
-        const scope = (t.id === 'tpl-2') ? 'employee' : 'both';
-        return { ...t, scope };
-      });
-      // v3.5-Migration: mehrere Home-Office-Einträge pro (employerId, date) zu einem einzigen zusammenführen.
-      // Wenn sich dadurch etwas ändert, persistieren, damit die Konsolidierung dauerhaft ist.
-      const beforeEntries = Array.isArray(merged.entries) ? merged.entries : [];
-      const afterEntries = migrateHomeofficeEntries(beforeEntries);
-      merged.entries = afterEntries;
-      if (afterEntries.length !== beforeEntries.length) {
-        try { storage.set(STORAGE_KEY, JSON.stringify(merged)); } catch (e) { /* ignore */ }
+      // Migrations-Layer: schrittweise auf SCHEMA_VERSION anheben.
+      // Legacy-States ohne schemaVersion starten bei 1.
+      const { state: migrated, changed } = runMigrations(merged);
+      if (changed) {
+        try { storage.set(STORAGE_KEY, JSON.stringify(migrated)); } catch (e) { /* ignore */ }
       }
-      return merged;
+      return migrated;
     }
   } catch (e) {
     console.error('State load failed', e);
   }
-  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  fresh.schemaVersion = SCHEMA_VERSION;
+  return fresh;
 }
+
+/**
+ * Registrierte State-Migrationen. Reihenfolge = Ausführungsreihenfolge.
+ * Jede Migration muss idempotent sein: doppelte Ausführung darf keine
+ * neuen Änderungen erzeugen.
+ * @type {Array<{from:number,to:number,fn:(state:AZState)=>AZState}>}
+ */
+const migrations = [
+  {
+    from: 1, to: 2,
+    // v3.5: Home-Office-Einträge pro (employerId,date) zu einem konsolidieren.
+    fn: (s) => {
+      const entries = Array.isArray(s.entries) ? s.entries : [];
+      return { ...s, entries: migrateHomeofficeEntries(entries) };
+    },
+  },
+  {
+    from: 2, to: 3,
+    // v3.7.1: Templates ohne scope bekommen 'both'; bekannte tpl-2 wird 'employee'.
+    fn: (s) => {
+      const templates = (s.templates || []).map(t => {
+        if (t.scope === 'both' || t.scope === 'employee' || t.scope === 'freelance') return t;
+        const scope = (t.id === 'tpl-2') ? 'employee' : 'both';
+        return { ...t, scope };
+      });
+      return { ...s, templates };
+    },
+  },
+];
+
+/**
+ * Führt alle Migrationen ab state.schemaVersion (default 1) bis SCHEMA_VERSION aus.
+ * Gibt migrierten State und `changed` zurück; changed=true zwingt loadState zum
+ * Persistieren, damit die Migration dauerhaft ist.
+ * @param {any} s Roh-State (möglicherweise ohne schemaVersion)
+ * @returns {{state: AZState, changed: boolean}}
+ */
+function runMigrations(s) {
+  let version = Number(s.schemaVersion) || 1;
+  let current = s;
+  let changed = false;
+  for (const m of migrations) {
+    if (m.from === version && m.to <= SCHEMA_VERSION) {
+      const before = JSON.stringify(current);
+      current = m.fn(current);
+      current.schemaVersion = m.to;
+      version = m.to;
+      if (JSON.stringify(current) !== before) changed = true;
+    }
+  }
+  // Falls state bereits auf SCHEMA_VERSION war, aber schemaVersion-Feld fehlte:
+  // Feld ergänzen, changed setzen, damit wir es einmal persistieren.
+  if (current.schemaVersion !== SCHEMA_VERSION) {
+    current.schemaVersion = SCHEMA_VERSION;
+    changed = true;
+  }
+  return { state: current, changed };
+}
+
+// state wird erst NACH Definition von migrations/runMigrations geladen,
+// weil loadState() beide referenziert (TDZ auf const migrations).
+let state = loadState();
 
 /**
  * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
@@ -556,6 +627,7 @@ function migrateHomeofficeEntries(entries) {
  */
 function saveState() {
   try {
+    state.schemaVersion = SCHEMA_VERSION;
     storage.set(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
     console.error('State save failed', e);
