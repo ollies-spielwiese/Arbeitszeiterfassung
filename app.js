@@ -28,7 +28,7 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.4';
+const APP_VERSION = '3.8.5';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /**
@@ -44,6 +44,12 @@ const SCHEMA_VERSION = 3;
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.5', items: [
+      'GitHub Actions CI: Regression läuft automatisch bei jedem Push auf main',
+      'Pages-Deployment läuft über Actions und ist gated — rote Regression blockt den Deploy',
+      'Playwright und Chromium in CI installiert, statischer Server hochgefahren, 51 Checks pro Run',
+      'Kein manueller Trigger-Commit für Pages-Rebuild mehr nötig',
+  ]},
   { version: '3.8.4', items: [
       'Regression prüft jetzt PDF- und Word-Inhalt inhaltlich (pdf-parse + mammoth in Node)',
       'Freelance: 595,00 €, Kunde Alpha, 7:00 Ist müssen in PDF/Word auftauchen',

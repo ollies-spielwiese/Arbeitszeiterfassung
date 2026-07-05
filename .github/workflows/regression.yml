@@ -1,0 +1,58 @@
+name: Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  qa:
+    name: Playwright-Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium (with system deps)
+        run: npx playwright install --with-deps chromium
+
+      - name: Start static HTTP server
+        run: |
+          python3 -m http.server 8765 >/tmp/httpd.log 2>&1 &
+          echo $! > /tmp/httpd.pid
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sSf -o /dev/null http://localhost:8765/; then
+              echo "server up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "server did not come up"
+          cat /tmp/httpd.log
+          exit 1
+
+      - name: Run regression sweep
+        env:
+          HEADLESS: '1'
+          BASE_URL: 'http://localhost:8765'
+        run: npm run qa:ci
+
+      - name: Stop static HTTP server
+        if: always()
+        run: |
+          if [ -f /tmp/httpd.pid ]; then
+            kill "$(cat /tmp/httpd.pid)" 2>/dev/null || true
+          fi
