@@ -1,4 +1,8 @@
+/// <reference path="./types.js" />
 /* Arbeitszeiterfassung – Offline-PWA v2
+ *
+ * Types: siehe types.js (zentrale JSDoc-übergreifende Definitionen mit AZ-Prefix).
+ * VS Code / tsc erkennen die Typen automatisch über jsconfig.json.
  *
  * Datenmodell:
  * state = {
@@ -24,11 +28,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.1';
+const APP_VERSION = '3.8.2';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.2', items: [
+      'Interne Codehygiene: zentrale JSDoc-Typen in types.js (AZState, AZEntry, AZEmployer, AZMonthReport, AZSummaryField)',
+      'Kernfunktionen mit @param/@returns annotiert (loadState, saveState, getSummaryFields, computeMonthReport, computeMonthOverview, computeWorkMinutes, getHolidays, isHoliday)',
+      'jsconfig.json für VS Code Autocomplete; keine Verhaltensänderung, keine neuen Features',
+  ]},
   { version: '3.8.1', items: [
       'Neu im Repo: scripts/regression.mjs — reproduzierbares Playwright-Skript für QA vor jedem Version-Bump',
       'Deckt Selector-Unit-Tests, E2E Freelance und E2E Employee ab (24 Checks, ~2 s)',
@@ -203,32 +212,15 @@ function formatMoney(amount, currency) {
  * ======================================================================== */
 
 /**
- * @param {Object} input Rohdaten
- *   workedMin        (required) gearbeitete Minuten
- *   targetMin        Soll-Minuten
- *   balance          Saldo-Minuten (workedMin + creditedAbsences - targetMin)
- *   vacationDays     Anzahl Urlaubstage
- *   sickDays         Anzahl Krankheitstage
- *   hourlyRate       Stundensatz (0/undef = kein Rechnungsbetrag)
- *   currency         EUR/CHF/USD
- *   includeAbsences  Urlaub/Krank-Feld anzeigen? Default true
- *   includeHolidays  Feiertage-Feld anzeigen? Default false
- *   holidayCount     Anzahl Feiertage (für Woche)
- *   mode             'freelance' | 'employee' | undefined (undef = aus state ableiten)
- *   workedLabel      Label-Override für Ist (z.B. 'Ist gesamt' in Übersicht)
- *   targetLabel      Label-Override für Soll
- *   balanceLabel     Label-Override für Saldo
- *   netLabel         Label-Override für Rechnungsbetrag
- * @returns {Array<Object>} Felder in Anzeigereihenfolge. Jedes Feld hat:
- *   key              stabile ID ('worked','target','balance','net','absences','holidays')
- *   label            Anzeige-Label (deutsch)
- *   kind             'time' | 'balance' | 'money' | 'count'
- *   valueHM          nur bei kind=time/balance: 'HH:MM'
- *   valueDec         nur bei kind=time/balance: '42,50 h'
- *   value            bei kind=money/count: fertiger String
- *   sign             nur bei kind=balance: 'pos' | 'neg'
- *   rawMinutes       nur bei kind=time/balance: Roh-Minuten (für Konsumenten mit Sonderformat)
- *   rawAmount        nur bei kind=money: {amount,currency}
+ * Single Source of Truth für alle Zusammenfassungs-Konsumenten
+ * (Screen/HTML, PDF, Word, E-Mail).
+ *
+ * Regel-Logik:
+ *   - Freelance: nur worked (immer) + net (falls hourlyRate>0) + holidays (falls includeHolidays)
+ *   - Employee:  worked + target + balance + optional net + absences (falls includeAbsences) + holidays
+ *
+ * @param {AZSummaryInput} input
+ * @returns {AZSummaryField[]} Felder in Anzeigereihenfolge
  */
 function getSummaryFields(input) {
   const mode = input.mode || (isFreelance() ? 'freelance' : 'employee');
@@ -475,6 +467,11 @@ function renderSummaryPlaintext(fields) {
 
 let state = loadState();
 
+/**
+ * Lädt State aus localStorage und normalisiert Legacy-Felder.
+ * Setzt state global.
+ * @returns {AZState}
+ */
 function loadState() {
   try {
     const raw = storage.get(STORAGE_KEY);
@@ -553,6 +550,10 @@ function migrateHomeofficeEntries(entries) {
   return others.concat(merged);
 }
 
+/**
+ * Persistiert das globale state-Objekt in localStorage.
+ * @returns {void}
+ */
 function saveState() {
   try {
     storage.set(STORAGE_KEY, JSON.stringify(state));
@@ -733,6 +734,12 @@ const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const DAY_LABELS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
+/**
+ * Berechnet Netto-Arbeitsminuten für einen work-Eintrag (Präsenz).
+ * Für Home-Office siehe computeHomeofficeMinutes.
+ * @param {AZEntry} entry Muss type='work' sein
+ * @returns {number} Minuten (start→end abzüglich breakMinutes)
+ */
 function computeWorkMinutes(entry) {
   if (entry.type === 'homeoffice') {
     return computeHomeofficeMinutes(entry);
@@ -839,6 +846,12 @@ function dateISO(dt) {
 function addDays(dt, n) { const c = new Date(dt); c.setDate(c.getDate() + n); return c; }
 
 /* All bundesweiten + relevante landesspezifische Feiertage */
+/**
+ * Liefert alle Feiertage für Jahr + Bundesland (16 BL unterstützt).
+ * @param {number} year z.B. 2026
+ * @param {string} stateCode ISO-Code, z.B. 'HE'
+ * @returns {AZHoliday[]}
+ */
 function getHolidays(year, stateCode) {
   const list = [];
   const easter = easterSunday(year);
@@ -906,6 +919,13 @@ function getHolidaysInRange(startISO, endISO, stateCode) {
   return all.filter(h => h.date >= startISO && h.date <= endISO);
 }
 
+/**
+ * Prüft, ob ein Datum ein Feiertag im Bundesland ist.
+ * Gibt den Feiertag zurück (truthy) oder null.
+ * @param {string} iso 'YYYY-MM-DD'
+ * @param {string} stateCode z.B. 'HE'
+ * @returns {AZHoliday|null}
+ */
 function isHoliday(iso, stateCode) {
   const year = Number(iso.slice(0, 4));
   return getHolidays(year, stateCode).find(h => h.date === iso) || null;
@@ -1983,6 +2003,14 @@ function renderWeek() {
 
 /* ---------- Monthly Report ---------- */
 
+/**
+ * Zentraler Monatsbericht für einen Arbeitgeber.
+ * Aggregiert alle Einträge, berechnet Ist/Soll/Saldo, Home-Office-Anteil,
+ * angerechnete Urlaub/Krank-Minuten und listet Feiertage.
+ * @param {string} employerId
+ * @param {string} ym 'YYYY-MM'
+ * @returns {AZMonthReport|null} null wenn Arbeitgeber unbekannt
+ */
 function computeMonthReport(employerId, ym) {
   const emp = getEmployer(employerId);
   if (!emp) return null;
@@ -2461,6 +2489,12 @@ function wrapText(doc, text, x, y, maxWidth) {
 
 /* ---------- Overview: Monatsauswertung über alle Arbeitgeber ---------- */
 
+/**
+ * Monats-Übersicht über ALLE Arbeitgeber.
+ * Nutzt computeMonthReport pro Arbeitgeber und aggregiert Totals.
+ * @param {string} ym 'YYYY-MM'
+ * @returns {AZMonthOverview}
+ */
 function computeMonthOverview(ym) {
   const rows = state.employers.map(emp => {
     const r = computeMonthReport(emp.id, ym);

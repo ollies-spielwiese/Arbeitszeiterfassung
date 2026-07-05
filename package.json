@@ -10,6 +10,7 @@
     "qa:headed": "HEADLESS=0 node scripts/regression.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.59.0"
+    "playwright": "^1.59.0",
+    "typescript": "5.4"
   }
 }
