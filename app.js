@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.7.3';
+const APP_VERSION = '3.8.0';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.0', items: [
+      'Interner Refactor: zentraler getSummaryFields-Selector als Single Source of Truth für alle Zusammenfassungen',
+      'Screen, PDF, Word und E-Mail nutzen jetzt dieselben Feld-Definitionen und Renderer',
+      'Änderungen an Feld-Sichtbarkeit oder Formatierung finden nur noch an einer Stelle statt',
+  ]},
   { version: '3.7.3', items: [
       'Freelance-Modus: Zusammenfassung zeigt jetzt nur Ist-Stunden und Rechnungsbetrag (kein Soll/Saldo, kein Urlaub/Krank)',
       'Betrifft Bildschirm-Bericht (Tag/Woche/Monat), Übersicht-Tab, PDF-, Word- und E-Mail-Zusammenfassung',
@@ -178,6 +183,290 @@ function formatMoney(amount, currency) {
     return (Math.round((amount||0)*100)/100).toFixed(2) + ' ' + cur;
   }
 }
+
+/* ========================================================================
+ * SUMMARY SELECTOR — Single Source of Truth
+ * ------------------------------------------------------------------------
+ * Alle Zusammenfassungs-Konsumenten (Screen/HTML, PDF, Word, E-Mail) rufen
+ * NUR noch getSummaryFields() auf und rendern die zurückgegebenen Felder
+ * mit dem passenden format-spezifischen Renderer. Änderungen an Mode-Regeln,
+ * Feld-Sichtbarkeit oder Formatierung passieren AUSSCHLIESSLICH hier.
+ *
+ * Regel-Logik (in getSummaryFields intern):
+ *   - Freelance-Mode: nur worked (immer) + net (falls hourlyRate>0) + holidays (falls includeHolidays)
+ *   - Employee-Mode:  worked + target + balance + optional net + absences (falls includeAbsences) + holidays
+ * ======================================================================== */
+
+/**
+ * @param {Object} input Rohdaten
+ *   workedMin        (required) gearbeitete Minuten
+ *   targetMin        Soll-Minuten
+ *   balance          Saldo-Minuten (workedMin + creditedAbsences - targetMin)
+ *   vacationDays     Anzahl Urlaubstage
+ *   sickDays         Anzahl Krankheitstage
+ *   hourlyRate       Stundensatz (0/undef = kein Rechnungsbetrag)
+ *   currency         EUR/CHF/USD
+ *   includeAbsences  Urlaub/Krank-Feld anzeigen? Default true
+ *   includeHolidays  Feiertage-Feld anzeigen? Default false
+ *   holidayCount     Anzahl Feiertage (für Woche)
+ *   mode             'freelance' | 'employee' | undefined (undef = aus state ableiten)
+ *   workedLabel      Label-Override für Ist (z.B. 'Ist gesamt' in Übersicht)
+ *   targetLabel      Label-Override für Soll
+ *   balanceLabel     Label-Override für Saldo
+ *   netLabel         Label-Override für Rechnungsbetrag
+ * @returns {Array<Object>} Felder in Anzeigereihenfolge. Jedes Feld hat:
+ *   key              stabile ID ('worked','target','balance','net','absences','holidays')
+ *   label            Anzeige-Label (deutsch)
+ *   kind             'time' | 'balance' | 'money' | 'count'
+ *   valueHM          nur bei kind=time/balance: 'HH:MM'
+ *   valueDec         nur bei kind=time/balance: '42,50 h'
+ *   value            bei kind=money/count: fertiger String
+ *   sign             nur bei kind=balance: 'pos' | 'neg'
+ *   rawMinutes       nur bei kind=time/balance: Roh-Minuten (für Konsumenten mit Sonderformat)
+ *   rawAmount        nur bei kind=money: {amount,currency}
+ */
+function getSummaryFields(input) {
+  const mode = input.mode || (isFreelance() ? 'freelance' : 'employee');
+  const freelance = (mode === 'freelance');
+  const includeAbsences = input.includeAbsences !== false; // default true
+  const includeHolidays = input.includeHolidays === true;  // default false
+
+  const fields = [];
+
+  // 1. Ist-Stunden (immer)
+  fields.push({
+    key: 'worked',
+    label: input.workedLabel || 'Ist',
+    kind: 'time',
+    valueHM: minutesToHM(input.workedMin || 0),
+    valueDec: `${hoursDecimal(input.workedMin || 0)} h`,
+    rawMinutes: input.workedMin || 0,
+  });
+
+  // 2. Soll + Saldo (nur employee)
+  if (!freelance) {
+    fields.push({
+      key: 'target',
+      label: input.targetLabel || 'Soll',
+      kind: 'time',
+      valueHM: minutesToHM(input.targetMin || 0),
+      valueDec: `${hoursDecimal(input.targetMin || 0)} h`,
+      rawMinutes: input.targetMin || 0,
+    });
+    const bal = input.balance || 0;
+    fields.push({
+      key: 'balance',
+      label: input.balanceLabel || 'Saldo',
+      kind: 'balance',
+      valueHM: `${bal >= 0 ? '+' : ''}${minutesToHM(bal)}`,
+      valueDec: `${hoursDecimal(bal)} h`,
+      sign: bal >= 0 ? 'pos' : 'neg',
+      rawMinutes: bal,
+    });
+  }
+
+  // 3. Rechnungsbetrag (immer wenn Stundensatz > 0)
+  const rate = Number(input.hourlyRate) || 0;
+  if (rate > 0) {
+    const currency = input.currency || 'EUR';
+    const amount = ((input.workedMin || 0) / 60) * rate;
+    fields.push({
+      key: 'net',
+      label: input.netLabel || 'Rechnungsbetrag',
+      kind: 'money',
+      value: formatMoney(amount, currency),
+      rawAmount: { amount, currency, rate, hoursDec: hoursDecimal(input.workedMin || 0) },
+    });
+  }
+
+  // 4. Urlaub/Krank (nur employee, nur wenn includeAbsences)
+  if (!freelance && includeAbsences) {
+    fields.push({
+      key: 'absences',
+      label: 'Urlaub / Krank',
+      kind: 'count',
+      value: `${input.vacationDays || 0} / ${input.sickDays || 0}`,
+      rawCounts: { vacation: input.vacationDays || 0, sick: input.sickDays || 0 },
+    });
+  }
+
+  // 5. Feiertage (wenn explizit angefordert, z.B. Woche)
+  if (includeHolidays) {
+    fields.push({
+      key: 'holidays',
+      label: 'Feiertage',
+      kind: 'count',
+      value: String(input.holidayCount || 0),
+    });
+  }
+
+  return fields;
+}
+
+/**
+ * Aggregierte Variante für Übersicht (mehrere Kunden/Arbeitgeber).
+ * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
+ */
+function getOverviewSummaryFields(ov) {
+  const freelance = isFreelance();
+  // Netto-Summe pro Währung aggregieren
+  const netByCurrency = ov.rows.reduce((acc, row) => {
+    const rate = Number(row.employer.hourlyRate) || 0;
+    if (rate <= 0) return acc;
+    const cur = row.employer.currency || 'EUR';
+    acc[cur] = (acc[cur] || 0) + (row.workedMin / 60) * rate;
+    return acc;
+  }, {});
+  const hasNet = Object.keys(netByCurrency).length > 0;
+  const netStr = hasNet
+    ? Object.entries(netByCurrency).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
+    : '—';
+
+  const fields = [];
+  fields.push({
+    key: 'worked',
+    label: 'Ist gesamt',
+    kind: 'time',
+    valueHM: minutesToHM(ov.totals.workedMin),
+    valueDec: `${hoursDecimal(ov.totals.workedMin)} h`,
+    rawMinutes: ov.totals.workedMin,
+  });
+  if (!freelance) {
+    fields.push({
+      key: 'target',
+      label: 'Soll gesamt',
+      kind: 'time',
+      valueHM: minutesToHM(ov.totals.targetMin),
+      valueDec: `${hoursDecimal(ov.totals.targetMin)} h`,
+      rawMinutes: ov.totals.targetMin,
+    });
+    const bal = ov.totals.balance;
+    fields.push({
+      key: 'balance',
+      label: 'Saldo gesamt',
+      kind: 'balance',
+      valueHM: `${bal >= 0 ? '+' : ''}${minutesToHM(bal)}`,
+      valueDec: `${hoursDecimal(bal)} h`,
+      sign: bal >= 0 ? 'pos' : 'neg',
+      rawMinutes: bal,
+    });
+  }
+  // Rechnungsbetrag: im Freelance immer zeigen (auch wenn 0 → '—'), im Employee nur wenn > 0
+  if (freelance || hasNet) {
+    fields.push({
+      key: 'net',
+      label: 'Rechnungsbetrag gesamt',
+      kind: 'money',
+      value: netStr,
+    });
+  }
+  if (!freelance) {
+    fields.push({
+      key: 'absences',
+      label: 'Urlaub / Krank',
+      kind: 'count',
+      value: `${ov.totals.vacationDays} / ${ov.totals.sickDays}`,
+    });
+  }
+  return fields;
+}
+
+/* ---------- Renderer: HTML (.summary-grid) ---------- */
+function renderSummaryHTML(fields) {
+  return fields.map(f => {
+    if (f.kind === 'balance') {
+      return `<div class="summary-item"><div class="label">${f.label}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
+    }
+    if (f.kind === 'time') {
+      return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.valueHM}</div></div>`;
+    }
+    return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.value}</div></div>`;
+  }).join('\n');
+}
+
+/* ---------- Renderer: PDF-Zeilen (jsPDF flat text) ---------- */
+/* Gibt Array von Strings für doc.text() zurück. */
+function renderSummaryPdfLines(fields) {
+  return fields.map(f => {
+    if (f.kind === 'time') return `${f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label)}: ${f.valueHM} (${f.valueDec})`;
+    if (f.kind === 'balance') return `${f.label}: ${f.valueHM} (${f.valueDec})`;
+    if (f.kind === 'money') {
+      if (f.rawAmount) {
+        // Detailzeile mit Rechnung im Report-PDF
+        return `Netto-Summe: ${f.value}  (${f.rawAmount.hoursDec} h × ${formatMoney(f.rawAmount.rate, f.rawAmount.currency)}/h)`;
+      }
+      return `${f.label}: ${f.value}`;
+    }
+    if (f.kind === 'count') {
+      if (f.key === 'absences' && f.rawCounts) {
+        return `Urlaubstage: ${f.rawCounts.vacation}   Krankheitstage: ${f.rawCounts.sick}`;
+      }
+      return `${f.label}: ${f.value}`;
+    }
+    return `${f.label}: ${f.value || ''}`;
+  });
+}
+
+/* ---------- Renderer: Word (docx) ---------- */
+/* Braucht docx-Konstruktoren aus dem generateWordBlob-Scope; deshalb Higher-Order-Funktion. */
+function renderSummaryWordParagraphs(fields, docxCtx) {
+  const { Paragraph, TextRun } = docxCtx;
+  return fields.map(f => {
+    if (f.kind === 'time') {
+      const label = f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label);
+      return new Paragraph({ children: [
+        new TextRun({ text: `${label}: `, bold: true }),
+        new TextRun({ text: `${f.valueHM} (${f.valueDec})` }),
+      ]});
+    }
+    if (f.kind === 'balance') {
+      return new Paragraph({ children: [
+        new TextRun({ text: `${f.label}: `, bold: true }),
+        new TextRun({ text: `${f.valueHM} (${f.valueDec})`, bold: true, color: f.sign === 'pos' ? '15803D' : 'B91C1C' }),
+      ]});
+    }
+    if (f.kind === 'money') {
+      const children = [
+        new TextRun({ text: 'Netto-Summe: ', bold: true }),
+        new TextRun({ text: f.value, bold: true }),
+      ];
+      if (f.rawAmount) {
+        children.push(new TextRun({ text: `  (${f.rawAmount.hoursDec} h × ${formatMoney(f.rawAmount.rate, f.rawAmount.currency)}/h)`, color: '64748B' }));
+      }
+      return new Paragraph({ children });
+    }
+    if (f.kind === 'count') {
+      if (f.key === 'absences' && f.rawCounts) {
+        return new Paragraph({ children: [
+          new TextRun({ text: 'Urlaubstage: ', bold: true }),
+          new TextRun({ text: `${f.rawCounts.vacation}` }),
+          new TextRun({ text: '   Krankheitstage: ', bold: true }),
+          new TextRun({ text: `${f.rawCounts.sick}` }),
+        ]});
+      }
+      return new Paragraph({ children: [
+        new TextRun({ text: `${f.label}: `, bold: true }),
+        new TextRun({ text: f.value }),
+      ]});
+    }
+    return new Paragraph({ children: [new TextRun({ text: `${f.label}: ${f.value || ''}` })] });
+  });
+}
+
+/* ---------- Renderer: Plaintext (E-Mail-Body als '• Label: Value'-Zeilen) ---------- */
+function renderSummaryPlaintext(fields) {
+  return fields.map(f => {
+    if (f.kind === 'time') return `• ${f.label}: ${f.valueHM} (${f.valueDec})`;
+    if (f.kind === 'balance') return `• ${f.label}: ${f.valueHM}`;
+    if (f.kind === 'money') return `• ${f.label}: ${f.value}`;
+    if (f.kind === 'count') {
+      if (f.key === 'absences') return `• Urlaub / Krank: ${f.value} Tage`;
+      return `• ${f.label}: ${f.value}`;
+    }
+    return `• ${f.label}: ${f.value || ''}`;
+  });
+}
+
 
 let state = loadState();
 
@@ -875,26 +1164,20 @@ function renderTodaySummary() {
   const creditedAbsenceMin = Math.round((vacationDays + sickDays) * dailyTargetMin);
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
-  const hourlyRate = Number(emp.hourlyRate) || 0;
-  const currency = emp.currency || 'EUR';
-  const netTotal = (workedMin / 60) * hourlyRate;
-
-  const freelanceItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(workedMin)}</div></div>
-      ${hourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(netTotal, currency)}</div></div>` : ''}
-  `;
-
-  const employeeItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(workedMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo</div><div class="value ${balance >= 0 ? 'pos' : 'neg'}">${balance >= 0 ? '+' : ''}${minutesToHM(balance)}</div></div>
-      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${vacationDays} / ${sickDays}</div></div>
-  `;
+  const summaryFields = getSummaryFields({
+    workedMin,
+    targetMin,
+    balance,
+    vacationDays,
+    sickDays,
+    hourlyRate: Number(emp.hourlyRate) || 0,
+    currency: emp.currency || 'EUR',
+  });
 
   container.innerHTML = `
     <h3>Diesen Monat (${formatMonthYear(ym)})</h3>
     <div class="summary-grid">
-      ${isFreelance() ? freelanceItems : employeeItems}
+      ${renderSummaryHTML(summaryFields)}
     </div>
   `;
 }
@@ -1670,22 +1953,16 @@ function renderWeek() {
   const balance = totalMin - targetMin;
   const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
 
-  const weekHourlyRate = Number(emp.hourlyRate) || 0;
-  const weekCurrency = emp.currency || 'EUR';
-  const weekNetTotal = (totalMin / 60) * weekHourlyRate;
-
-  const weekFreelanceItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(totalMin)}</div></div>
-      ${weekHourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(weekNetTotal, weekCurrency)}</div></div>` : ''}
-      <div class="summary-item"><div class="label">Feiertage</div><div class="value">${holidaysInWeek.length}</div></div>
-  `;
-
-  const weekEmployeeItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(totalMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo</div><div class="value ${balance >= 0 ? 'pos' : 'neg'}">${balance >= 0 ? '+' : ''}${minutesToHM(balance)}</div></div>
-      <div class="summary-item"><div class="label">Feiertage</div><div class="value">${holidaysInWeek.length}</div></div>
-  `;
+  const weekFields = getSummaryFields({
+    workedMin: totalMin,
+    targetMin,
+    balance,
+    hourlyRate: Number(emp.hourlyRate) || 0,
+    currency: emp.currency || 'EUR',
+    includeAbsences: false, // Woche zeigt keine Urlaub/Krank-Zähler
+    includeHolidays: true,
+    holidayCount: holidaysInWeek.length,
+  });
 
   container.innerHTML = `
     <div class="report-header">
@@ -1693,7 +1970,7 @@ function renderWeek() {
       <div class="subtitle">${isoWeek} • ${formatDate(dates[0])} – ${formatDate(dates[6])}</div>
     </div>
     <div class="summary-grid">
-      ${isFreelance() ? weekFreelanceItems : weekEmployeeItems}
+      ${renderSummaryHTML(weekFields)}
     </div>
     ${dayRows}
   `;
@@ -1797,21 +2074,15 @@ function renderReport() {
     ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
     : '';
 
-  const mrHourlyRate = Number(r.employer.hourlyRate) || 0;
-  const mrCurrency = r.employer.currency || 'EUR';
-  const mrNetTotal = (r.workedMin / 60) * mrHourlyRate;
-
-  const mrFreelanceItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(r.workedMin)}</div></div>
-      ${mrHourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(mrNetTotal, mrCurrency)}</div></div>` : ''}
-  `;
-
-  const mrEmployeeItems = `
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(r.workedMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(r.targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo</div><div class="value ${r.balance >= 0 ? 'pos' : 'neg'}">${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}</div></div>
-      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${r.vacationEntries.length} / ${r.sickEntries.length}</div></div>
-  `;
+  const mrFields = getSummaryFields({
+    workedMin: r.workedMin,
+    targetMin: r.targetMin,
+    balance: r.balance,
+    vacationDays: r.vacationEntries.length,
+    sickDays: r.sickEntries.length,
+    hourlyRate: Number(r.employer.hourlyRate) || 0,
+    currency: r.employer.currency || 'EUR',
+  });
 
   container.innerHTML = `
     <div class="report-header">
@@ -1819,7 +2090,7 @@ function renderReport() {
       <div class="subtitle">${formatMonthYear(r.ym)}</div>
     </div>
     <div class="summary-grid">
-      ${isFreelance() ? mrFreelanceItems : mrEmployeeItems}
+      ${renderSummaryHTML(mrFields)}
     </div>
     ${holidayList}
     ${rows ? `
@@ -1946,29 +2217,22 @@ async function generateWordBlob(report) {
   headerLines.push(new Paragraph({ children: [new TextRun({ text: `Erstellt am ${new Date().toLocaleDateString('de-DE')}`, italics: true, color: '64748B' })] }));
   headerLines.push(new Paragraph({ text: '' }));
 
+  const wordSummaryFields = getSummaryFields({
+    workedMin: report.workedMin,
+    targetMin: report.targetMin,
+    balance: report.balance,
+    vacationDays: report.vacationEntries.length,
+    sickDays: report.sickEntries.length,
+    hourlyRate: Number(report.employer.hourlyRate) || 0,
+    currency: report.employer.currency || 'EUR',
+  });
+  const wordSummaryParagraphs = renderSummaryWordParagraphs(wordSummaryFields, { Paragraph, TextRun });
+
   const children = [
     ...headerLines,
 
     new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Zusammenfassung', bold: true })] }),
-    new Paragraph({ children: [ new TextRun({ text: 'Ist-Stunden: ', bold: true }), new TextRun({ text: `${minutesToHM(report.workedMin)} (${hoursDecimal(report.workedMin)} h)` }) ]}),
-    ...(isFreelance() ? [] : [
-      new Paragraph({ children: [ new TextRun({ text: 'Soll-Stunden: ', bold: true }), new TextRun({ text: `${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)` }) ]}),
-      new Paragraph({ children: [
-        new TextRun({ text: 'Saldo: ', bold: true }),
-        new TextRun({ text: `${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`, bold: true, color: report.balance >= 0 ? '15803D' : 'B91C1C' }),
-      ]}),
-    ]),
-    ...((Number(report.employer.hourlyRate) > 0) ? [new Paragraph({ children: [
-      new TextRun({ text: 'Netto-Summe: ', bold: true }),
-      new TextRun({ text: `${formatMoney((report.workedMin / 60) * Number(report.employer.hourlyRate), report.employer.currency || 'EUR')}`, bold: true }),
-      new TextRun({ text: `  (${hoursDecimal(report.workedMin)} h × ${formatMoney(Number(report.employer.hourlyRate), report.employer.currency || 'EUR')}/h)`, color: '64748B' }),
-    ]})] : []),
-    ...(isFreelance() ? [] : [new Paragraph({ children: [
-      new TextRun({ text: 'Urlaubstage: ', bold: true }),
-      new TextRun({ text: `${report.vacationEntries.length}` }),
-      new TextRun({ text: '   Krankheitstage: ', bold: true }),
-      new TextRun({ text: `${report.sickEntries.length}` }),
-    ]})]),
+    ...wordSummaryParagraphs,
     ...absenceLines,
     new Paragraph({ text: '' }),
 
@@ -2059,22 +2323,16 @@ function generatePdfBlob(report) {
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  const lines = [
-    `Ist-Stunden: ${minutesToHM(report.workedMin)} (${hoursDecimal(report.workedMin)} h)`,
-  ];
-  if (!isFreelance()) {
-    lines.push(`Soll-Stunden: ${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)`);
-    lines.push(`Saldo: ${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`);
-  }
-  const hourlyRate = Number(report.employer.hourlyRate) || 0;
-  if (hourlyRate > 0) {
-    const currency = report.employer.currency || 'EUR';
-    const netTotal = (report.workedMin / 60) * hourlyRate;
-    lines.push(`Netto-Summe: ${formatMoney(netTotal, currency)}  (${hoursDecimal(report.workedMin)} h × ${formatMoney(hourlyRate, currency)}/h)`);
-  }
-  if (!isFreelance()) {
-    lines.push(`Urlaubstage: ${report.vacationEntries.length}   Krankheitstage: ${report.sickEntries.length}`);
-  }
+  const pdfSummaryFields = getSummaryFields({
+    workedMin: report.workedMin,
+    targetMin: report.targetMin,
+    balance: report.balance,
+    vacationDays: report.vacationEntries.length,
+    sickDays: report.sickEntries.length,
+    hourlyRate: Number(report.employer.hourlyRate) || 0,
+    currency: report.employer.currency || 'EUR',
+  });
+  const lines = renderSummaryPdfLines(pdfSummaryFields);
   for (const line of lines) { doc.text(line, marginX, y); y += 5; }
 
   if (!isFreelance()) {
@@ -2251,16 +2509,10 @@ function renderOverview() {
     if (rate <= 0) return null;
     return { amount: (row.workedMin / 60) * rate, currency: row.employer.currency || 'EUR' };
   };
-  const ovTotalsNet = ov.rows.reduce((acc, row) => {
-    const nt = ovRowNetTotal(row);
-    if (!nt) return acc;
-    const cur = nt.currency;
-    acc[cur] = (acc[cur] || 0) + nt.amount;
-    return acc;
-  }, {});
-  const ovTotalsNetStr = Object.keys(ovTotalsNet).length
-    ? Object.entries(ovTotalsNet).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
-    : '—';
+  // Summary-Grid nutzt zentralen Selector; Tabellen-Aggregat wird lokal berechnet
+  const overviewSummaryFields = getOverviewSummaryFields(ov);
+  const netField = overviewSummaryFields.find(f => f.key === 'net');
+  const ovTotalsNetStr = netField ? netField.value : '—';
 
   const bodyRows = ov.rows.map(row => {
     if (freelanceMode) {
@@ -2306,19 +2558,7 @@ function renderOverview() {
     </tr>
   `;
 
-  const summaryGrid = freelanceMode ? `
-    <div class="summary-grid">
-      <div class="summary-item"><div class="label">Ist gesamt</div><div class="value">${minutesToHM(ov.totals.workedMin)}</div></div>
-      <div class="summary-item"><div class="label">Rechnungsbetrag gesamt</div><div class="value">${ovTotalsNetStr}</div></div>
-    </div>
-  ` : `
-    <div class="summary-grid">
-      <div class="summary-item"><div class="label">Ist gesamt</div><div class="value">${minutesToHM(ov.totals.workedMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll gesamt</div><div class="value">${minutesToHM(ov.totals.targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo gesamt</div><div class="value ${ov.totals.balance >= 0 ? 'pos' : 'neg'}">${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</div></div>
-      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${ov.totals.vacationDays} / ${ov.totals.sickDays}</div></div>
-    </div>
-  `;
+  const summaryGrid = `<div class="summary-grid">${renderSummaryHTML(overviewSummaryFields)}</div>`;
 
   const tableHead = freelanceMode ? `
           <tr>
@@ -2687,17 +2927,15 @@ function openShareModal() {
         if (!r) return;
         const filename = fileNameForReport(r, format);
         const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
-        const summaryLines = isFreelance()
-          ? [`• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`]
-              .concat(Number(r.employer.hourlyRate) > 0
-                ? [`• Rechnungsbetrag: ${formatMoney((r.workedMin / 60) * Number(r.employer.hourlyRate), r.employer.currency || 'EUR')}`]
-                : [])
-          : [
-              `• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`,
-              `• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)`,
-              `• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}`,
-              `• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage`,
-            ];
+        const summaryLines = renderSummaryPlaintext(getSummaryFields({
+          workedMin: r.workedMin,
+          targetMin: r.targetMin,
+          balance: r.balance,
+          vacationDays: r.vacationEntries.length,
+          sickDays: r.sickEntries.length,
+          hourlyRate: Number(r.employer.hourlyRate) || 0,
+          currency: r.employer.currency || 'EUR',
+        }));
         const body =
 `Sehr geehrte Damen und Herren,
 
@@ -2816,17 +3054,15 @@ async function shareReport(format, recipientEmails) {
   }
 
   const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
-  const summaryLines2 = isFreelance()
-    ? [`• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`]
-        .concat(Number(r.employer.hourlyRate) > 0
-          ? [`• Rechnungsbetrag: ${formatMoney((r.workedMin / 60) * Number(r.employer.hourlyRate), r.employer.currency || 'EUR')}`]
-          : [])
-    : [
-        `• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`,
-        `• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)`,
-        `• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}`,
-        `• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage`,
-      ];
+  const summaryLines2 = renderSummaryPlaintext(getSummaryFields({
+    workedMin: r.workedMin,
+    targetMin: r.targetMin,
+    balance: r.balance,
+    vacationDays: r.vacationEntries.length,
+    sickDays: r.sickEntries.length,
+    hourlyRate: Number(r.employer.hourlyRate) || 0,
+    currency: r.employer.currency || 'EUR',
+  }));
   const body =
 `Sehr geehrte Damen und Herren,
 
