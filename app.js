@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.8.0';
+const APP_VERSION = '3.8.1';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.8.1', items: [
+      'Neu im Repo: scripts/regression.mjs — reproduzierbares Playwright-Skript für QA vor jedem Version-Bump',
+      'Deckt Selector-Unit-Tests, E2E Freelance und E2E Employee ab (24 Checks, ~2 s)',
+      'Aufruf: node scripts/regression.mjs — kein npm install nötig',
+  ]},
   { version: '3.8.0', items: [
       'Interner Refactor: zentraler getSummaryFields-Selector als Single Source of Truth für alle Zusammenfassungen',
       'Screen, PDF, Word und E-Mail nutzen jetzt dieselben Feld-Definitionen und Renderer',

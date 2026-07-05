@@ -91,6 +91,21 @@ Keine Server-Kommunikation, keine Analytics, keine Cookies, kein Tracking. Die A
 
 Siehe [RELEASE.md](RELEASE.md) für Deploy-Kommandos, Versions-Schema und Rollback.
 
+## QA — Regression-Sweep
+
+Vor jedem Version-Bump muss `scripts/regression.mjs` grün sein:
+
+```bash
+python3 -m http.server 8765 &        # lokaler Server
+node scripts/regression.mjs           # 24 Checks, ~2 s
+```
+
+Umgebungsvariablen:
+- `BASE_URL` — Server-URL (Default `http://localhost:8765`)
+- `HEADLESS=0` — Browser sichtbar starten
+
+Deckt Selector-Unit-Tests, Freelance- und Employee-E2E in allen Views plus PDF/Word/OverviewPDF-Blob-Erzeugung ab. Exit-Code 0 = alles grün, 1 = mindestens ein Fehler.
+
 ## Autor
 
 Oliver Gläser · Frankfurt am Main

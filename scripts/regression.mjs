@@ -1,0 +1,296 @@
+#!/usr/bin/env node
+/**
+ * Arbeitszeiterfassung — Regression-Sweep
+ *
+ * Reproduzierbarer QA-Lauf, der VOR jedem Version-Bump grün sein muss.
+ * Deckt ab:
+ *   1) Selector-Unit-Tests   — getSummaryFields in 5 Konfigurationen
+ *   2) E2E Freelance-Sweep   — Tracker, Week, Month, Overview + PDF/Word/OverviewPDF
+ *   3) E2E Employee-Sweep    — dito mit target + balance
+ *
+ * Ausführung:
+ *   node scripts/regression.mjs                 # gegen http://localhost:8765
+ *   BASE_URL=http://x:8000 node scripts/regression.mjs
+ *
+ * Voraussetzung: lokaler HTTP-Server auf BASE_URL, playwright installiert
+ * (systemweit oder als dev-dep via `npm i -D playwright`).
+ *
+ * Exit-Code: 0 = alles grün, 1 = mindestens ein Fehler.
+ */
+
+import { chromium } from 'playwright';
+
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8765';
+const HEADLESS = process.env.HEADLESS !== '0';
+
+const results = [];
+let failed = 0;
+
+function record(name, ok, detail = '') {
+  results.push({ name, ok, detail });
+  if (!ok) failed++;
+  const mark = ok ? '  OK  ' : ' FAIL ';
+  const line = `[${mark}] ${name}${detail ? '  — ' + detail : ''}`;
+  console.log(line);
+}
+
+function assertEq(name, actual, expected) {
+  const ok = actual === expected;
+  record(name, ok, ok ? '' : `erwartet=${JSON.stringify(expected)} bekommen=${JSON.stringify(actual)}`);
+}
+
+function assertTrue(name, cond, detail = '') {
+  record(name, !!cond, detail);
+}
+
+function assertAtLeast(name, actual, min) {
+  const ok = typeof actual === 'number' && actual >= min;
+  record(name, ok, ok ? `${actual}` : `erwartet≥${min} bekommen=${actual}`);
+}
+
+// ---------- Boot ----------
+
+async function boot() {
+  const browser = await chromium.launch({ headless: HEADLESS });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  page.on('pageerror', err => record('page-error: ' + err.message, false));
+  page.on('console', msg => {
+    if (msg.type() === 'error') record('console-error: ' + msg.text(), false);
+  });
+
+  await page.goto(BASE_URL + '/?nc=' + Date.now(), { waitUntil: 'commit', timeout: 15000 });
+  await page.waitForLoadState('domcontentloaded', { timeout: 15000 });
+  await page.waitForFunction(
+    () => typeof state !== 'undefined' && typeof getSummaryFields === 'function',
+    null,
+    { timeout: 15000 }
+  );
+  await page.evaluate(() => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')));
+  return { browser, context, page };
+}
+
+// ---------- 1) Selector-Unit-Tests ----------
+
+async function runSelectorUnits(page) {
+  console.log('\n=== 1) Selector-Unit-Tests ===');
+
+  // Fall A: Freelance ohne Rate — nur worked
+  const a = await page.evaluate(() => getSummaryFields({
+    mode: 'freelance', workedMin: 300, hourlyRate: 0, currency: 'EUR'
+  }));
+  assertTrue('unit-A: freelance ohne rate liefert genau 1 Feld', a.length === 1, `len=${a.length}`);
+  assertEq('unit-A: key=worked', a[0]?.key, 'worked');
+
+  // Fall B: Freelance mit Rate
+  const b = await page.evaluate(() => getSummaryFields({
+    mode: 'freelance', workedMin: 420, hourlyRate: 85, currency: 'EUR'
+  }));
+  const bKeys = b.map(f => f.key);
+  assertTrue('unit-B: freelance mit rate enthält worked+net',
+    bKeys.includes('worked') && bKeys.includes('net'), `keys=${bKeys.join(',')}`);
+  const bNet = b.find(f => f.key === 'net');
+  assertEq('unit-B: net amount 7h × 85 = 595', bNet?.rawAmount?.amount, 595);
+
+  // Fall C: Employee full
+  const c = await page.evaluate(() => getSummaryFields({
+    mode: 'employee', workedMin: 9600, targetMin: 9600, balance: 0,
+    vacationDays: 2, sickDays: 1
+  }));
+  const cKeys = c.map(f => f.key);
+  const needed = ['worked','target','balance','absences'];
+  const missing = needed.filter(k => !cKeys.includes(k));
+  assertTrue('unit-C: employee liefert worked/target/balance/absences',
+    missing.length === 0, missing.length ? `fehlt=${missing.join(',')}` : '');
+  const cBalance = c.find(f => f.key === 'balance');
+  assertEq('unit-C: balance rawMinutes = 0', cBalance?.rawMinutes, 0);
+
+  // Fall D: Week Freelance mit Feiertagen
+  const d = await page.evaluate(() => getSummaryFields({
+    mode: 'freelance', workedMin: 300, hourlyRate: 85, currency: 'EUR',
+    includeHolidays: true, holidayCount: 1
+  }));
+  const dKeys = d.map(f => f.key);
+  assertTrue('unit-D: week freelance enthält holidays', dKeys.includes('holidays'),
+    `keys=${dKeys.join(',')}`);
+
+  // Fall E: Employee ohne Absences
+  const e = await page.evaluate(() => getSummaryFields({
+    mode: 'employee', workedMin: 480, targetMin: 480, balance: 0,
+    includeAbsences: false
+  }));
+  const eKeys = e.map(f => f.key);
+  assertTrue('unit-E: employee ohne absences hat keine absences', !eKeys.includes('absences'),
+    `keys=${eKeys.join(',')}`);
+}
+
+// ---------- Helpers für E2E ----------
+
+/*
+ * Seedet state.employers (auch im Freelance-Modus — der Kunde ist dort das "employer"-Objekt)
+ * mit einem Work-Entry an heute-Datum, 09:00-16:00 = 7:00 = 420 Minuten.
+ */
+async function seedState(page, mode, employer) {
+  await page.evaluate(({ mode, emp }) => {
+    document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+    state.settings.appMode = mode;
+    state.employers = [emp];
+    state.activeEmployerId = emp.id;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const day = `${y}-${m}-01`;
+    state.entries = [{
+      id: 'r1',
+      employerId: emp.id,
+      date: day,
+      type: 'work',
+      start: '09:00',
+      end: '16:00',
+      breakMinutes: 0,
+      note: 'QA-Regression',
+      createdAt: new Date().toISOString(),
+    }];
+    saveState();
+  }, { mode, emp: employer });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => typeof state !== 'undefined' && typeof getSummaryFields === 'function');
+  await page.evaluate(() => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')));
+}
+
+async function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function checkView(page, viewName) {
+  await page.evaluate(v => switchView(v), viewName);
+  await page.waitForTimeout(150);
+  return await page.evaluate(() => document.body.innerText);
+}
+
+async function checkBlob(page, label, kind) {
+  const size = await page.evaluate(async ({ k }) => {
+    const d = new Date();
+    const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (k === 'overviewPdf') {
+      const ov = computeMonthOverview(ym);
+      const blob = generateOverviewPdfBlob(ov);
+      return blob?.size || 0;
+    }
+    const r = computeMonthReport(state.activeEmployerId, ym);
+    if (!r) return -1;
+    if (k === 'pdf') return generatePdfBlob(r)?.size || 0;
+    if (k === 'word') { const b = await generateWordBlob(r); return b?.size || 0; }
+    return 0;
+  }, { k: kind });
+  assertAtLeast(`${label} — ${kind} > 500 bytes`, size, 500);
+  return size;
+}
+
+// ---------- 2) Freelance E2E ----------
+
+async function runFreelance(page) {
+  console.log('\n=== 2) E2E Freelance (Kunde Alpha, hourlyRate=85 EUR) ===');
+  await seedState(page, 'freelance', {
+    id: 'e1', name: 'Kunde Alpha',
+    hourlyRate: 85, currency: 'EUR',
+    targetHours: 0, weeklySchedule: null,
+  });
+
+  const tracker = await checkView(page, 'tracker');
+  assertTrue('freelance tracker: Rechnungsbetrag 595,00 €',
+    /595,00\s*€/.test(tracker));
+
+  const week = await checkView(page, 'week');
+  assertTrue('freelance week: Ist sichtbar', /7:00/.test(week) || /Ist/.test(week));
+
+  // Report-Month setzen und renderReport erzwingen
+  await page.evaluate(async ym => {
+    const inp = document.getElementById('report-month');
+    if (inp) inp.value = ym;
+    const sel = document.getElementById('report-employer');
+    if (sel) sel.value = state.activeEmployerId;
+    if (typeof renderReport === 'function') renderReport();
+  }, await currentYm());
+  await page.waitForTimeout(150);
+  const report = await page.evaluate(() => document.body.innerText);
+  assertTrue('freelance report: Rechnungsbetrag 595,00 €', /595,00\s*€/.test(report));
+
+  // Overview
+  await page.evaluate(async ym => {
+    const inp = document.getElementById('overview-month');
+    if (inp) inp.value = ym;
+  }, await currentYm());
+  const overview = await checkView(page, 'overview');
+  assertTrue('freelance overview: 595,00 € aggregiert', /595,00\s*€/.test(overview));
+
+  await checkBlob(page, 'freelance', 'pdf');
+  await checkBlob(page, 'freelance', 'word');
+  await checkBlob(page, 'freelance', 'overviewPdf');
+}
+
+// ---------- 3) Employee E2E ----------
+
+async function runEmployee(page) {
+  console.log('\n=== 3) E2E Employee (Arbeitgeber A, targetHours=160) ===');
+  await seedState(page, 'employee', {
+    id: 'e1', name: 'Arbeitgeber A',
+    hourlyRate: 0, currency: 'EUR',
+    targetHours: 160, weeklySchedule: null,
+  });
+
+  const tracker = await checkView(page, 'tracker');
+  assertTrue('employee tracker: Ist 7:00', /7:00/.test(tracker));
+  assertTrue('employee tracker: Soll sichtbar', /Soll/i.test(tracker));
+  assertTrue('employee tracker: Saldo sichtbar', /Saldo/i.test(tracker));
+
+  const week = await checkView(page, 'week');
+  assertTrue('employee week: Soll sichtbar', /Soll/i.test(week));
+
+  await page.evaluate(async ym => {
+    const inp = document.getElementById('report-month');
+    if (inp) inp.value = ym;
+    const sel = document.getElementById('report-employer');
+    if (sel) sel.value = state.activeEmployerId;
+    if (typeof renderReport === 'function') renderReport();
+  }, await currentYm());
+  await page.waitForTimeout(150);
+  const report = await page.evaluate(() => document.body.innerText);
+  assertTrue('employee report: Saldo sichtbar', /Saldo/i.test(report));
+
+  await page.evaluate(async ym => {
+    const inp = document.getElementById('overview-month');
+    if (inp) inp.value = ym;
+  }, await currentYm());
+  const overview = await checkView(page, 'overview');
+  assertTrue('employee overview: Ist gesamt sichtbar', /Ist/i.test(overview));
+
+  await checkBlob(page, 'employee', 'pdf');
+  await checkBlob(page, 'employee', 'word');
+  await checkBlob(page, 'employee', 'overviewPdf');
+}
+
+// ---------- Runner ----------
+
+(async () => {
+  console.log(`Regression-Sweep gegen ${BASE_URL}`);
+  const t0 = Date.now();
+  const { browser, page } = await boot();
+  try {
+    await runSelectorUnits(page);
+    await runFreelance(page);
+    await runEmployee(page);
+  } catch (err) {
+    record('runner-exception: ' + err.message, false, err.stack?.split('\n').slice(0,3).join(' | '));
+  } finally {
+    await browser.close();
+  }
+
+  const dt = ((Date.now() - t0) / 1000).toFixed(1);
+  const total = results.length;
+  const passed = total - failed;
+  console.log('\n=== Ergebnis ===');
+  console.log(`${passed}/${total} Checks OK — ${failed} Fehler — ${dt}s`);
+  process.exit(failed === 0 ? 0 : 1);
+})();
