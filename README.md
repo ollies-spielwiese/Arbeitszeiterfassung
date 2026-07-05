@@ -1,6 +1,9 @@
 # Arbeitszeiterfassung
 
-Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit mit mehreren Arbeitgebern, Monatsübersicht, PDF-Export und rechtssicheren Pausen- und Feiertagsregeln für Deutschland.
+[![Regression](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/regression.yml/badge.svg)](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/regression.yml)
+[![Deploy](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/pages.yml/badge.svg)](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/pages.yml)
+
+Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit mit mehreren Arbeitgebern oder Kunden, Monatsübersicht, PDF- und Word-Export sowie rechtssicheren Pausen- und Feiertagsregeln für Deutschland. Zwei Modi: Angestellter (Soll/Ist/Saldo) und Freiberufler (Ist + Rechnungsbetrag).
 
 **Live-App:** https://ollies-spielwiese.github.io/Arbeitszeiterfassung/
 
@@ -87,24 +90,31 @@ Im Chrome oder Edge auf das Installations-Icon in der Adressleiste klicken oder 
 
 Keine Server-Kommunikation, keine Analytics, keine Cookies, kein Tracking. Die App verlässt nach dem ersten Laden den Browser nicht. Backups sind manuell als JSON-Datei möglich und werden vom Nutzer selbst gespeichert.
 
-## Release-Prozess
+## Für Entwickler
 
-Siehe [RELEASE.md](RELEASE.md) für Deploy-Kommandos, Versions-Schema und Rollback.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Datenfluss, State-Layout, Modul-Karte (Ist und Ziel), Kontrakte für Selektoren, Migrationen und Regression
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Setup, QA-Ablauf, Version-Bump-Checkliste, CI-Details
+- [docs/ROADMAP.md](docs/ROADMAP.md) — Vier-Phasen-Plan (Sicherheitsnetz, Verstehen, Modul-Split, Sauberkeit)
+- [docs/CHECKLIST.md](docs/CHECKLIST.md) — Pro-Feature-Checkliste
+- [RELEASE.md](RELEASE.md) — Deploy-Kommandos, Versions-Schema und Rollback
 
 ## QA — Regression-Sweep
 
-Vor jedem Version-Bump muss `scripts/regression.mjs` grün sein:
+Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 
 ```bash
-python3 -m http.server 8765 &        # lokaler Server
-node scripts/regression.mjs           # 24 Checks, ~2 s
+npm ci
+npm run serve &          # lokaler HTTP-Server auf Port 8765
+npm run qa               # 51 Checks, ~3 s
 ```
 
 Umgebungsvariablen:
 - `BASE_URL` — Server-URL (Default `http://localhost:8765`)
-- `HEADLESS=0` — Browser sichtbar starten
+- `HEADLESS=0` — Browser sichtbar starten (`npm run qa:headed`)
 
-Deckt Selector-Unit-Tests, Freelance- und Employee-E2E in allen Views plus PDF/Word/OverviewPDF-Blob-Erzeugung ab. Exit-Code 0 = alles grün, 1 = mindestens ein Fehler.
+Deckt Selector-Unit-Tests, Migrations-Unit-Tests, Freelance- und Employee-E2E in allen Views sowie PDF/Word/OverviewPDF inhaltlich (Text-Extraktion via pdf-parse und mammoth) ab. Exit-Code 0 = alles grün, 1 = mindestens ein Fehler.
+
+CI läuft automatisch bei Push und PR auf `main`. Pages-Deployment ist gated: rote Regression blockt den Deploy.
 
 ## Autor
 
