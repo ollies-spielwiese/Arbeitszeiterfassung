@@ -24,11 +24,16 @@
  */
 
 const STORAGE_KEY = 'arbeitszeit_v1';
-const APP_VERSION = '3.7.2';
+const APP_VERSION = '3.7.3';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.7.3', items: [
+      'Freelance-Modus: Zusammenfassung zeigt jetzt nur Ist-Stunden und Rechnungsbetrag (kein Soll/Saldo, kein Urlaub/Krank)',
+      'Betrifft Bildschirm-Bericht (Tag/Woche/Monat), Übersicht-Tab, PDF-, Word- und E-Mail-Zusammenfassung',
+      'Übersicht heißt im Freelance-Modus jetzt „alle Kunden“ (statt Arbeitgeber)',
+  ]},
   { version: '3.7.2', items: [
       'Home-Office-Editor: Notizvorlagen-Picker bei Bemerkung ergänzt (fehlte bisher)',
       'Filter nach App-Modus greift jetzt auch im Home-Office-Modal',
@@ -870,13 +875,26 @@ function renderTodaySummary() {
   const creditedAbsenceMin = Math.round((vacationDays + sickDays) * dailyTargetMin);
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
-  container.innerHTML = `
-    <h3>Diesen Monat (${formatMonthYear(ym)})</h3>
-    <div class="summary-grid">
+  const hourlyRate = Number(emp.hourlyRate) || 0;
+  const currency = emp.currency || 'EUR';
+  const netTotal = (workedMin / 60) * hourlyRate;
+
+  const freelanceItems = `
+      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(workedMin)}</div></div>
+      ${hourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(netTotal, currency)}</div></div>` : ''}
+  `;
+
+  const employeeItems = `
       <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(workedMin)}</div></div>
       <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(targetMin)}</div></div>
       <div class="summary-item"><div class="label">Saldo</div><div class="value ${balance >= 0 ? 'pos' : 'neg'}">${balance >= 0 ? '+' : ''}${minutesToHM(balance)}</div></div>
       <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${vacationDays} / ${sickDays}</div></div>
+  `;
+
+  container.innerHTML = `
+    <h3>Diesen Monat (${formatMonthYear(ym)})</h3>
+    <div class="summary-grid">
+      ${isFreelance() ? freelanceItems : employeeItems}
     </div>
   `;
 }
@@ -1652,16 +1670,30 @@ function renderWeek() {
   const balance = totalMin - targetMin;
   const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
 
+  const weekHourlyRate = Number(emp.hourlyRate) || 0;
+  const weekCurrency = emp.currency || 'EUR';
+  const weekNetTotal = (totalMin / 60) * weekHourlyRate;
+
+  const weekFreelanceItems = `
+      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(totalMin)}</div></div>
+      ${weekHourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(weekNetTotal, weekCurrency)}</div></div>` : ''}
+      <div class="summary-item"><div class="label">Feiertage</div><div class="value">${holidaysInWeek.length}</div></div>
+  `;
+
+  const weekEmployeeItems = `
+      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(totalMin)}</div></div>
+      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(targetMin)}</div></div>
+      <div class="summary-item"><div class="label">Saldo</div><div class="value ${balance >= 0 ? 'pos' : 'neg'}">${balance >= 0 ? '+' : ''}${minutesToHM(balance)}</div></div>
+      <div class="summary-item"><div class="label">Feiertage</div><div class="value">${holidaysInWeek.length}</div></div>
+  `;
+
   container.innerHTML = `
     <div class="report-header">
       <h3>${escapeHtml(emp.name)}</h3>
       <div class="subtitle">${isoWeek} • ${formatDate(dates[0])} – ${formatDate(dates[6])}</div>
     </div>
     <div class="summary-grid">
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(totalMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo</div><div class="value ${balance >= 0 ? 'pos' : 'neg'}">${balance >= 0 ? '+' : ''}${minutesToHM(balance)}</div></div>
-      <div class="summary-item"><div class="label">Feiertage</div><div class="value">${holidaysInWeek.length}</div></div>
+      ${isFreelance() ? weekFreelanceItems : weekEmployeeItems}
     </div>
     ${dayRows}
   `;
@@ -1765,16 +1797,29 @@ function renderReport() {
     ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
     : '';
 
+  const mrHourlyRate = Number(r.employer.hourlyRate) || 0;
+  const mrCurrency = r.employer.currency || 'EUR';
+  const mrNetTotal = (r.workedMin / 60) * mrHourlyRate;
+
+  const mrFreelanceItems = `
+      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(r.workedMin)}</div></div>
+      ${mrHourlyRate > 0 ? `<div class="summary-item"><div class="label">Rechnungsbetrag</div><div class="value">${formatMoney(mrNetTotal, mrCurrency)}</div></div>` : ''}
+  `;
+
+  const mrEmployeeItems = `
+      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(r.workedMin)}</div></div>
+      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(r.targetMin)}</div></div>
+      <div class="summary-item"><div class="label">Saldo</div><div class="value ${r.balance >= 0 ? 'pos' : 'neg'}">${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}</div></div>
+      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${r.vacationEntries.length} / ${r.sickEntries.length}</div></div>
+  `;
+
   container.innerHTML = `
     <div class="report-header">
       <h3>${escapeHtml(r.employer.name)}</h3>
       <div class="subtitle">${formatMonthYear(r.ym)}</div>
     </div>
     <div class="summary-grid">
-      <div class="summary-item"><div class="label">Ist</div><div class="value">${minutesToHM(r.workedMin)}</div></div>
-      <div class="summary-item"><div class="label">Soll</div><div class="value">${minutesToHM(r.targetMin)}</div></div>
-      <div class="summary-item"><div class="label">Saldo</div><div class="value ${r.balance >= 0 ? 'pos' : 'neg'}">${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}</div></div>
-      <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${r.vacationEntries.length} / ${r.sickEntries.length}</div></div>
+      ${isFreelance() ? mrFreelanceItems : mrEmployeeItems}
     </div>
     ${holidayList}
     ${rows ? `
@@ -1906,11 +1951,13 @@ async function generateWordBlob(report) {
 
     new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Zusammenfassung', bold: true })] }),
     new Paragraph({ children: [ new TextRun({ text: 'Ist-Stunden: ', bold: true }), new TextRun({ text: `${minutesToHM(report.workedMin)} (${hoursDecimal(report.workedMin)} h)` }) ]}),
-    new Paragraph({ children: [ new TextRun({ text: 'Soll-Stunden: ', bold: true }), new TextRun({ text: `${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)` }) ]}),
-    new Paragraph({ children: [
-      new TextRun({ text: 'Saldo: ', bold: true }),
-      new TextRun({ text: `${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`, bold: true, color: report.balance >= 0 ? '15803D' : 'B91C1C' }),
-    ]}),
+    ...(isFreelance() ? [] : [
+      new Paragraph({ children: [ new TextRun({ text: 'Soll-Stunden: ', bold: true }), new TextRun({ text: `${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)` }) ]}),
+      new Paragraph({ children: [
+        new TextRun({ text: 'Saldo: ', bold: true }),
+        new TextRun({ text: `${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`, bold: true, color: report.balance >= 0 ? '15803D' : 'B91C1C' }),
+      ]}),
+    ]),
     ...((Number(report.employer.hourlyRate) > 0) ? [new Paragraph({ children: [
       new TextRun({ text: 'Netto-Summe: ', bold: true }),
       new TextRun({ text: `${formatMoney((report.workedMin / 60) * Number(report.employer.hourlyRate), report.employer.currency || 'EUR')}`, bold: true }),
@@ -2014,9 +2061,11 @@ function generatePdfBlob(report) {
   doc.setFontSize(10);
   const lines = [
     `Ist-Stunden: ${minutesToHM(report.workedMin)} (${hoursDecimal(report.workedMin)} h)`,
-    `Soll-Stunden: ${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)`,
-    `Saldo: ${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`,
   ];
+  if (!isFreelance()) {
+    lines.push(`Soll-Stunden: ${minutesToHM(report.targetMin)} (${hoursDecimal(report.targetMin)} h)`);
+    lines.push(`Saldo: ${report.balance >= 0 ? '+' : ''}${minutesToHM(report.balance)} (${hoursDecimal(report.balance)} h)`);
+  }
   const hourlyRate = Number(report.employer.hourlyRate) || 0;
   if (hourlyRate > 0) {
     const currency = report.employer.currency || 'EUR';
@@ -2194,9 +2243,40 @@ function renderOverview() {
     return;
   }
 
-  const bodyRows = ov.rows.map(row => `
+  const freelanceMode = isFreelance();
+  const empLabel = freelanceMode ? 'Kunde' : 'Arbeitgeber';
+
+  const ovRowNetTotal = (row) => {
+    const rate = Number(row.employer.hourlyRate) || 0;
+    if (rate <= 0) return null;
+    return { amount: (row.workedMin / 60) * rate, currency: row.employer.currency || 'EUR' };
+  };
+  const ovTotalsNet = ov.rows.reduce((acc, row) => {
+    const nt = ovRowNetTotal(row);
+    if (!nt) return acc;
+    const cur = nt.currency;
+    acc[cur] = (acc[cur] || 0) + nt.amount;
+    return acc;
+  }, {});
+  const ovTotalsNetStr = Object.keys(ovTotalsNet).length
+    ? Object.entries(ovTotalsNet).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
+    : '—';
+
+  const bodyRows = ov.rows.map(row => {
+    if (freelanceMode) {
+      const nt = ovRowNetTotal(row);
+      return `
     <tr>
-      <td data-label="Arbeitgeber">${escapeHtml(row.employer.name)}</td>
+      <td data-label="${empLabel}">${escapeHtml(row.employer.name)}</td>
+      <td class="num" data-label="Tage">${row.workEntriesCount}</td>
+      <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
+      <td class="num" data-label="Rechnungsbetrag">${nt ? formatMoney(nt.amount, nt.currency) : '—'}</td>
+    </tr>
+  `;
+    }
+    return `
+    <tr>
+      <td data-label="${empLabel}">${escapeHtml(row.employer.name)}</td>
       <td class="num" data-label="Tage">${row.workEntriesCount}</td>
       <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
       <td class="num" data-label="Soll">${minutesToHM(row.targetMin)}</td>
@@ -2204,11 +2284,19 @@ function renderOverview() {
       <td class="num" data-label="Urlaub">${row.vacationDays}</td>
       <td class="num" data-label="Krank">${row.sickDays}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
-  const totalsRow = `
+  const totalsRow = freelanceMode ? `
     <tr class="totals-row">
-      <td data-label="Arbeitgeber"><strong>Gesamt</strong></td>
+      <td data-label="${empLabel}"><strong>Gesamt</strong></td>
+      <td class="num" data-label="Tage"><strong>${ov.totals.workEntriesCount}</strong></td>
+      <td class="num" data-label="Ist"><strong>${minutesToHM(ov.totals.workedMin)}</strong></td>
+      <td class="num" data-label="Rechnungsbetrag"><strong>${ovTotalsNetStr}</strong></td>
+    </tr>
+  ` : `
+    <tr class="totals-row">
+      <td data-label="${empLabel}"><strong>Gesamt</strong></td>
       <td class="num" data-label="Tage"><strong>${ov.totals.workEntriesCount}</strong></td>
       <td class="num" data-label="Ist"><strong>${minutesToHM(ov.totals.workedMin)}</strong></td>
       <td class="num" data-label="Soll"><strong>${minutesToHM(ov.totals.targetMin)}</strong></td>
@@ -2218,22 +2306,30 @@ function renderOverview() {
     </tr>
   `;
 
-  container.innerHTML = `
-    <div class="report-header">
-      <h3>Monatsübersicht – alle Arbeitgeber</h3>
-      <div class="subtitle">${formatMonthYear(ym)}</div>
+  const summaryGrid = freelanceMode ? `
+    <div class="summary-grid">
+      <div class="summary-item"><div class="label">Ist gesamt</div><div class="value">${minutesToHM(ov.totals.workedMin)}</div></div>
+      <div class="summary-item"><div class="label">Rechnungsbetrag gesamt</div><div class="value">${ovTotalsNetStr}</div></div>
     </div>
+  ` : `
     <div class="summary-grid">
       <div class="summary-item"><div class="label">Ist gesamt</div><div class="value">${minutesToHM(ov.totals.workedMin)}</div></div>
       <div class="summary-item"><div class="label">Soll gesamt</div><div class="value">${minutesToHM(ov.totals.targetMin)}</div></div>
       <div class="summary-item"><div class="label">Saldo gesamt</div><div class="value ${ov.totals.balance >= 0 ? 'pos' : 'neg'}">${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</div></div>
       <div class="summary-item"><div class="label">Urlaub / Krank</div><div class="value">${ov.totals.vacationDays} / ${ov.totals.sickDays}</div></div>
     </div>
-    <div class="report-table-wrap">
-      <table class="report-table overview-table">
-        <thead>
+  `;
+
+  const tableHead = freelanceMode ? `
           <tr>
-            <th>Arbeitgeber</th>
+            <th>${empLabel}</th>
+            <th class="num">Tage</th>
+            <th class="num">Ist</th>
+            <th class="num">Rechnungsbetrag</th>
+          </tr>
+  ` : `
+          <tr>
+            <th>${empLabel}</th>
             <th class="num">Tage</th>
             <th class="num">Ist</th>
             <th class="num">Soll</th>
@@ -2241,6 +2337,20 @@ function renderOverview() {
             <th class="num">Urlaub</th>
             <th class="num">Krank</th>
           </tr>
+  `;
+
+  const overviewTitle = freelanceMode ? 'Monatsübersicht – alle Kunden' : 'Monatsübersicht – alle Arbeitgeber';
+
+  container.innerHTML = `
+    <div class="report-header">
+      <h3>${overviewTitle}</h3>
+      <div class="subtitle">${formatMonthYear(ym)}</div>
+    </div>
+    ${summaryGrid}
+    <div class="report-table-wrap">
+      <table class="report-table overview-table">
+        <thead>
+          ${tableHead}
         </thead>
         <tbody>
           ${bodyRows}
@@ -2257,9 +2367,11 @@ function generateOverviewPdfBlob(ov) {
   const marginX = 15;
   let y = 20;
 
+  const ovFreelance = isFreelance();
+  const ovEmpLabel = ovFreelance ? 'Kunde' : 'Arbeitgeber';
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text('Monatsübersicht – alle Arbeitgeber', marginX, y);
+  doc.text(ovFreelance ? 'Monatsübersicht – alle Kunden' : 'Monatsübersicht – alle Arbeitgeber', marginX, y);
   y += 8;
 
   doc.setFont('helvetica', 'normal');
@@ -2291,35 +2403,64 @@ function generateOverviewPdfBlob(ov) {
     return doc.output('blob');
   }
 
-  const body = ov.rows.map(row => [
-    row.employer.name,
-    String(row.workEntriesCount),
-    minutesToHM(row.workedMin),
-    minutesToHM(row.targetMin),
-    `${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}`,
-    String(row.vacationDays),
-    String(row.sickDays),
-  ]);
-
-  const totalsRow = [
-    'Gesamt',
-    String(ov.totals.workEntriesCount),
-    minutesToHM(ov.totals.workedMin),
-    minutesToHM(ov.totals.targetMin),
-    `${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}`,
-    String(ov.totals.vacationDays),
-    String(ov.totals.sickDays),
-  ];
-
-  doc.autoTable({
-    startY: y,
-    head: [['Arbeitgeber', 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank']],
-    body,
-    foot: [totalsRow],
-    styles: { fontSize: 10, cellPadding: 2.5, overflow: 'linebreak', halign: 'left' },
-    headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
-    footStyles: { fillColor: [226, 232, 240], textColor: 30, fontStyle: 'bold', halign: 'left' },
-    columnStyles: {
+  let body, totalsRow, head, columnStyles, legend;
+  if (ovFreelance) {
+    const rowNet = (row) => {
+      const rate = Number(row.employer.hourlyRate) || 0;
+      if (rate <= 0) return '—';
+      return formatMoney((row.workedMin / 60) * rate, row.employer.currency || 'EUR');
+    };
+    const totalsNet = ov.rows.reduce((acc, row) => {
+      const rate = Number(row.employer.hourlyRate) || 0;
+      if (rate <= 0) return acc;
+      const cur = row.employer.currency || 'EUR';
+      acc[cur] = (acc[cur] || 0) + (row.workedMin / 60) * rate;
+      return acc;
+    }, {});
+    const totalsNetStr = Object.keys(totalsNet).length
+      ? Object.entries(totalsNet).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
+      : '—';
+    body = ov.rows.map(row => [
+      row.employer.name,
+      String(row.workEntriesCount),
+      minutesToHM(row.workedMin),
+      rowNet(row),
+    ]);
+    totalsRow = [
+      'Gesamt',
+      String(ov.totals.workEntriesCount),
+      minutesToHM(ov.totals.workedMin),
+      totalsNetStr,
+    ];
+    head = [[ovEmpLabel, 'Tage', 'Ist', 'Rechnungsbetrag']];
+    columnStyles = {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 60 },
+    };
+    legend = 'Ist = geleistete Arbeitszeit. Rechnungsbetrag = Ist × Stundensatz. Freelance-Modus: kein Soll/Saldo.';
+  } else {
+    body = ov.rows.map(row => [
+      row.employer.name,
+      String(row.workEntriesCount),
+      minutesToHM(row.workedMin),
+      minutesToHM(row.targetMin),
+      `${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}`,
+      String(row.vacationDays),
+      String(row.sickDays),
+    ]);
+    totalsRow = [
+      'Gesamt',
+      String(ov.totals.workEntriesCount),
+      minutesToHM(ov.totals.workedMin),
+      minutesToHM(ov.totals.targetMin),
+      `${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}`,
+      String(ov.totals.vacationDays),
+      String(ov.totals.sickDays),
+    ];
+    head = [[ovEmpLabel, 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank']];
+    columnStyles = {
       0: { cellWidth: 60 },
       1: { cellWidth: 16 },
       2: { cellWidth: 22 },
@@ -2327,16 +2468,26 @@ function generateOverviewPdfBlob(ov) {
       4: { cellWidth: 22 },
       5: { cellWidth: 18 },
       6: { cellWidth: 18 },
-    },
+    };
+    legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
+  }
+
+  doc.autoTable({
+    startY: y,
+    head,
+    body,
+    foot: [totalsRow],
+    styles: { fontSize: 10, cellPadding: 2.5, overflow: 'linebreak', halign: 'left' },
+    headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
+    footStyles: { fillColor: [226, 232, 240], textColor: 30, fontStyle: 'bold', halign: 'left' },
+    columnStyles,
     margin: { left: marginX, right: marginX },
   });
 
   y = doc.lastAutoTable.finalY + 10;
 
-  // Kurze Legende / Erläuterung
   doc.setFontSize(9);
   doc.setTextColor(90);
-  const legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
   y = wrapText(doc, legend, marginX, y, 180);
   doc.setTextColor(0);
 
@@ -2536,16 +2687,24 @@ function openShareModal() {
         if (!r) return;
         const filename = fileNameForReport(r, format);
         const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
+        const summaryLines = isFreelance()
+          ? [`• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`]
+              .concat(Number(r.employer.hourlyRate) > 0
+                ? [`• Rechnungsbetrag: ${formatMoney((r.workedMin / 60) * Number(r.employer.hourlyRate), r.employer.currency || 'EUR')}`]
+                : [])
+          : [
+              `• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`,
+              `• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)`,
+              `• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}`,
+              `• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage`,
+            ];
         const body =
 `Sehr geehrte Damen und Herren,
 
 anbei der Arbeitszeitnachweis für ${formatMonthYear(r.ym)}.
 
 Zusammenfassung:
-• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)
-• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)
-• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}
-• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage
+${summaryLines.join('\n')}
 
 Mit freundlichen Grüßen`;
         const to = emails.map(encodeURIComponent).join(',');
@@ -2657,16 +2816,24 @@ async function shareReport(format, recipientEmails) {
   }
 
   const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
+  const summaryLines2 = isFreelance()
+    ? [`• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`]
+        .concat(Number(r.employer.hourlyRate) > 0
+          ? [`• Rechnungsbetrag: ${formatMoney((r.workedMin / 60) * Number(r.employer.hourlyRate), r.employer.currency || 'EUR')}`]
+          : [])
+    : [
+        `• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)`,
+        `• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)`,
+        `• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}`,
+        `• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage`,
+      ];
   const body =
 `Sehr geehrte Damen und Herren,
 
 anbei der Arbeitszeitnachweis für ${formatMonthYear(r.ym)}.
 
 Zusammenfassung:
-• Ist: ${minutesToHM(r.workedMin)} (${hoursDecimal(r.workedMin)} h)
-• Soll: ${minutesToHM(r.targetMin)} (${hoursDecimal(r.targetMin)} h)
-• Saldo: ${r.balance >= 0 ? '+' : ''}${minutesToHM(r.balance)}
-• Urlaub / Krank: ${r.vacationEntries.length} / ${r.sickEntries.length} Tage
+${summaryLines2.join('\n')}
 
 Mit freundlichen Grüßen`;
 
