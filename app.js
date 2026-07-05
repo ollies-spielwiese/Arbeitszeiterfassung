@@ -41,12 +41,38 @@ import {
   getState as _getState,
   setState as _setState,
 } from './modules/state.js';
+import {
+  pad,
+  todayISO,
+  currentYearMonth,
+  currentYearWeek,
+  formatDate,
+  isoWeeksInYear,
+  formatDateLong,
+  formatMonthYear,
+  minutesToHM,
+  hoursDecimal,
+  timeToMinutes,
+  isoDateAdd,
+  dayOfWeekISO,
+  dateISO,
+  addDays,
+  daysInMonth,
+  monthDates,
+} from './modules/util-time.js';
+import { escapeHtml, formatMoney as _formatMoneyRaw } from './modules/util-format.js';
 
-const APP_VERSION = '3.9.0';
+const APP_VERSION = '3.9.1';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.1', items: [
+      'Modul-Split Phase 3.2: util-time.js und util-format.js als eigene ES-Module',
+      'pad, todayISO, currentYearMonth, currentYearWeek, formatDate, isoWeeksInYear, formatDateLong, formatMonthYear, minutesToHM, hoursDecimal, timeToMinutes, isoDateAdd, dayOfWeekISO, dateISO, addDays, daysInMonth, monthDates ausgelagert',
+      'escapeHtml und formatMoney (Pure) ausgelagert; formatMoney bleibt als state-lesender Wrapper in app.js',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks unveraendert',
+  ]},
   { version: '3.9.0', items: [
       'Modul-Split Phase 3.1: state und migrations sind eigene ES-Module (modules/state.js, modules/migrations.js)',
       'app.js lädt jetzt als type=module; docx/jspdf UMD-Scripts bleiben davor',
@@ -180,13 +206,17 @@ function L(key) {
   return (LABELS[m] && LABELS[m][key]) || (LABELS.employee[key] || key);
 }
 function isFreelance() { return getAppMode() === 'freelance'; }
+/**
+ * formatMoney-Adapter: zieht den Currency-Default aus state.settings, wenn
+ * kein currency-Parameter angegeben ist. Die pure Format-Logik liegt in
+ * modules/util-format.js.
+ * @param {number} amount
+ * @param {string} [currency]
+ * @returns {string}
+ */
 function formatMoney(amount, currency) {
   const cur = currency || (state && state.settings && state.settings.currency) || 'EUR';
-  try {
-    return new Intl.NumberFormat('de-DE', { style: 'currency', currency: cur, minimumFractionDigits: 2 }).format(amount || 0);
-  } catch (e) {
-    return (Math.round((amount||0)*100)/100).toFixed(2) + ' ' + cur;
-  }
+  return _formatMoneyRaw(amount, cur);
 }
 
 /* ========================================================================
@@ -499,48 +529,9 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-/* ---------- Utilities ---------- */
-
-function pad(n) { return String(n).padStart(2, '0'); }
-
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function currentYearMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-}
-
-function currentYearWeek() {
-  // ISO week (Mon-Sun); HTML week input uses ISO
-  const d = new Date();
-  const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNr = (target.getUTCDay() + 6) % 7;
-  target.setUTCDate(target.getUTCDate() - dayNr + 3);
-  const firstThursday = target.valueOf();
-  target.setUTCMonth(0, 1);
-  if (target.getUTCDay() !== 4) target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
-  const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
-  const isoYear = new Date(firstThursday).getUTCFullYear();
-  return `${isoYear}-W${pad(weekNum)}`;
-}
-
-function formatDate(iso) {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}.${m}.${y}`;
-}
-
-/* Anzahl ISO-Wochen in einem Jahr (52 oder 53) */
-function isoWeeksInYear(year) {
-  // Ein Jahr hat 53 ISO-Wochen, wenn der 1. Januar oder der 31. Dezember ein Donnerstag ist
-  // (bzw. bei Schaltjahren zusätzlich Mittwoch am 1. Januar).
-  const jan1 = new Date(Date.UTC(year, 0, 1)).getUTCDay();
-  const dec31 = new Date(Date.UTC(year, 11, 31)).getUTCDay();
-  return (jan1 === 4 || dec31 === 4) ? 53 : 52;
-}
+/* ---------- Utilities ----------
+   Reine Zeit-/Format-Utilities leben in modules/util-time.js und modules/util-format.js.
+   Hier bleiben nur DOM-abhängige und state-abhängige Helfer. */
 
 /* Prüft, ob der Browser <input type="week"> nativ unterstützt.
    iOS Safari (und damit alle iPhone/iPad-Browser) fallen auf 'text' zurück. */
@@ -617,50 +608,8 @@ function installWeekInputFallback() {
   original.parentNode.insertBefore(wrap, original.nextSibling);
 }
 
-function formatDateLong(iso) {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function formatMonthYear(ym) {
-  const [y, m] = ym.split('-').map(Number);
-  const date = new Date(y, m - 1, 1);
-  return date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-}
-
-function minutesToHM(mins) {
-  const sign = mins < 0 ? '-' : '';
-  const abs = Math.abs(mins);
-  const h = Math.floor(abs / 60);
-  const m = Math.round(abs % 60);
-  return `${sign}${h}:${pad(m)}`;
-}
-
-function hoursDecimal(mins) {
-  return (mins / 60).toFixed(2).replace('.', ',');
-}
-
-function timeToMinutes(hhmm) {
-  if (!hhmm) return 0;
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function isoDateAdd(iso, days) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + days);
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-}
-
-function dayOfWeekISO(iso) {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  // 0=Sun ... 6=Sat  → we want mon=0
-  return (dt.getDay() + 6) % 7;
-}
+/* formatDateLong, formatMonthYear, minutesToHM, hoursDecimal, timeToMinutes,
+   isoDateAdd, dayOfWeekISO: siehe modules/util-time.js */
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -772,10 +721,7 @@ function easterSunday(year) {
   return new Date(year, month - 1, day);
 }
 
-function dateISO(dt) {
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-}
-function addDays(dt, n) { const c = new Date(dt); c.setDate(c.getDate() + n); return c; }
+/* dateISO, addDays: siehe modules/util-time.js */
 
 /* All bundesweiten + relevante landesspezifische Feiertage */
 /**
@@ -865,20 +811,7 @@ function isHoliday(iso, stateCode) {
 
 /* ---------- Target Hours Calculation ---------- */
 
-function daysInMonth(ym) {
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m, 0).getDate();
-}
-
-function monthDates(ym) {
-  const days = daysInMonth(ym);
-  const [y, m] = ym.split('-').map(Number);
-  const list = [];
-  for (let d = 1; d <= days; d++) {
-    list.push(`${y}-${pad(m)}-${pad(d)}`);
-  }
-  return list;
-}
+/* daysInMonth, monthDates: siehe modules/util-time.js */
 
 /* For employer with weekly hours, target for a month = sum over workdays of dailyHours,
  * where a workday is any weekday with schedule.enabled that isn't a holiday.
@@ -3742,9 +3675,7 @@ function importBackup(file) {
 
 /* ---------- Helpers ---------- */
 
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
+/* escapeHtml: siehe modules/util-format.js */
 
 let toastTimer;
 function toast(msg) {
