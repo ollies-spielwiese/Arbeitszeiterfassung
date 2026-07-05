@@ -61,12 +61,26 @@ import {
   monthDates,
 } from './modules/util-time.js';
 import { escapeHtml, formatMoney as _formatMoneyRaw } from './modules/util-format.js';
+import {
+  normalizeHolidayOverrides as _normalizeHolidayOverridesRaw,
+  applyHolidayOverrides as _applyHolidayOverridesRaw,
+  easterSunday,
+  getHolidays as _getHolidaysRaw,
+  getHolidaysInRange as _getHolidaysInRangeRaw,
+  isHoliday as _isHolidayRaw,
+} from './modules/holidays.js';
 
-const APP_VERSION = '3.9.1';
+const APP_VERSION = '3.9.2';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.2', items: [
+      'Modul-Split Phase 3.3: modules/holidays.js — Feiertagslogik komplett ausgelagert',
+      'easterSunday, getHolidays, getHolidaysInRange, isHoliday, applyHolidayOverrides, normalizeHolidayOverrides sind jetzt pure ES-Exports',
+      'app.js haelt schlanke Wrapper, die state.settings.holidayOverrides automatisch reinreichen',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks unveraendert',
+  ]},
   { version: '3.9.1', items: [
       'Modul-Split Phase 3.2: util-time.js und util-format.js als eigene ES-Module',
       'pad, todayISO, currentYearMonth, currentYearWeek, formatDate, isoWeeksInYear, formatDateLong, formatMonthYear, minutesToHM, hoursDecimal, timeToMinutes, isoDateAdd, dayOfWeekISO, dateISO, addDays, daysInMonth, monthDates ausgelagert',
@@ -665,65 +679,24 @@ function computeSuggestedBreak(startHHMM, endHHMM, breakMode) {
   return legalBreakMinutes(gross);
 }
 
-/* ---------- Holiday Overrides (user-editable, offline) ---------- */
+/* ---------- Holiday Overrides + Feiertage (siehe modules/holidays.js) ----------
+ * Die Feiertagslogik lebt komplett in modules/holidays.js.
+ * Die folgenden Wrapper reichen state.settings.holidayOverrides automatisch rein,
+ * damit alle bestehenden Aufrufer die 2-arg-Signatur (year, stateCode) beibehalten koennen.
+ */
+
+function _currentHolidayOverrides() {
+  return (state && state.settings && state.settings.holidayOverrides) || undefined;
+}
 
 function normalizeHolidayOverrides(ov) {
-  const base = { add: [], disable: [], rename: {} };
-  if (!ov || typeof ov !== 'object') return base;
-  return {
-    add: Array.isArray(ov.add) ? ov.add.filter(x => x && x.date && x.name) : [],
-    disable: Array.isArray(ov.disable) ? ov.disable.filter(x => typeof x === 'string') : [],
-    rename: ov.rename && typeof ov.rename === 'object' ? { ...ov.rename } : {},
-  };
+  return _normalizeHolidayOverridesRaw(ov);
 }
 
-/* Apply user overrides to a computed holiday list for a given stateCode.
- * add: extra holidays. If stateCode is set on the entry, only apply when matching or when entry.stateCode is empty (=all).
- * disable: ISO dates to remove.
- * rename: map ISO date -> new name.
- * Returns a new sorted list. */
 function applyHolidayOverrides(list, stateCode) {
-  const ov = (state && state.settings && state.settings.holidayOverrides) || { add: [], disable: [], rename: {} };
-  const disable = new Set(ov.disable || []);
-  const rename = ov.rename || {};
-  let out = list
-    .filter(h => !disable.has(h.date))
-    .map(h => rename[h.date] ? { ...h, name: rename[h.date] } : h);
-  const seen = new Set(out.map(h => h.date));
-  for (const extra of ov.add || []) {
-    if (extra.stateCode && extra.stateCode !== stateCode) continue;
-    if (seen.has(extra.date)) continue;
-    out.push({ date: extra.date, name: extra.name });
-    seen.add(extra.date);
-  }
-  return out.sort((a, b) => a.date.localeCompare(b.date));
+  return _applyHolidayOverridesRaw(list, stateCode, _currentHolidayOverrides());
 }
 
-/* ---------- German Holidays (offline) ----------
- * Uses Gauss's Easter algorithm. No network needed.
- * State codes match Bundesland ISO. */
-
-function easterSunday(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(year, month - 1, day);
-}
-
-/* dateISO, addDays: siehe modules/util-time.js */
-
-/* All bundesweiten + relevante landesspezifische Feiertage */
 /**
  * Liefert alle Feiertage für Jahr + Bundesland (16 BL unterstützt).
  * @param {number} year z.B. 2026
@@ -731,82 +704,21 @@ function easterSunday(year) {
  * @returns {AZHoliday[]}
  */
 function getHolidays(year, stateCode) {
-  const list = [];
-  const easter = easterSunday(year);
-
-  // Bundesweit
-  list.push({ date: `${year}-01-01`, name: 'Neujahr' });
-  list.push({ date: dateISO(addDays(easter, -2)), name: 'Karfreitag' });
-  list.push({ date: dateISO(addDays(easter, 1)),  name: 'Ostermontag' });
-  list.push({ date: `${year}-05-01`, name: 'Tag der Arbeit' });
-  list.push({ date: dateISO(addDays(easter, 39)), name: 'Christi Himmelfahrt' });
-  list.push({ date: dateISO(addDays(easter, 50)), name: 'Pfingstmontag' });
-  list.push({ date: `${year}-10-03`, name: 'Tag der Deutschen Einheit' });
-  list.push({ date: `${year}-12-25`, name: '1. Weihnachtsfeiertag' });
-  list.push({ date: `${year}-12-26`, name: '2. Weihnachtsfeiertag' });
-
-  // Heilige Drei Könige: BW, BY, ST
-  if (['BW','BY','ST'].includes(stateCode)) {
-    list.push({ date: `${year}-01-06`, name: 'Heilige Drei Könige' });
-  }
-  // Internationaler Frauentag: BE (ab 2019), MV (ab 2023)
-  if (stateCode === 'BE' && year >= 2019) list.push({ date: `${year}-03-08`, name: 'Internationaler Frauentag' });
-  if (stateCode === 'MV' && year >= 2023) list.push({ date: `${year}-03-08`, name: 'Internationaler Frauentag' });
-
-  // Fronleichnam: BW, BY, HE, NW, RP, SL, (partial: SN, TH)
-  if (['BW','BY','HE','NW','RP','SL','SN','TH'].includes(stateCode)) {
-    list.push({ date: dateISO(addDays(easter, 60)), name: 'Fronleichnam' });
-  }
-  // Mariä Himmelfahrt: BY (partial), SL
-  if (['SL','BY'].includes(stateCode)) {
-    list.push({ date: `${year}-08-15`, name: 'Mariä Himmelfahrt' });
-  }
-  // Weltkindertag: TH (ab 2019)
-  if (stateCode === 'TH' && year >= 2019) list.push({ date: `${year}-09-20`, name: 'Weltkindertag' });
-
-  // Reformationstag: bundesweit 2017 (500 Jahre), sonst BB, MV, SN, SH, ST, TH; seit 2018 auch HB, HH, NI, SH
-  if (year === 2017) {
-    list.push({ date: `${year}-10-31`, name: 'Reformationstag' });
-  } else {
-    const refStates = ['BB','MV','SN','ST','TH','HB','HH','NI','SH'];
-    if (refStates.includes(stateCode)) list.push({ date: `${year}-10-31`, name: 'Reformationstag' });
-  }
-  // Allerheiligen: BW, BY, NW, RP, SL
-  if (['BW','BY','NW','RP','SL'].includes(stateCode)) {
-    list.push({ date: `${year}-11-01`, name: 'Allerheiligen' });
-  }
-  // Buß- und Bettag: SN
-  if (stateCode === 'SN') {
-    // Mittwoch vor dem 23. November
-    const nov23 = new Date(year, 10, 23);
-    const dow = nov23.getDay();
-    const diff = ((dow - 3 + 7) % 7) || 7;
-    list.push({ date: dateISO(addDays(nov23, -diff)), name: 'Buß- und Bettag' });
-  }
-
-  return applyHolidayOverrides(list.sort((a, b) => a.date.localeCompare(b.date)), stateCode);
+  return _getHolidaysRaw(year, stateCode, _currentHolidayOverrides());
 }
 
 function getHolidaysInRange(startISO, endISO, stateCode) {
-  const startYear = Number(startISO.slice(0, 4));
-  const endYear = Number(endISO.slice(0, 4));
-  const all = [];
-  for (let y = startYear; y <= endYear; y++) {
-    all.push(...getHolidays(y, stateCode));
-  }
-  return all.filter(h => h.date >= startISO && h.date <= endISO);
+  return _getHolidaysInRangeRaw(startISO, endISO, stateCode, _currentHolidayOverrides());
 }
 
 /**
  * Prüft, ob ein Datum ein Feiertag im Bundesland ist.
- * Gibt den Feiertag zurück (truthy) oder null.
  * @param {string} iso 'YYYY-MM-DD'
  * @param {string} stateCode z.B. 'HE'
  * @returns {AZHoliday|null}
  */
 function isHoliday(iso, stateCode) {
-  const year = Number(iso.slice(0, 4));
-  return getHolidays(year, stateCode).find(h => h.date === iso) || null;
+  return _isHolidayRaw(iso, stateCode, _currentHolidayOverrides());
 }
 
 /* ---------- Target Hours Calculation ---------- */
@@ -4045,6 +3957,11 @@ if (typeof window !== 'undefined') {
   if (typeof uid === 'function') window.uid = uid;
   if (typeof normalizeSegments === 'function') window.normalizeSegments = normalizeSegments;
   if (typeof normalizeHolidayOverrides === 'function') window.normalizeHolidayOverrides = normalizeHolidayOverrides;
+  if (typeof getHolidays === 'function') window.getHolidays = getHolidays;
+  if (typeof getHolidaysInRange === 'function') window.getHolidaysInRange = getHolidaysInRange;
+  if (typeof isHoliday === 'function') window.isHoliday = isHoliday;
+  if (typeof easterSunday === 'function') window.easterSunday = easterSunday;
+  if (typeof applyHolidayOverrides === 'function') window.applyHolidayOverrides = applyHolidayOverrides;
 
   // Rendering + Views
   if (typeof switchView === 'function') window.switchView = switchView;
