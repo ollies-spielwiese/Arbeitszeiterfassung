@@ -69,12 +69,37 @@ import {
   getHolidaysInRange as _getHolidaysInRangeRaw,
   isHoliday as _isHolidayRaw,
 } from './modules/holidays.js';
+import {
+  DAY_KEYS,
+  DAY_LABELS,
+  DAY_LABELS_LONG,
+  computeWorkMinutes as _computeWorkMinutesRaw,
+  computeHomeofficeMinutes as _computeHomeofficeMinutesRaw,
+  isWorkedEntry as _isWorkedEntryRaw,
+  legalBreakMinutes as _legalBreakMinutesRaw,
+  computeSuggestedBreak as _computeSuggestedBreakRaw,
+  defaultSchedule as _defaultScheduleRaw,
+  computeMonthTargetMinutes as _computeMonthTargetMinutesRaw,
+  computeWeekTargetMinutes as _computeWeekTargetMinutesRaw,
+  countWorkdaysInMonth as _countWorkdaysInMonthRaw,
+  computeMonthReport as _computeMonthReportRaw,
+  computeMonthOverview as _computeMonthOverviewRaw,
+} from './modules/compute.js';
 
-const APP_VERSION = '3.9.2';
+const APP_VERSION = '3.9.3';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.3', items: [
+      'Modul-Split Phase 3.4: modules/compute.js — Rechenlogik komplett ausgelagert',
+      'computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry, legalBreakMinutes, computeSuggestedBreak, defaultSchedule ausgelagert',
+      'computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth ausgelagert',
+      'computeMonthReport, computeMonthOverview ausgelagert (mit ctx.state Dependency Injection)',
+      'DAY_KEYS/DAY_LABELS/DAY_LABELS_LONG jetzt Single-Source-of-Truth in compute.js',
+      'app.js haelt schlanke Wrapper mit unveraenderten Signaturen',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks unveraendert',
+  ]},
   { version: '3.9.2', items: [
       'Modul-Split Phase 3.3: modules/holidays.js — Feiertagslogik komplett ausgelagert',
       'easterSunday, getHolidays, getHolidaysInRange, isHoliday, applyHolidayOverrides, normalizeHolidayOverrides sind jetzt pure ES-Exports',
@@ -625,59 +650,18 @@ function installWeekInputFallback() {
 /* formatDateLong, formatMonthYear, minutesToHM, hoursDecimal, timeToMinutes,
    isoDateAdd, dayOfWeekISO: siehe modules/util-time.js */
 
-const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-const DAY_LABELS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+/* DAY_KEYS/DAY_LABELS/DAY_LABELS_LONG: siehe modules/compute.js (Import oben) */
 
-/**
- * Berechnet Netto-Arbeitsminuten für einen work-Eintrag (Präsenz).
- * Für Home-Office siehe computeHomeofficeMinutes.
- * @param {AZEntry} entry Muss type='work' sein
- * @returns {number} Minuten (start→end abzüglich breakMinutes)
+/* ---------- Arbeitszeit-Berechnung (siehe modules/compute.js) ----------
+ * Alle Funktionen sind pure Exports in compute.js.
+ * Die folgenden Wrapper behalten die urspruenglichen Signaturen.
  */
-function computeWorkMinutes(entry) {
-  if (entry.type === 'homeoffice') {
-    return computeHomeofficeMinutes(entry);
-  }
-  if (entry.type !== 'work' || !entry.start || !entry.end) return 0;
-  let mins = timeToMinutes(entry.end) - timeToMinutes(entry.start);
-  if (mins < 0) mins += 24 * 60;
-  mins -= (entry.breakMinutes || 0);
-  return Math.max(0, mins);
-}
 
-/* Home-Office: Netto ist die Summe aller Segmente. Ein Segment gilt nur,
- * wenn Start und Ende gesetzt sind und Ende > Start. */
-function computeHomeofficeMinutes(entry) {
-  if (!entry || !Array.isArray(entry.segments)) return 0;
-  let total = 0;
-  for (const seg of entry.segments) {
-    if (!seg || !seg.start || !seg.end) continue;
-    let m = timeToMinutes(seg.end) - timeToMinutes(seg.start);
-    if (m < 0) m += 24 * 60;
-    if (m > 0) total += m;
-  }
-  return total;
-}
-
-/* Einheitliches Prädikat: zählt der Eintrag als geleistete Arbeitszeit? */
-function isWorkedEntry(entry) {
-  return entry && (entry.type === 'work' || entry.type === 'homeoffice');
-}
-
-function legalBreakMinutes(workMinutesBeforeBreak) {
-  if (workMinutesBeforeBreak > 9 * 60) return 45;
-  if (workMinutesBeforeBreak > 6 * 60) return 30;
-  return 0;
-}
-
-function computeSuggestedBreak(startHHMM, endHHMM, breakMode) {
-  if (breakMode === 'none' || breakMode === 'manual') return null;
-  if (!startHHMM || !endHHMM) return null;
-  let gross = timeToMinutes(endHHMM) - timeToMinutes(startHHMM);
-  if (gross < 0) gross += 24 * 60;
-  return legalBreakMinutes(gross);
-}
+function computeWorkMinutes(entry) { return _computeWorkMinutesRaw(entry); }
+function computeHomeofficeMinutes(entry) { return _computeHomeofficeMinutesRaw(entry); }
+function isWorkedEntry(entry) { return _isWorkedEntryRaw(entry); }
+function legalBreakMinutes(min) { return _legalBreakMinutesRaw(min); }
+function computeSuggestedBreak(startHHMM, endHHMM, breakMode) { return _computeSuggestedBreakRaw(startHHMM, endHHMM, breakMode); }
 
 /* ---------- Holiday Overrides + Feiertage (siehe modules/holidays.js) ----------
  * Die Feiertagslogik lebt komplett in modules/holidays.js.
@@ -721,130 +705,27 @@ function isHoliday(iso, stateCode) {
   return _isHolidayRaw(iso, stateCode, _currentHolidayOverrides());
 }
 
-/* ---------- Target Hours Calculation ---------- */
+/* ---------- Target Hours Calculation (siehe modules/compute.js) ----------
+ * Wrapper reichen stateCode + holidayOverrides automatisch aus state rein.
+ */
 
-/* daysInMonth, monthDates: siehe modules/util-time.js */
-
-/* For employer with weekly hours, target for a month = sum over workdays of dailyHours,
- * where a workday is any weekday with schedule.enabled that isn't a holiday.
- * If no schedule is defined, we assume Mon-Fri with weeklyHours/5 per day.
- * Holidays on a workday reduce the target (as if paid off).
- * If employer uses fixed monthlyHours, we ALSO subtract holidays that fall on workdays,
- * pro-rated over the assumed 21 workdays. */
+function _computeCtxHoliday() {
+  return {
+    stateCode: (state && state.settings && state.settings.state) || 'HE',
+    holidayOverrides: _currentHolidayOverrides(),
+  };
+}
 
 function computeMonthTargetMinutes(employer, ym) {
-  const stateCode = state.settings.state || 'HE';
-  const holidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode).map(h => h.date));
-  const dates = monthDates(ym);
-
-  if (employer.hoursMode === 'month' || !employer.hoursMode) {
-    // Fixed monthly – subtract holidays proportionally (only weekday holidays)
-    const monthlyMin = Math.round((employer.monthlyHours || 0) * 60);
-    if (!monthlyMin) return 0;
-    const weekdays = dates.filter(d => {
-      const dow = dayOfWeekISO(d);
-      return dow < 5;
-    });
-    const weekdayHolidays = weekdays.filter(d => holidays.has(d));
-    if (!weekdays.length) return monthlyMin;
-    const perDay = monthlyMin / weekdays.length;
-    return Math.round(monthlyMin - weekdayHolidays.length * perDay);
-  }
-
-  // weekly-hours mode
-  const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-  const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
-  const perDayMin = {};
-  if (activeDays.length) {
-    // if start/end given per day, use its net minutes; else fall back to weeklyHours / activeDays
-    for (const k of DAY_KEYS) {
-      const s = schedule[k];
-      if (!s?.enabled) { perDayMin[k] = 0; continue; }
-      if (s.start && s.end) {
-        let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
-        if (gross < 0) gross += 24 * 60;
-        perDayMin[k] = gross - (s.break || 0);
-      } else {
-        perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
-      }
-    }
-  } else {
-    // fallback Mon-Fri equal split
-    const perDay = Math.round(((employer.weeklyHours || 0) * 60) / 5);
-    ['mon','tue','wed','thu','fri'].forEach(k => perDayMin[k] = perDay);
-    ['sat','sun'].forEach(k => perDayMin[k] = 0);
-  }
-
-  let total = 0;
-  for (const d of dates) {
-    if (holidays.has(d)) continue;
-    const key = DAY_KEYS[dayOfWeekISO(d)];
-    total += (perDayMin[key] || 0);
-  }
-  return total;
+  return _computeMonthTargetMinutesRaw(employer, ym, _computeCtxHoliday());
 }
 
 function computeWeekTargetMinutes(employer, weekDates) {
-  const stateCode = state.settings.state || 'HE';
-  const holidays = new Set(weekDates.flatMap(d => {
-    const y = Number(d.slice(0, 4));
-    return getHolidays(y, stateCode).map(h => h.date);
-  }));
-
-  if (employer.hoursMode === 'week') {
-    const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-    const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
-    const perDayMin = {};
-    if (activeDays.length) {
-      for (const k of DAY_KEYS) {
-        const s = schedule[k];
-        if (!s?.enabled) { perDayMin[k] = 0; continue; }
-        if (s.start && s.end) {
-          let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
-          if (gross < 0) gross += 24 * 60;
-          perDayMin[k] = gross - (s.break || 0);
-        } else {
-          perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
-        }
-      }
-    } else {
-      const perDay = Math.round(((employer.weeklyHours || 0) * 60) / 5);
-      ['mon','tue','wed','thu','fri'].forEach(k => perDayMin[k] = perDay);
-      ['sat','sun'].forEach(k => perDayMin[k] = 0);
-    }
-    let total = 0;
-    for (const d of weekDates) {
-      if (holidays.has(d)) continue;
-      const key = DAY_KEYS[dayOfWeekISO(d)];
-      total += (perDayMin[key] || 0);
-    }
-    return total;
-  }
-
-  // month mode → prorate: monthlyHours * 12 / 52 – but subtract holidays in week
-  const weeklyMin = Math.round((employer.monthlyHours || 0) * 60 * 12 / 52);
-  const holidayCount = weekDates.filter(d => holidays.has(d) && dayOfWeekISO(d) < 5).length;
-  const perDay = weeklyMin / 5;
-  return Math.max(0, Math.round(weeklyMin - holidayCount * perDay));
+  return _computeWeekTargetMinutesRaw(employer, weekDates, _computeCtxHoliday());
 }
 
 function defaultSchedule(weeklyHours = 40) {
-  const perDay = weeklyHours / 5;
-  const h = Math.floor(perDay);
-  const m = Math.round((perDay - h) * 60);
-  const endH = 9 + h;
-  const endM = m;
-  const startTime = '09:00';
-  const endTime = `${pad(endH)}:${pad(endM)}`;
-  return {
-    mon: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    tue: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    wed: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    thu: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    fri: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    sat: { enabled: false, start: '', end: '', break: 0 },
-    sun: { enabled: false, start: '', end: '', break: 0 },
-  };
+  return _defaultScheduleRaw(weeklyHours);
 }
 
 /* ---------- Employer helpers ---------- */
@@ -985,14 +866,7 @@ function renderTodaySummary() {
 }
 
 function countWorkdaysInMonth(ym, employer) {
-  const stateCode = state.settings.state || 'HE';
-  const holidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode).map(h => h.date));
-  const dates = monthDates(ym);
-  if (employer && employer.hoursMode === 'week') {
-    const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-    return dates.filter(d => !holidays.has(d) && schedule[DAY_KEYS[dayOfWeekISO(d)]]?.enabled).length || 1;
-  }
-  return dates.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d)).length || 1;
+  return _countWorkdaysInMonthRaw(ym, employer, _computeCtxHoliday());
 }
 
 /* ---------- Start / End ---------- */
@@ -1781,42 +1655,14 @@ function renderWeek() {
 /* ---------- Monthly Report ---------- */
 
 /**
- * Zentraler Monatsbericht für einen Arbeitgeber.
- * Aggregiert alle Einträge, berechnet Ist/Soll/Saldo, Home-Office-Anteil,
- * angerechnete Urlaub/Krank-Minuten und listet Feiertage.
+ * Zentraler Monatsbericht für einen Arbeitgeber (siehe modules/compute.js).
+ * Wrapper reicht state als ctx durch.
  * @param {string} employerId
  * @param {string} ym 'YYYY-MM'
- * @returns {AZMonthReport|null} null wenn Arbeitgeber unbekannt
+ * @returns {AZMonthReport|null}
  */
 function computeMonthReport(employerId, ym) {
-  const emp = getEmployer(employerId);
-  if (!emp) return null;
-  const entries = state.entries
-    .filter(e => e.employerId === employerId && e.date.startsWith(ym))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const workEntries = entries.filter(e => e.type === 'work');
-  const homeofficeEntries = entries.filter(e => e.type === 'homeoffice');
-  const vacationEntries = entries.filter(e => e.type === 'vacation');
-  const sickEntries = entries.filter(e => e.type === 'sick');
-
-  const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
-    + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
-  const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
-  const targetMin = computeMonthTargetMinutes(emp, ym);
-  const workdays = countWorkdaysInMonth(ym, emp);
-  const dailyTargetMin = targetMin / workdays;
-  const creditedAbsenceMin = Math.round((vacationEntries.length + sickEntries.length) * dailyTargetMin);
-  const balance = workedMin + creditedAbsenceMin - targetMin;
-
-  const overtimeEntries = workEntries.filter(e => e.overtimeReason);
-  const stateCode = state.settings.state || 'HE';
-  const holidays = getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode);
-
-  return {
-    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeEntries,
-    workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
-  };
+  return _computeMonthReportRaw(employerId, ym, { state });
 }
 
 function renderReport() {
@@ -2267,36 +2113,12 @@ function wrapText(doc, text, x, y, maxWidth) {
 /* ---------- Overview: Monatsauswertung über alle Arbeitgeber ---------- */
 
 /**
- * Monats-Übersicht über ALLE Arbeitgeber.
- * Nutzt computeMonthReport pro Arbeitgeber und aggregiert Totals.
+ * Monats-Übersicht über ALLE Arbeitgeber (siehe modules/compute.js).
  * @param {string} ym 'YYYY-MM'
  * @returns {AZMonthOverview}
  */
 function computeMonthOverview(ym) {
-  const rows = state.employers.map(emp => {
-    const r = computeMonthReport(emp.id, ym);
-    if (!r) return null;
-    return {
-      employer: emp,
-      workedMin: r.workedMin,
-      targetMin: r.targetMin,
-      balance: r.balance,
-      vacationDays: r.vacationEntries.length,
-      sickDays: r.sickEntries.length,
-      workEntriesCount: r.workEntries.length,
-    };
-  }).filter(Boolean);
-
-  const totals = rows.reduce((acc, row) => ({
-    workedMin: acc.workedMin + row.workedMin,
-    targetMin: acc.targetMin + row.targetMin,
-    balance: acc.balance + row.balance,
-    vacationDays: acc.vacationDays + row.vacationDays,
-    sickDays: acc.sickDays + row.sickDays,
-    workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
-  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, workEntriesCount: 0 });
-
-  return { ym, rows, totals };
+  return _computeMonthOverviewRaw(ym, { state });
 }
 
 function renderOverview() {
@@ -3973,6 +3795,18 @@ if (typeof window !== 'undefined') {
   if (typeof renderSettings === 'function') window.renderSettings = renderSettings;
 
   // Compute + Export für Regression
+  if (typeof DAY_KEYS !== 'undefined') window.DAY_KEYS = DAY_KEYS;
+  if (typeof DAY_LABELS !== 'undefined') window.DAY_LABELS = DAY_LABELS;
+  if (typeof DAY_LABELS_LONG !== 'undefined') window.DAY_LABELS_LONG = DAY_LABELS_LONG;
+  if (typeof computeWorkMinutes === 'function') window.computeWorkMinutes = computeWorkMinutes;
+  if (typeof computeHomeofficeMinutes === 'function') window.computeHomeofficeMinutes = computeHomeofficeMinutes;
+  if (typeof isWorkedEntry === 'function') window.isWorkedEntry = isWorkedEntry;
+  if (typeof legalBreakMinutes === 'function') window.legalBreakMinutes = legalBreakMinutes;
+  if (typeof computeSuggestedBreak === 'function') window.computeSuggestedBreak = computeSuggestedBreak;
+  if (typeof defaultSchedule === 'function') window.defaultSchedule = defaultSchedule;
+  if (typeof computeMonthTargetMinutes === 'function') window.computeMonthTargetMinutes = computeMonthTargetMinutes;
+  if (typeof computeWeekTargetMinutes === 'function') window.computeWeekTargetMinutes = computeWeekTargetMinutes;
+  if (typeof countWorkdaysInMonth === 'function') window.countWorkdaysInMonth = countWorkdaysInMonth;
   if (typeof computeMonthReport === 'function') window.computeMonthReport = computeMonthReport;
   if (typeof computeMonthOverview === 'function') window.computeMonthOverview = computeMonthOverview;
   if (typeof generatePdfBlob === 'function') window.generatePdfBlob = generatePdfBlob;
