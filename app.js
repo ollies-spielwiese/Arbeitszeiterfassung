@@ -98,12 +98,20 @@ import {
   renderSummaryWordParagraphs as _renderSummaryWordParagraphsRaw,
   renderSummaryPlaintext as _renderSummaryPlaintextRaw,
 } from './modules/render/summary.js';
+import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
+import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
 
-const APP_VERSION = '3.9.5';
+const APP_VERSION = '3.9.6';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.6', items: [
+      'Modul-Split Phase 3.6b: modules/render/report.js + modules/render/overview.js',
+      'buildReportHTML und buildOverviewHTML sind pure HTML-Builder mit ctx-DI',
+      'app.js: renderReport/renderOverview auf DOM-Wiring und Builder-Aufruf reduziert',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+  ]},
   { version: '3.9.5', items: [
       'Modul-Split Phase 3.6a: modules/render/summary.js — Summary-Renderer ausgelagert',
       'renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext sind jetzt pure ES-Exports',
@@ -1506,74 +1514,17 @@ function renderReport() {
   const r = computeMonthReport(empId, ym);
   if (!r) { container.innerHTML = '<div class="empty-state">Keine Daten.</div>'; return; }
 
-  // Gemeinsame, chronologisch sortierte Zeilen aus Arbeit + Home-Office
-  const combined = [
-    ...r.workEntries.map(e => ({ e, isHO: false })),
-    ...r.homeofficeEntries.map(e => ({ e, isHO: true })),
-  ].sort((a, b) => a.e.date.localeCompare(b.e.date));
-
-  const rows = combined.map(({ e, isHO }) => {
-    if (isHO) {
-      const mins = computeHomeofficeMinutes(e);
-      return `
-        <tr class="row-homeoffice">
-          <td data-label="Datum">${formatDateLong(e.date)}</td>
-          <td data-label="Zeit"><span class="cell-badge homeoffice">Home-Office</span></td>
-          <td class="num" data-label="Pause (Min)">—</td>
-          <td class="num" data-label="Std.">${minutesToHM(mins)}</td>
-          <td data-label="Grund Überstunden"></td>
-          <td data-label="Bemerkung">${escapeHtml(e.note || '')}</td>
-        </tr>
-      `;
-    }
-    const mins = computeWorkMinutes(e);
-    return `
-      <tr>
-        <td data-label="Datum">${formatDateLong(e.date)}</td>
-        <td data-label="Zeit">${e.start}–${e.end}</td>
-        <td class="num" data-label="Pause (Min)">${e.breakMinutes || 0}</td>
-        <td class="num" data-label="Std.">${minutesToHM(mins)}</td>
-        <td data-label="Grund Überstunden">${escapeHtml(e.overtimeReason || '')}</td>
-        <td data-label="Bemerkung">${escapeHtml(e.note || '')}</td>
-      </tr>
-    `;
-  }).join('');
-
-  const holidayList = r.holidays.length
-    ? `<div class="entry-note" style="margin-top: 0.75rem;">Feiertage im Monat: ${r.holidays.map(h => `${formatDate(h.date)} ${escapeHtml(h.name)}`).join(' · ')}</div>`
-    : '';
-
-  const homeofficeFooter = r.homeofficeEntries.length
-    ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
-    : '';
-
-  const mrFields = getSummaryFields({
-    workedMin: r.workedMin,
-    targetMin: r.targetMin,
-    balance: r.balance,
-    vacationDays: r.vacationEntries.length,
-    sickDays: r.sickEntries.length,
-    hourlyRate: Number(r.employer.hourlyRate) || 0,
-    currency: r.employer.currency || 'EUR',
+  container.innerHTML = _buildReportHTMLRaw(r, {
+    escapeHtml,
+    formatDateLong,
+    formatDate,
+    formatMonthYear,
+    minutesToHM,
+    computeWorkMinutes,
+    computeHomeofficeMinutes,
+    getSummaryFields,
+    renderSummaryHTML,
   });
-
-  container.innerHTML = `
-    <div class="report-header">
-      <h3>${escapeHtml(r.employer.name)}</h3>
-      <div class="subtitle">${formatMonthYear(r.ym)}</div>
-    </div>
-    <div class="summary-grid">
-      ${renderSummaryHTML(mrFields)}
-    </div>
-    ${holidayList}
-    ${rows ? `
-      <table class="report-table">
-        <thead><tr><th>Datum</th><th>Zeit</th><th>Pause (Min)</th><th>Std.</th><th>Grund Überstunden</th><th>Bemerkung</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      ${homeofficeFooter}
-    ` : '<div class="empty-state">Keine Arbeitszeiten in diesem Monat.</div>'}
-  `;
 }
 
 /* ---------- Word Export (.docx) ---------- */
@@ -1956,104 +1907,15 @@ function renderOverview() {
     return;
   }
 
-  const freelanceMode = isFreelance();
-  const empLabel = freelanceMode ? 'Kunde' : 'Arbeitgeber';
-
-  const ovRowNetTotal = (row) => {
-    const rate = Number(row.employer.hourlyRate) || 0;
-    if (rate <= 0) return null;
-    return { amount: (row.workedMin / 60) * rate, currency: row.employer.currency || 'EUR' };
-  };
-  // Summary-Grid nutzt zentralen Selector; Tabellen-Aggregat wird lokal berechnet
-  const overviewSummaryFields = getOverviewSummaryFields(ov);
-  const netField = overviewSummaryFields.find(f => f.key === 'net');
-  const ovTotalsNetStr = netField ? netField.value : '—';
-
-  const bodyRows = ov.rows.map(row => {
-    if (freelanceMode) {
-      const nt = ovRowNetTotal(row);
-      return `
-    <tr>
-      <td data-label="${empLabel}">${escapeHtml(row.employer.name)}</td>
-      <td class="num" data-label="Tage">${row.workEntriesCount}</td>
-      <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
-      <td class="num" data-label="Rechnungsbetrag">${nt ? formatMoney(nt.amount, nt.currency) : '—'}</td>
-    </tr>
-  `;
-    }
-    return `
-    <tr>
-      <td data-label="${empLabel}">${escapeHtml(row.employer.name)}</td>
-      <td class="num" data-label="Tage">${row.workEntriesCount}</td>
-      <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
-      <td class="num" data-label="Soll">${minutesToHM(row.targetMin)}</td>
-      <td class="num ${row.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo">${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}</td>
-      <td class="num" data-label="Urlaub">${row.vacationDays}</td>
-      <td class="num" data-label="Krank">${row.sickDays}</td>
-    </tr>
-  `;
-  }).join('');
-
-  const totalsRow = freelanceMode ? `
-    <tr class="totals-row">
-      <td data-label="${empLabel}"><strong>Gesamt</strong></td>
-      <td class="num" data-label="Tage"><strong>${ov.totals.workEntriesCount}</strong></td>
-      <td class="num" data-label="Ist"><strong>${minutesToHM(ov.totals.workedMin)}</strong></td>
-      <td class="num" data-label="Rechnungsbetrag"><strong>${ovTotalsNetStr}</strong></td>
-    </tr>
-  ` : `
-    <tr class="totals-row">
-      <td data-label="${empLabel}"><strong>Gesamt</strong></td>
-      <td class="num" data-label="Tage"><strong>${ov.totals.workEntriesCount}</strong></td>
-      <td class="num" data-label="Ist"><strong>${minutesToHM(ov.totals.workedMin)}</strong></td>
-      <td class="num" data-label="Soll"><strong>${minutesToHM(ov.totals.targetMin)}</strong></td>
-      <td class="num ${ov.totals.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo"><strong>${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</strong></td>
-      <td class="num" data-label="Urlaub"><strong>${ov.totals.vacationDays}</strong></td>
-      <td class="num" data-label="Krank"><strong>${ov.totals.sickDays}</strong></td>
-    </tr>
-  `;
-
-  const summaryGrid = `<div class="summary-grid">${renderSummaryHTML(overviewSummaryFields)}</div>`;
-
-  const tableHead = freelanceMode ? `
-          <tr>
-            <th>${empLabel}</th>
-            <th class="num">Tage</th>
-            <th class="num">Ist</th>
-            <th class="num">Rechnungsbetrag</th>
-          </tr>
-  ` : `
-          <tr>
-            <th>${empLabel}</th>
-            <th class="num">Tage</th>
-            <th class="num">Ist</th>
-            <th class="num">Soll</th>
-            <th class="num">Saldo</th>
-            <th class="num">Urlaub</th>
-            <th class="num">Krank</th>
-          </tr>
-  `;
-
-  const overviewTitle = freelanceMode ? 'Monatsübersicht – alle Kunden' : 'Monatsübersicht – alle Arbeitgeber';
-
-  container.innerHTML = `
-    <div class="report-header">
-      <h3>${overviewTitle}</h3>
-      <div class="subtitle">${formatMonthYear(ym)}</div>
-    </div>
-    ${summaryGrid}
-    <div class="report-table-wrap">
-      <table class="report-table overview-table">
-        <thead>
-          ${tableHead}
-        </thead>
-        <tbody>
-          ${bodyRows}
-          ${totalsRow}
-        </tbody>
-      </table>
-    </div>
-  `;
+  container.innerHTML = _buildOverviewHTMLRaw(ov, ym, {
+    escapeHtml,
+    formatMonthYear,
+    minutesToHM,
+    formatMoney,
+    isFreelance,
+    getOverviewSummaryFields,
+    renderSummaryHTML,
+  });
 }
 
 function generateOverviewPdfBlob(ov) {
