@@ -118,6 +118,8 @@
  * @property {string} state Bundesland-Code, z.B. 'HE'
  * @property {'employee'|'freelance'} [appMode]
  * @property {string} [currency] Global default 'EUR'
+ * @property {string} [employeeName] Name des Angestellten (Report-Header)
+ * @property {import('./modules/holidays.js').AZHolidayOverrides|undefined} [holidayOverrides] Feiertags-Overrides (add/disable/rename)
  */
 
 /**
@@ -158,14 +160,17 @@
 
 /**
  * Ein Feld der Summary-Ausgabe.
+ * key ist konventionell 'worked'|'target'|'balance'|'net'|'absences'|'holidays',
+ * bleibt aber typisch string weil Selectors Literals zurueckgeben, die tsc
+ * ohne expliziten Cast zu string widet.
  * @typedef {Object} AZSummaryField
- * @property {'worked'|'target'|'balance'|'net'|'absences'|'holidays'} key
+ * @property {string} key
  * @property {string} label
- * @property {'time'|'balance'|'money'|'count'} kind
+ * @property {string} kind Konventionell 'time'|'balance'|'money'|'count'.
  * @property {string} [valueHM] 'HH:MM' bei time/balance
  * @property {string} [valueDec] '42,50 h' bei time/balance
  * @property {string} [value] Fertiger String bei money/count
- * @property {'pos'|'neg'} [sign] Bei balance
+ * @property {string} [sign] Konventionell 'pos'|'neg' bei balance
  * @property {number} [rawMinutes] Roh-Minuten bei time/balance
  * @property {{amount:number,currency:string}} [rawAmount] Bei money
  */
@@ -236,3 +241,7 @@
 /* Diese Datei enthält nur JSDoc-Typen. Kein Runtime-Code.
  * Sie wird NICHT von index.html geladen, sondern nur von app.js
  * per triple-slash-reference eingebunden. */
+
+// Damit types.js als ES-Modul gilt (Voraussetzung für `import('../types.js').X`
+// in JSDoc-Annotations mit tsc --noEmit).
+export {};

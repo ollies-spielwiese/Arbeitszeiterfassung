@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Typecheck (tsc --noEmit mit DOM-Rausch-Filter)
+        run: npm run typecheck
+
       - name: Install Playwright Chromium (with system deps)
         run: npx playwright install --with-deps chromium
 

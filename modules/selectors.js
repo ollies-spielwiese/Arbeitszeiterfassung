@@ -15,7 +15,8 @@
 /**
  * Findet einen Arbeitgeber per ID.
  * @param {string} id
- * @param {{state:{employers:Array<{id:string}>}}} ctx
+ * @param {{state:{employers:Array<import('../types.js').AZEmployer>}}} ctx
+ * @returns {import('../types.js').AZEmployer|undefined}
  */
 export function getEmployer(id, ctx) {
   const state = ctx && ctx.state;
@@ -66,9 +67,10 @@ export function getCurrentOverview(ctx) {
 /**
  * Baut die Feld-Liste für das Report-/Tracker-Summary-Grid.
  * Pure Funktion — alle Formatter/Modus-Helper via ctx.
- * @param {object} input
+ * @param {import('../types.js').AZSummaryInput} input
  * @param {{isFreelance:()=>boolean, minutesToHM:(min:number)=>string,
  *          hoursDecimal:(min:number)=>string, formatMoney:(amt:number, cur:string)=>string}} ctx
+ * @returns {import('../types.js').AZSummaryField[]}
  */
 export function getSummaryFields(input, ctx) {
   const { isFreelance, minutesToHM, hoursDecimal, formatMoney } = ctx;
@@ -155,6 +157,7 @@ export function getSummaryFields(input, ctx) {
  * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, vacationDays:number, sickDays:number}}} ov
  * @param {{isFreelance:()=>boolean, minutesToHM:(min:number)=>string,
  *          hoursDecimal:(min:number)=>string, formatMoney:(amt:number, cur:string)=>string}} ctx
+ * @returns {import('../types.js').AZSummaryField[]}
  */
 export function getOverviewSummaryFields(ov, ctx) {
   const { isFreelance, minutesToHM, hoursDecimal, formatMoney } = ctx;
@@ -328,7 +331,7 @@ export function computeEntryRows(list, ctx) {
  * mit welchen Defaults gezeigt werden.
  * @param {any} entry — bestehender Eintrag oder null bei Neu-Anlage
  * @param {{presetType?:string, justEnded?:boolean}} opts
- * @param {{state:{employers:Array<any>, activeEmployerId:string}, todayISO:()=>string,
+ * @param {{state:{employers:Array<any>, activeEmployerId?:string}, todayISO:()=>string,
  *          getEmployer:(id:string)=>any, DAY_KEYS:Array<string>,
  *          DAY_LABELS_LONG:Array<string>, dayOfWeekISO:(iso:string)=>number}} ctx
  * @returns {{isNew:boolean, title:string, values:any, showDeleteButton:boolean,

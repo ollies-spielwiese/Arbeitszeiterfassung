@@ -1,4 +1,15 @@
-/// <reference path="./types.js" />
+/**
+ * @typedef {import('./types.js').AZEmployer} AZEmployer
+ * @typedef {import('./types.js').AZEntry} AZEntry
+ * @typedef {import('./types.js').AZState} AZState
+ * @typedef {import('./types.js').AZHoliday} AZHoliday
+ * @typedef {import('./types.js').AZSummaryInput} AZSummaryInput
+ * @typedef {import('./types.js').AZSummaryField} AZSummaryField
+ * @typedef {import('./types.js').AZMonthReport} AZMonthReport
+ * @typedef {import('./types.js').AZMonthOverview} AZMonthOverview
+ * @typedef {import('./types.js').AZRunningTimer} AZRunningTimer
+ */
+
 /* Arbeitszeiterfassung – Offline-PWA v2
  *
  * Types: siehe types.js (zentrale JSDoc-übergreifende Definitionen mit AZ-Prefix).
@@ -459,6 +470,7 @@ function defaultSchedule(weeklyHours = 40) {
 
 /* ---------- Employer helpers ---------- */
 
+/** @returns {AZEmployer|undefined} */
 function getEmployer(id) {
   return _getEmployerRaw(id, { state });
 }
@@ -474,7 +486,7 @@ function switchView(name) {
   document.querySelectorAll('.tab').forEach(t => {
     const active = t.dataset.view === name;
     t.classList.toggle('active', active);
-    t.setAttribute('aria-selected', active);
+    t.setAttribute('aria-selected', String(active));
   });
   document.querySelectorAll('.view').forEach(v => {
     v.classList.toggle('active', v.id === `view-${name}`);
@@ -531,7 +543,7 @@ function renderTracker() {
 
   // Mode-Toggle beim Wechsel in den Tracker-Tab immer auf Präsenz zurücksetzen (nicht persistiert),
   // außer der laufende Timer ist bereits im Home-Office-Modus.
-  if (running && running.mode === 'homeoffice') {
+  if (running && running.type === 'homeoffice') {
     setMode('homeoffice');
   } else {
     setMode('praesenz');
@@ -604,7 +616,7 @@ function startWork() {
   state.runningTimer = {
     employerId: state.activeEmployerId,
     startISO: new Date().toISOString(),
-    mode: currentMode === 'homeoffice' ? 'homeoffice' : 'praesenz',
+    type: currentMode === 'homeoffice' ? 'homeoffice' : 'work',
   };
   saveState();
   renderTracker();
@@ -654,7 +666,7 @@ function endWork() {
   const endDate = new Date();
   const parts = splitAcrossMidnight(startDate, endDate);
 
-  if (r.mode === 'homeoffice') {
+  if (r.type === 'homeoffice') {
     // Für jeden Kalendertag: Segment am bestehenden HO-Entry anhängen oder neuen anlegen
     for (const p of parts) {
       const existing = state.entries.find(e =>
@@ -698,6 +710,7 @@ function endWork() {
   const emp = getEmployer(r.employerId);
   const suggestedBreak = computeSuggestedBreak(startHHMM, endHHMM, emp?.breakMode);
 
+  /** @type {AZEntry} */
   const entry = {
     id: uid(),
     employerId: r.employerId,

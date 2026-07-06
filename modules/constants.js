@@ -11,11 +11,20 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.21';
+export const APP_VERSION = '3.9.22';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.22', items: [
+      'Phase 4.9: tsc --noEmit als CI-Typecheck',
+      'tsconfig.json + types-globals.d.ts angelegt — checkJs an, DOM-Vendor-Globals typisiert',
+      'JSDoc-Import-Block statt triple-slash-reference; types.js als ES-Modul',
+      'scripts/typecheck.mjs mit DOM-Rausch-Filter (TS2339 auf HTMLElement.value/checked/dataset)',
+      'Echte Typ-Bugs behoben: runningTimer.mode → .type, aria-selected als String, FileReader.result Cast',
+      'AZSettings erweitert (employeeName, holidayOverrides), Selector-Signaturen mit @returns AZSummaryField[]',
+      'CI-Job Regression um Typecheck-Step erweitert (vor Playwright)',
+    ] },
   { version: '3.9.21', items: [
       'Phase 4.8: Selector-Prinzip komplettiert',
       'computeEntryRows in modules/selectors.js — Row-Compute raus aus render/entries.js',

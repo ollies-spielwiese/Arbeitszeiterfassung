@@ -71,6 +71,7 @@ export function renderHolidayList(ctx) {
   const ov = ensureHolidayOverrides(ctx);
 
   const base = getBaseHolidays(year, stateCode);
+  /** @type {Array<{kind:string, date:string, display:string, original?:string, disabled?:boolean, renamed?:boolean, stateCode?:string}>} */
   const rows = base.map(h => {
     const disabled = ov.disable.includes(h.date);
     const renamedTo = ov.rename[h.date] || null;

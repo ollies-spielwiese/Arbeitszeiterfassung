@@ -34,7 +34,7 @@ export function importBackup(file, ctx) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(reader.result);
+      const data = JSON.parse(/** @type {string} */ (reader.result));
       if (!data.employers || !Array.isArray(data.employers)) throw new Error('Ungültiges Format');
       if (!confirm('Aktuelle Daten überschreiben?')) return;
       const imported = {
