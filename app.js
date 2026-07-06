@@ -114,12 +114,17 @@ import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './module
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
+import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw } from './modules/backup.js';
 
-const APP_VERSION = '3.9.10';
+const APP_VERSION = '3.9.11';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.11', items: [
+      'Modul-Split Phase 3.9b: modules/backup.js',
+      'JSON-Backup Export/Import in eigenes Modul mit ctx-DI + onImport-Callback',
+    ] },
   { version: '3.9.10', items: [
       'Modul-Split Phase 3.9a: modules/whatsnew.js',
       'maybeShowWhatsNew + compareVersions als pure Funktionen mit ctx-DI extrahiert',
@@ -2553,35 +2558,27 @@ function deleteTemplate() {
 /* ---------- Backup ---------- */
 
 function exportBackup() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-  downloadBlob(blob, `arbeitszeit-backup-${todayISO()}.json`);
-  toast('Backup heruntergeladen');
+  _exportBackupRaw({
+    getState: _getState,
+    downloadBlob,
+    todayISO,
+    toast,
+  });
 }
 
 function importBackup(file) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const data = JSON.parse(reader.result);
-      if (!data.employers || !Array.isArray(data.employers)) throw new Error('Ungültiges Format');
-      if (!confirm('Aktuelle Daten überschreiben?')) return;
-      const imported = {
-        ...DEFAULT_STATE,
-        ...data,
-        settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
-      };
-      imported.settings.holidayOverrides = normalizeHolidayOverrides(imported.settings.holidayOverrides);
-      _setState(imported);
+  _importBackupRaw(file, {
+    setState: _setState,
+    saveState,
+    toast,
+    DEFAULT_STATE,
+    normalizeHolidayOverrides,
+    onImport: (imported) => {
       state = _getState();
       if (typeof window !== 'undefined') window.state = state;
-      saveState();
       renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
-      toast('Backup importiert');
-    } catch (e) {
-      toast('Import fehlgeschlagen: ' + e.message);
-    }
-  };
-  reader.readAsText(file);
+    },
+  });
 }
 
 /* ---------- Helpers ---------- */
