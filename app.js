@@ -121,12 +121,25 @@ import {
   shareReport as _shareReportRaw,
   shareOverviewPdf as _shareOverviewPdfRaw,
 } from './modules/share.js';
+import {
+  openEntryModal as _openEntryModalRaw,
+  updateScheduleFillVisibility as _updateScheduleFillVisibilityRaw,
+  applyScheduleToEntry as _applyScheduleToEntryRaw,
+  updateEntryTypeFields as _updateEntryTypeFieldsRaw,
+  updateBreakHint as _updateBreakHintRaw,
+  saveEntry as _saveEntryRaw,
+  deleteEntry as _deleteEntryRaw,
+} from './modules/ui/entry-modal.js';
 
-const APP_VERSION = '3.9.12';
+const APP_VERSION = '3.9.13';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.13', items: [
+      'Modul-Split Phase 3.9d: modules/ui/entry-modal.js',
+      'openEntryModal, saveEntry, deleteEntry und Helfer als pure Funktionen mit ctx-DI',
+    ] },
   { version: '3.9.12', items: [
       'Modul-Split Phase 3.9c: modules/share.js',
       'openShareModal, showMailtoStage2, shareReport, shareOverviewPdf als pure Funktionen mit ctx-DI',
@@ -870,83 +883,36 @@ function endWork() {
 
 /* ---------- Entry Modal ---------- */
 
-function openEntryModal(entry, opts = {}) {
-  const modal = document.getElementById('modal-entry');
-  const form = document.getElementById('form-entry');
-  const isNew = !entry;
-
-  document.getElementById('modal-entry-title').textContent =
-    opts.justEnded ? 'Zeit prüfen und speichern' : (isNew ? 'Zeit erfassen' : 'Zeit bearbeiten');
-
-  const empSel = document.getElementById('entry-employer');
-  empSel.innerHTML = state.employers.map(e =>
-    `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
-
-  const e = entry || {
-    id: '',
-    employerId: state.activeEmployerId,
-    date: todayISO(),
-    type: opts.presetType || 'work',
-    start: '',
-    end: '',
-    breakMinutes: 0,
-    overtimeReason: '',
-    note: '',
+function _entryCtx() {
+  return {
+    getState: _getState,
+    saveState,
+    getEmployer,
+    todayISO,
+    dayOfWeekISO,
+    DAY_KEYS,
+    DAY_LABELS_LONG,
+    escapeHtml,
+    populateTemplatePicker,
+    computeSuggestedBreak,
+    renderTracker,
+    renderEntries,
+    toast,
+    closeModals,
+    uid,
   };
+}
 
-  form.querySelector('#entry-id').value = e.id;
-  empSel.value = e.employerId || state.activeEmployerId;
-  form.querySelector('#entry-date').value = e.date;
-  form.querySelector('#entry-type').value = e.type;
-  form.querySelector('#entry-start').value = e.start || '';
-  form.querySelector('#entry-end').value = e.end || '';
-  form.querySelector('#entry-break').value = e.breakMinutes || 0;
-  form.querySelector('#entry-overtime-reason').value = e.overtimeReason || '';
-  form.querySelector('#entry-note').value = e.note || '';
-
-  document.getElementById('btn-delete-entry').classList.toggle('hidden', isNew);
-
-  populateTemplatePicker('entry-overtime-tpl');
-  populateTemplatePicker('entry-note-tpl');
-  updateEntryTypeFields();
-  updateBreakHint();
-  updateScheduleFillVisibility();
-
-  modal.classList.remove('hidden');
+function openEntryModal(entry, opts = {}) {
+  return _openEntryModalRaw(entry, opts, _entryCtx());
 }
 
 function updateScheduleFillVisibility() {
-  const empId = document.getElementById('entry-employer').value;
-  const emp = getEmployer(empId);
-  const dateVal = document.getElementById('entry-date').value;
-  const type = document.getElementById('entry-type').value;
-  const row = document.getElementById('schedule-fill-row');
-  if (!row) return;
-  if (type !== 'work' || !emp || !dateVal || !emp.schedule) { row.classList.add('hidden'); return; }
-  const key = DAY_KEYS[dayOfWeekISO(dateVal)];
-  const day = emp.schedule[key];
-  if (day?.enabled && day.start && day.end) {
-    row.classList.remove('hidden');
-    const btn = document.getElementById('btn-apply-schedule');
-    btn.textContent = `📅 Vorschlag: ${DAY_LABELS_LONG[DAY_KEYS.indexOf(key)]} ${day.start}–${day.end}${day.break ? ` (${day.break} Min Pause)` : ''}`;
-  } else {
-    row.classList.add('hidden');
-  }
+  return _updateScheduleFillVisibilityRaw(_entryCtx());
 }
 
 function applyScheduleToEntry() {
-  const empId = document.getElementById('entry-employer').value;
-  const emp = getEmployer(empId);
-  const dateVal = document.getElementById('entry-date').value;
-  if (!emp || !emp.schedule || !dateVal) return;
-  const key = DAY_KEYS[dayOfWeekISO(dateVal)];
-  const day = emp.schedule[key];
-  if (!day?.enabled || !day.start || !day.end) return;
-  document.getElementById('entry-start').value = day.start;
-  document.getElementById('entry-end').value = day.end;
-  document.getElementById('entry-break').value = day.break || 0;
-  updateBreakHint();
-  toast('Wochenschema übernommen');
+  return _applyScheduleToEntryRaw(_entryCtx());
 }
 
 /**
@@ -972,80 +938,20 @@ function populateTemplatePicker(selectId) {
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
 }
-
 function updateEntryTypeFields() {
-  const type = document.getElementById('entry-type').value;
-  document.getElementById('work-fields').style.display = type === 'work' ? 'block' : 'none';
+  return _updateEntryTypeFieldsRaw();
 }
 
 function updateBreakHint() {
-  const empId = document.getElementById('entry-employer').value;
-  const emp = getEmployer(empId);
-  const start = document.getElementById('entry-start').value;
-  const end = document.getElementById('entry-end').value;
-  const hintEl = document.getElementById('break-hint');
-  if (!emp || !start || !end) { hintEl.textContent = ''; return; }
-  const suggested = computeSuggestedBreak(start, end, emp.breakMode);
-  const labels = { legal: 'Gesetzlich', flex: 'Gleitzeit', manual: 'Manuell', none: 'Ohne Pause' };
-  const modeLabel = labels[emp.breakMode] || '';
-  if (emp.breakMode === 'none') {
-    hintEl.textContent = `Modell: ${modeLabel}`;
-  } else if (suggested !== null && suggested > 0) {
-    hintEl.textContent = `Modell ${modeLabel} • Empfehlung: ${suggested} Min`;
-  } else {
-    hintEl.textContent = `Modell: ${modeLabel}`;
-  }
+  return _updateBreakHintRaw(_entryCtx());
 }
 
 function saveEntry(e) {
-  e.preventDefault();
-  const id = document.getElementById('entry-id').value;
-  const type = document.getElementById('entry-type').value;
-  const employerId = document.getElementById('entry-employer').value;
-  const date = document.getElementById('entry-date').value;
-
-  if (!employerId) { toast('Bitte Arbeitgeber wählen'); return; }
-  if (!date) { toast('Bitte Datum wählen'); return; }
-
-  const entryData = {
-    employerId,
-    date,
-    type,
-    start: type === 'work' ? document.getElementById('entry-start').value : '',
-    end: type === 'work' ? document.getElementById('entry-end').value : '',
-    breakMinutes: type === 'work' ? (parseInt(document.getElementById('entry-break').value) || 0) : 0,
-    overtimeReason: type === 'work' ? document.getElementById('entry-overtime-reason').value.trim() : '',
-    note: document.getElementById('entry-note').value.trim(),
-  };
-
-  if (type === 'work' && (!entryData.start || !entryData.end)) {
-    toast('Bitte Beginn und Ende angeben');
-    return;
-  }
-
-  if (id) {
-    const idx = state.entries.findIndex(x => x.id === id);
-    if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...entryData };
-  } else {
-    state.entries.push({ id: uid(), createdAt: new Date().toISOString(), ...entryData });
-  }
-  saveState();
-  closeModals();
-  renderTracker();
-  renderEntries();
-  toast('Gespeichert');
+  return _saveEntryRaw(e, _entryCtx());
 }
 
 function deleteEntry() {
-  const id = document.getElementById('entry-id').value;
-  if (!id) return;
-  if (!confirm('Diesen Eintrag wirklich löschen?')) return;
-  state.entries = state.entries.filter(e => e.id !== id);
-  saveState();
-  closeModals();
-  renderTracker();
-  renderEntries();
-  toast('Gelöscht');
+  return _deleteEntryRaw(_entryCtx());
 }
 
 /* ---------- Home-Office Mode & Modal ---------- */

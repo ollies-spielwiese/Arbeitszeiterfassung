@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-12';
+const CACHE_NAME = 'arbeitszeit-v3-9-13';
 const ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,7 @@ const ASSETS = [
   './modules/whatsnew.js',
   './modules/backup.js',
   './modules/share.js',
+  './modules/ui/entry-modal.js',
   './manifest.json',
   './icon.svg',
   './icon-192.png',
