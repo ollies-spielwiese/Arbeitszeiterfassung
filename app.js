@@ -166,12 +166,18 @@ import {
   saveTemplate as _saveTemplateRaw,
   deleteTemplate as _deleteTemplateRaw,
 } from './modules/ui/templates.js';
+import { exportBridge } from './modules/regression-bridge.js';
 
-const APP_VERSION = '3.9.17';
+const APP_VERSION = '3.9.18';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.18', items: [
+      'Modul-Split Phase 3.9i: modules/regression-bridge.js',
+      'exportBridge(target, refs) kapselt alle window.*-Assignments für Regression und Legacy-Inline-Handler',
+      'Modul-Split-Roadmap komplett: 20 Module extrahiert, app.js von ~2900 auf 1963 Zeilen (−32%)',
+    ] },
   { version: '3.9.17', items: [
       'Modul-Split Phase 3.9h: modules/ui/templates.js',
       'templateMatchesMode, populateTemplatePicker, renderTemplates, openTemplateModal, saveTemplate, deleteTemplate als pure Funktionen mit ctx-DI',
@@ -1940,83 +1946,23 @@ function maybeShowWhatsNew() {
 /* ---------- Service Worker with Update Prompt ---------- */
 // Siehe modules/sw-update.js (extrahiert in Phase 3.8).
 
-/* ---------- Module-Scope Compatibility Bridge (Phase 3.1) ----------
-   Da app.js jetzt als type=module lädt, sind Top-Level-Deklarationen NICHT mehr
-   automatisch am window. Damit Regression-Skripte (page.evaluate) und alle
-   Legacy-Inline-Handler in index.html weiterhin funktionieren, exponieren
-   wir die relevanten Symbole explizit. Dieser Block wird in Phase 3.8
-   (app.js als reiner Einstiegspunkt) durch saubere Modul-Exporte ersetzt. */
+/* ---------- Module-Scope Compatibility Bridge ----------
+   Siehe modules/regression-bridge.js (extrahiert in Phase 3.9i). */
 if (typeof window !== 'undefined') {
-  // State + Persistenz
-  window.state = state;
-  window.saveState = saveState;
-  window.loadState = loadState;
-  window.SCHEMA_VERSION = SCHEMA_VERSION;
-  window.DEFAULT_STATE = DEFAULT_STATE;
-  window.STORAGE_KEY = STORAGE_KEY;
-
-  // Migrations (für Regression-Unit-Tests)
-  window.runMigrations = (s) => {
-    // Regression ruft runMigrations(s) ohne helpers auf — helpers hier injizieren
-    // (funktioniert wie in der alten Bundle-Welt, wo migrations[] uid/normalizeSegments
-    // aus dem umschließenden Scope zog).
-    // eslint-disable-next-line no-undef
-    return _runMigrationsWithHelpers(s);
-  };
-  window.migrateHomeofficeEntries = migrateHomeofficeEntries;
-
-  // Selectors + Utilities für Regression
-  if (typeof getSummaryFields === 'function') window.getSummaryFields = getSummaryFields;
-  if (typeof getOverviewSummaryFields === 'function') window.getOverviewSummaryFields = getOverviewSummaryFields;
-  if (typeof renderSummaryHTML === 'function') window.renderSummaryHTML = renderSummaryHTML;
-  if (typeof renderSummaryPdfLines === 'function') window.renderSummaryPdfLines = renderSummaryPdfLines;
-  if (typeof renderSummaryWordParagraphs === 'function') window.renderSummaryWordParagraphs = renderSummaryWordParagraphs;
-  if (typeof renderSummaryPlaintext === 'function') window.renderSummaryPlaintext = renderSummaryPlaintext;
-  if (typeof getEmployer === 'function') window.getEmployer = getEmployer;
-  if (typeof getCurrentReport === 'function') window.getCurrentReport = getCurrentReport;
-  if (typeof getCurrentOverview === 'function') window.getCurrentOverview = getCurrentOverview;
-  if (typeof uid === 'function') window.uid = uid;
-  if (typeof normalizeSegments === 'function') window.normalizeSegments = normalizeSegments;
-  if (typeof normalizeHolidayOverrides === 'function') window.normalizeHolidayOverrides = normalizeHolidayOverrides;
-  if (typeof getHolidays === 'function') window.getHolidays = getHolidays;
-  if (typeof getHolidaysInRange === 'function') window.getHolidaysInRange = getHolidaysInRange;
-  if (typeof isHoliday === 'function') window.isHoliday = isHoliday;
-  if (typeof easterSunday === 'function') window.easterSunday = easterSunday;
-  if (typeof applyHolidayOverrides === 'function') window.applyHolidayOverrides = applyHolidayOverrides;
-
-  // Rendering + Views
-  if (typeof switchView === 'function') window.switchView = switchView;
-  if (typeof renderReport === 'function') window.renderReport = renderReport;
-  if (typeof renderTracker === 'function') window.renderTracker = renderTracker;
-  if (typeof renderEntries === 'function') window.renderEntries = renderEntries;
-  if (typeof renderEmployers === 'function') window.renderEmployers = renderEmployers;
-  if (typeof renderArchive === 'function') window.renderArchive = renderArchive;
-  if (typeof renderSettings === 'function') window.renderSettings = renderSettings;
-
-  // Compute + Export für Regression
-  if (typeof DAY_KEYS !== 'undefined') window.DAY_KEYS = DAY_KEYS;
-  if (typeof DAY_LABELS !== 'undefined') window.DAY_LABELS = DAY_LABELS;
-  if (typeof DAY_LABELS_LONG !== 'undefined') window.DAY_LABELS_LONG = DAY_LABELS_LONG;
-  if (typeof computeWorkMinutes === 'function') window.computeWorkMinutes = computeWorkMinutes;
-  if (typeof computeHomeofficeMinutes === 'function') window.computeHomeofficeMinutes = computeHomeofficeMinutes;
-  if (typeof isWorkedEntry === 'function') window.isWorkedEntry = isWorkedEntry;
-  if (typeof legalBreakMinutes === 'function') window.legalBreakMinutes = legalBreakMinutes;
-  if (typeof computeSuggestedBreak === 'function') window.computeSuggestedBreak = computeSuggestedBreak;
-  if (typeof defaultSchedule === 'function') window.defaultSchedule = defaultSchedule;
-  if (typeof computeMonthTargetMinutes === 'function') window.computeMonthTargetMinutes = computeMonthTargetMinutes;
-  if (typeof computeWeekTargetMinutes === 'function') window.computeWeekTargetMinutes = computeWeekTargetMinutes;
-  if (typeof countWorkdaysInMonth === 'function') window.countWorkdaysInMonth = countWorkdaysInMonth;
-  if (typeof computeMonthReport === 'function') window.computeMonthReport = computeMonthReport;
-  if (typeof computeMonthOverview === 'function') window.computeMonthOverview = computeMonthOverview;
-  if (typeof generatePdfBlob === 'function') window.generatePdfBlob = generatePdfBlob;
-  if (typeof generateOverviewPdfBlob === 'function') window.generateOverviewPdfBlob = generateOverviewPdfBlob;
-  if (typeof generateWordBlob === 'function') window.generateWordBlob = generateWordBlob;
-}
-
-// Interne Version von runMigrations, die uid+normalizeSegments injiziert.
-// Wird vom window.runMigrations-Adapter oben aufgerufen.
-function _runMigrationsWithHelpers(s) {
-  // Import ist am Modul-Kopf; hier nur den Aufruf durchreichen
-  // (dynamischer Import würde eine Promise liefern — deshalb der Named-Import).
-  return _runMigrationsModule(s, { uid, normalizeSegments });
+  exportBridge(window, {
+    state, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
+    _runMigrationsModule, migrateHomeofficeEntries,
+    getSummaryFields, getOverviewSummaryFields,
+    renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext,
+    getEmployer, getCurrentReport, getCurrentOverview,
+    uid, normalizeSegments, normalizeHolidayOverrides,
+    getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
+    switchView, renderReport, renderTracker, renderEntries, renderEmployers, renderArchive, renderSettings,
+    DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
+    computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
+    legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
+    computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
+    computeMonthReport, computeMonthOverview,
+    generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
+  });
 }
