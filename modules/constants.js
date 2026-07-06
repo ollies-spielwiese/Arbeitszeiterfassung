@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.19';
+export const APP_VERSION = '3.9.20';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.20', items: [
+      'Modul-Split Phase 3.10b: modules/bootstrap.js',
+      'wireEvents(ctx) kapselt alle ~200 Zeilen addEventListener-Wiring',
+      'DOMContentLoaded-Registrar bleibt in app.js (defer-Semantik von type=module)',
+      'app.js: 171 Zeilen weniger — jetzt unter 1400 Zeilen',
+    ] },
   { version: '3.9.19', items: [
       'Modul-Split Phase 3.10a: modules/constants.js',
       'APP_VERSION, LAST_SEEN_VERSION_KEY, CHANGELOG und LABELS in eigenes Modul',
