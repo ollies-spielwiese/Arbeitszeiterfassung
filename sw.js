@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-13';
+const CACHE_NAME = 'arbeitszeit-v3-9-14';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,7 @@ const ASSETS = [
   './modules/backup.js',
   './modules/share.js',
   './modules/ui/entry-modal.js',
+  './modules/ui/homeoffice-modal.js',
   './manifest.json',
   './icon.svg',
   './icon-192.png',

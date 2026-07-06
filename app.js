@@ -130,12 +130,28 @@ import {
   saveEntry as _saveEntryRaw,
   deleteEntry as _deleteEntryRaw,
 } from './modules/ui/entry-modal.js';
+import {
+  openHomeofficeModal as _openHomeofficeModalRaw,
+  updateHomeofficeContext as _updateHomeofficeContextRaw,
+  readHomeofficeSegmentsFromDom as _readHomeofficeSegmentsFromDomRaw,
+  persistHomeofficeSegmentsToState as _persistHomeofficeSegmentsToStateRaw,
+  renderHomeofficeSegments as _renderHomeofficeSegmentsRaw,
+  addHomeofficeSegment as _addHomeofficeSegmentRaw,
+  removeHomeofficeSegment as _removeHomeofficeSegmentRaw,
+  updateHomeofficeLiveTotal as _updateHomeofficeLiveTotalRaw,
+  saveHomeoffice as _saveHomeofficeRaw,
+  deleteHomeoffice as _deleteHomeofficeRaw,
+} from './modules/ui/homeoffice-modal.js';
 
-const APP_VERSION = '3.9.13';
+const APP_VERSION = '3.9.14';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.14', items: [
+      'Modul-Split Phase 3.9e: modules/ui/homeoffice-modal.js',
+      'openHomeofficeModal, saveHomeoffice, deleteHomeoffice und alle Segment-Helfer als pure Funktionen mit ctx-DI',
+    ] },
   { version: '3.9.13', items: [
       'Modul-Split Phase 3.9d: modules/ui/entry-modal.js',
       'openEntryModal, saveEntry, deleteEntry und Helfer als pure Funktionen mit ctx-DI',
@@ -970,150 +986,61 @@ function setMode(mode) {
   btnH.setAttribute('aria-checked', String(isHO));
 }
 
-function openHomeofficeModal(entry, opts) {
-  opts = opts || {};
-  const modal = document.getElementById('modal-homeoffice');
-  const title = document.getElementById('modal-homeoffice-title');
-  const empSel = document.getElementById('ho-employer');
-  const dateInput = document.getElementById('ho-date');
-  const noteInput = document.getElementById('ho-note');
-  const idInput = document.getElementById('ho-id');
-  const delBtn = document.getElementById('btn-delete-homeoffice');
-
-  empSel.innerHTML = state.employers
-    .map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
-
-  if (entry && entry.id) {
-    title.textContent = 'Home-Office-Tag bearbeiten';
-    idInput.value = entry.id;
-    empSel.value = entry.employerId || state.activeEmployerId || '';
-    dateInput.value = entry.date || todayISO();
-    noteInput.value = entry.note || '';
-    const segs = Array.isArray(entry.segments) && entry.segments.length
-      ? entry.segments.map(s => ({ start: s.start || '', end: s.end || '' }))
-      : (entry.start && entry.end ? [{ start: entry.start, end: entry.end }] : [{ start: '', end: '' }]);
-    modal.dataset.segments = JSON.stringify(segs);
-    delBtn.classList.remove('hidden');
-  } else {
-    title.textContent = 'Home-Office-Tag';
-    idInput.value = '';
-    const preferredEmp = opts.employerId || state.activeEmployerId || state.employers[0]?.id || '';
-    empSel.value = preferredEmp;
-    dateInput.value = opts.date || todayISO();
-    noteInput.value = '';
-    // Wenn für (employer, date) schon ein Eintrag existiert: dessen Segmente vorbelegen,
-    // damit man ergibige Kontext bekommt und weitere Blöcke direkt ergänzt.
-    const existing = state.entries.find(x =>
-      x.type === 'homeoffice' && x.employerId === empSel.value && x.date === dateInput.value
-    );
-    if (existing) {
-      title.textContent = 'Home-Office-Tag bearbeiten';
-      idInput.value = existing.id;
-      noteInput.value = existing.note || '';
-      const segs = Array.isArray(existing.segments) && existing.segments.length
-        ? existing.segments.map(s => ({ start: s.start || '', end: s.end || '' }))
-        : [{ start: '', end: '' }];
-      // Neuen Leer-Block anhängen, damit der User direkt weiter erfassen kann
-      segs.push({ start: '', end: '' });
-      modal.dataset.segments = JSON.stringify(segs);
-      delBtn.classList.remove('hidden');
-    } else {
-      modal.dataset.segments = JSON.stringify([{ start: '', end: '' }]);
-      delBtn.classList.add('hidden');
-    }
-  }
-
-  updateHomeofficeContext();
-  renderHomeofficeSegments();
-  populateTemplatePicker('ho-note-tpl');
-  modal.classList.remove('hidden');
+function _hoCtx() {
+  return {
+    getState: _getState,
+    saveState,
+    getEmployer,
+    escapeHtml,
+    todayISO,
+    formatDate,
+    populateTemplatePicker,
+    buildHomeofficeSegmentsHTML: _buildHomeofficeSegmentsHTMLRaw,
+    computeHomeofficeMinutes,
+    minutesToHM,
+    hhmmToMinutes,
+    normalizeSegments,
+    renderTracker,
+    renderEntries,
+    renderWeek,
+    renderReport,
+    closeModals,
+    toast,
+    uid,
+  };
 }
 
-/**
- * Aktualisiert die Kontext-Zeile im HO-Modal-Header: Wochentag · Datum · Arbeitgeber
- * plus Hinweis, ob dieser Tag bereits einen Eintrag hat.
- */
+function openHomeofficeModal(entry, opts) {
+  return _openHomeofficeModalRaw(entry, opts, _hoCtx());
+}
+
 function updateHomeofficeContext() {
-  const el = document.getElementById('ho-context');
-  if (!el) return;
-  const empId = document.getElementById('ho-employer').value;
-  const dateISO = document.getElementById('ho-date').value;
-  const currentId = document.getElementById('ho-id').value;
-  const emp = getEmployer(empId);
-  const empName = emp ? emp.name : '—';
-  let dateLabel = '—';
-  if (dateISO) {
-    try {
-      const d = new Date(dateISO + 'T00:00:00');
-      const wd = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][d.getDay()];
-      dateLabel = `${wd}. ${formatDate(dateISO)}`;
-    } catch (e) { dateLabel = formatDate(dateISO); }
-  }
-  const existing = state.entries.find(x =>
-    x.type === 'homeoffice' && x.employerId === empId && x.date === dateISO && x.id !== currentId
-  );
-  const hint = (currentId || existing)
-    ? 'Weitere Blöcke werden zu diesem Tag hinzugefügt.'
-    : 'Neuer Eintrag — spätere Blöcke landen automatisch im selben Eintrag.';
-  el.innerHTML = `
-    <div class="ho-context-line">${escapeHtml(dateLabel)} · ${escapeHtml(empName)}</div>
-    <div class="ho-context-hint">${hint}</div>
-  `;
+  return _updateHomeofficeContextRaw(_hoCtx());
 }
 
 function readHomeofficeSegmentsFromDom() {
-  const container = document.getElementById('ho-segments');
-  const rows = container.querySelectorAll('.ho-segment-row');
-  const segs = [];
-  rows.forEach(row => {
-    const start = row.querySelector('input[data-seg-start]').value || '';
-    const end = row.querySelector('input[data-seg-end]').value || '';
-    segs.push({ start, end });
-  });
-  return segs;
+  return _readHomeofficeSegmentsFromDomRaw();
 }
 
 function persistHomeofficeSegmentsToState() {
-  const modal = document.getElementById('modal-homeoffice');
-  modal.dataset.segments = JSON.stringify(readHomeofficeSegmentsFromDom());
+  return _persistHomeofficeSegmentsToStateRaw();
 }
 
 function renderHomeofficeSegments() {
-  const modal = document.getElementById('modal-homeoffice');
-  const container = document.getElementById('ho-segments');
-  let segs;
-  try { segs = JSON.parse(modal.dataset.segments || '[]'); } catch (e) { segs = []; }
-  container.innerHTML = _buildHomeofficeSegmentsHTMLRaw(segs);
-  updateHomeofficeLiveTotal();
+  return _renderHomeofficeSegmentsRaw(_hoCtx());
 }
 
 function addHomeofficeSegment() {
-  persistHomeofficeSegmentsToState();
-  const modal = document.getElementById('modal-homeoffice');
-  const segs = JSON.parse(modal.dataset.segments || '[]');
-  segs.push({ start: '', end: '' });
-  modal.dataset.segments = JSON.stringify(segs);
-  renderHomeofficeSegments();
+  return _addHomeofficeSegmentRaw(_hoCtx());
 }
 
 function removeHomeofficeSegment(idx) {
-  persistHomeofficeSegmentsToState();
-  const modal = document.getElementById('modal-homeoffice');
-  const segs = JSON.parse(modal.dataset.segments || '[]');
-  segs.splice(idx, 1);
-  if (!segs.length) segs.push({ start: '', end: '' });
-  modal.dataset.segments = JSON.stringify(segs);
-  renderHomeofficeSegments();
+  return _removeHomeofficeSegmentRaw(idx, _hoCtx());
 }
 
 function updateHomeofficeLiveTotal() {
-  const el = document.getElementById('ho-live-total');
-  if (!el) return;
-  const segs = readHomeofficeSegmentsFromDom();
-  const totalMin = computeHomeofficeMinutes({ segments: segs });
-  el.textContent = minutesToHM(totalMin);
+  return _updateHomeofficeLiveTotalRaw(_hoCtx());
 }
-
 /**
  * Normalisiert Segmente: sortiert nach Startzeit, mergt überlappende oder
  * unmittelbar angrenzende Blöcke. Ergebnis ist eine minimale, sortierte Liste.
@@ -1138,97 +1065,12 @@ function normalizeSegments(segments) {
 }
 
 function saveHomeoffice(e) {
-  if (e && e.preventDefault) e.preventDefault();
-  const id = document.getElementById('ho-id').value;
-  const employerId = document.getElementById('ho-employer').value;
-  const date = document.getElementById('ho-date').value;
-  const note = document.getElementById('ho-note').value.trim();
-  const rawSegs = readHomeofficeSegmentsFromDom();
-  const segments = rawSegs
-    .filter(s => s.start && s.end)
-    .map(s => ({ start: s.start, end: s.end }));
-
-  if (!employerId) { toast('Bitte Arbeitgeber wählen'); return; }
-  if (!date) { toast('Bitte Datum wählen'); return; }
-  if (!segments.length) { toast('Bitte mindestens einen Arbeitsblock erfassen'); return; }
-
-  // Validate each segment: end > start
-  for (const s of segments) {
-    const sm = hhmmToMinutes(s.start);
-    const em = hhmmToMinutes(s.end);
-    if (em <= sm) {
-      toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen. Für Über-Mitternacht bitte zwei Blöcke erfassen (bis 23:59 und ab 00:00 am Folgetag).`);
-      return;
-    }
-  }
-
-  // Aggregations-Prinzip: pro (employerId, date) existiert höchstens ein HO-Entry.
-  // Beim Speichern immer den Ziel-Entry (für den aktuellen employer/date) suchen und dort hineinschreiben.
-  // Wenn wir einen bestehenden Entry bearbeiten (id gesetzt) und das Ziel ein *anderer* Entry ist,
-  // dann die Segmente in den Ziel-Entry übernehmen und den ursprünglichen Entry entfernen.
-
-  const targetIdx = state.entries.findIndex(x =>
-    x.type === 'homeoffice' && x.employerId === employerId && x.date === date && x.id !== id
-  );
-  const editingIdx = id ? state.entries.findIndex(x => x.id === id) : -1;
-
-  if (id && editingIdx >= 0 && targetIdx < 0) {
-    // Reiner Edit ohne Kollision: eigenen Entry aktualisieren
-    state.entries[editingIdx] = {
-      ...state.entries[editingIdx],
-      employerId, date, type: 'homeoffice',
-      segments: normalizeSegments(segments),
-      note,
-      start: undefined, end: undefined, breakMinutes: undefined, overtimeReason: undefined,
-    };
-  } else if (targetIdx >= 0) {
-    // Ziel-Entry existiert: mergen (existierende Segmente + neue Segmente), Note ergänzen falls leer
-    const target = state.entries[targetIdx];
-    const existingSegs = Array.isArray(target.segments) ? target.segments
-      : (target.start && target.end ? [{ start: target.start, end: target.end }] : []);
-    target.segments = normalizeSegments([...existingSegs, ...segments]);
-    target.type = 'homeoffice';
-    target.start = undefined; target.end = undefined;
-    target.breakMinutes = undefined; target.overtimeReason = undefined;
-    if (note && !target.note) target.note = note;
-    else if (note && target.note && !target.note.includes(note)) target.note = `${target.note} · ${note}`;
-    // Falls wir gerade einen anderen Entry bearbeitet haben, den entfernen
-    if (editingIdx >= 0 && editingIdx !== targetIdx) {
-      state.entries.splice(editingIdx, 1);
-    }
-  } else {
-    // Neu anlegen
-    state.entries.push({
-      id: uid(),
-      employerId, date, type: 'homeoffice',
-      segments: normalizeSegments(segments),
-      note,
-      createdAt: new Date().toISOString(),
-    });
-  }
-  saveState();
-  closeModals();
-  renderTracker();
-  renderEntries();
-  renderWeek();
-  renderReport();
-  toast('Gespeichert');
+  return _saveHomeofficeRaw(e, _hoCtx());
 }
 
 function deleteHomeoffice() {
-  const id = document.getElementById('ho-id').value;
-  if (!id) return;
-  if (!confirm('Diesen Home-Office-Tag wirklich löschen?')) return;
-  state.entries = state.entries.filter(e => e.id !== id);
-  saveState();
-  closeModals();
-  renderTracker();
-  renderEntries();
-  renderWeek();
-  renderReport();
-  toast('Gelöscht');
+  return _deleteHomeofficeRaw(_hoCtx());
 }
-
 function hhmmToMinutes(hhmm) {
   if (!hhmm) return 0;
   const [h, m] = hhmm.split(':').map(n => parseInt(n, 10) || 0);
