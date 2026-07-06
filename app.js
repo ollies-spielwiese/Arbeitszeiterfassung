@@ -158,12 +158,24 @@ import {
   openHolidayModal as _openHolidayModalRaw,
   saveHoliday as _saveHolidayRaw,
 } from './modules/ui/holiday-overrides.js';
+import {
+  templateMatchesMode as _templateMatchesModeRaw,
+  populateTemplatePicker as _populateTemplatePickerRaw,
+  renderTemplates as _renderTemplatesRaw,
+  openTemplateModal as _openTemplateModalRaw,
+  saveTemplate as _saveTemplateRaw,
+  deleteTemplate as _deleteTemplateRaw,
+} from './modules/ui/templates.js';
 
-const APP_VERSION = '3.9.16';
+const APP_VERSION = '3.9.17';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.17', items: [
+      'Modul-Split Phase 3.9h: modules/ui/templates.js',
+      'templateMatchesMode, populateTemplatePicker, renderTemplates, openTemplateModal, saveTemplate, deleteTemplate als pure Funktionen mit ctx-DI',
+    ] },
   { version: '3.9.16', items: [
       'Modul-Split Phase 3.9g: modules/ui/holiday-overrides.js',
       'ensureHolidayOverrides, getBaseHolidays, renderHolidayList, handleHolidayAction, openHolidayModal, saveHoliday als pure Funktionen mit ctx-DI',
@@ -955,25 +967,8 @@ function applyScheduleToEntry() {
   return _applyScheduleToEntryRaw(_entryCtx());
 }
 
-/**
- * Liefert true, wenn die Vorlage im aktuellen App-Modus verwendbar ist.
- * scope 'both' ist immer sichtbar, 'employee' nur im Angestellt-Modus, 'freelance' nur im Freelance-Modus.
- * Vorlagen ohne scope werden als 'both' behandelt (defensive Vorsichtsmaßnahme).
- */
-function templateMatchesMode(tpl) {
-  const s = tpl && tpl.scope;
-  if (!s || s === 'both') return true;
-  return s === getAppMode();
-}
-
-function populateTemplatePicker(selectId) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  const visible = state.templates.filter(templateMatchesMode);
-  sel.innerHTML = '<option value="">Vorlage einfügen …</option>' +
-    visible.map(t => `<option value="${escapeHtml(t.text)}">${escapeHtml(t.label)}</option>`).join('');
-  sel.value = '';
-}
+function templateMatchesMode(tpl) { return _templateMatchesModeRaw(tpl, _tplCtx()); }
+function populateTemplatePicker(selectId) { return _populateTemplatePickerRaw(selectId, _tplCtx()); }
 
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
@@ -1673,99 +1668,25 @@ function handleHolidayAction(action, date) { return _handleHolidayActionRaw(acti
 function openHolidayModal(existing) { return _openHolidayModalRaw(existing, _holCtx()); }
 function saveHoliday(ev) { return _saveHolidayRaw(ev, _holCtx()); }
 
-function renderTemplates() {
-  const container = document.getElementById('templates-list');
-  if (!state.templates.length) {
-    container.innerHTML = '<div class="empty-state" style="padding:1rem;">Keine Vorlagen.</div>';
-    return;
-  }
-  container.innerHTML = state.templates.map(t => {
-    const scope = t.scope || 'both';
-    const scopeLabel = scope === 'employee' ? 'Nur Angestellt' : scope === 'freelance' ? 'Nur Freiberuflich' : 'Beide Modi';
-    const scopeCls = `tpl-scope tpl-scope-${scope}`;
-    return `
-    <div class="template-card" data-id="${t.id}">
-      <div class="template-body" data-role="edit">
-        <div class="label">${escapeHtml(t.label)} <span class="${scopeCls}">${scopeLabel}</span></div>
-        <div class="preview">${escapeHtml(t.text)}</div>
-      </div>
-      <button type="button" class="template-delete" data-role="delete" aria-label="Vorlage löschen" title="Vorlage löschen">✕</button>
-    </div>
-  `;
-  }).join('');
-  container.querySelectorAll('.template-card').forEach(card => {
-    const id = card.dataset.id;
-    card.querySelector('[data-role="edit"]').addEventListener('click', () => {
-      openTemplateModal(state.templates.find(t => t.id === id));
-    });
-    card.querySelector('[data-role="delete"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const tpl = state.templates.find(t => t.id === id);
-      if (!tpl) return;
-      if (!confirm(`Vorlage „${tpl.label}“ wirklich löschen?`)) return;
-      state.templates = state.templates.filter(t => t.id !== id);
-      saveState();
-      renderTemplates();
-      toast('Vorlage gelöscht');
-    });
-  });
-}
+/* ---------- Templates via modules/ui/templates.js (Phase 3.9h) ---------- */
 
-function openTemplateModal(tpl) {
-  const modal = document.getElementById('modal-template');
-  const isNew = !tpl;
-  document.getElementById('modal-template-title').textContent = isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten';
-  document.getElementById('template-id').value = tpl?.id || '';
-  document.getElementById('template-label').value = tpl?.label || '';
-  document.getElementById('template-text').value = tpl?.text || '';
-  // Vor-Belegung des Scope-Feldes: bestehende Vorlage übernehmen; bei neuer Vorlage sinnvoller Default
-  const scopeSel = document.getElementById('template-scope');
-  if (scopeSel) {
-    if (isNew) {
-      // Beim Neuanlegen im Freelance-Modus 'freelance' vorschlagen, sonst 'both'
-      scopeSel.value = isFreelance() ? 'freelance' : 'both';
-    } else {
-      const s = tpl.scope;
-      scopeSel.value = (s === 'employee' || s === 'freelance') ? s : 'both';
-    }
-  }
-  document.getElementById('btn-delete-template').classList.toggle('hidden', isNew);
-  modal.classList.remove('hidden');
-}
-
-function saveTemplate(ev) {
-  ev.preventDefault();
-  const id = document.getElementById('template-id').value;
-  const scopeVal = document.getElementById('template-scope')?.value;
-  const scope = (scopeVal === 'employee' || scopeVal === 'freelance') ? scopeVal : 'both';
-  const data = {
-    label: document.getElementById('template-label').value.trim(),
-    text: document.getElementById('template-text').value.trim(),
-    scope,
+function _tplCtx() {
+  return {
+    getState: () => state,
+    saveState,
+    getAppMode,
+    isFreelance,
+    escapeHtml,
+    uid,
+    closeModals,
+    toast,
   };
-  if (!data.label || !data.text) { toast('Bitte Bezeichnung und Text angeben'); return; }
-  if (id) {
-    const idx = state.templates.findIndex(t => t.id === id);
-    if (idx >= 0) state.templates[idx] = { ...state.templates[idx], ...data };
-  } else {
-    state.templates.push({ id: uid(), ...data });
-  }
-  saveState();
-  closeModals();
-  renderTemplates();
-  toast('Gespeichert');
 }
 
-function deleteTemplate() {
-  const id = document.getElementById('template-id').value;
-  if (!id) return;
-  if (!confirm('Vorlage löschen?')) return;
-  state.templates = state.templates.filter(t => t.id !== id);
-  saveState();
-  closeModals();
-  renderTemplates();
-  toast('Gelöscht');
-}
+function renderTemplates() { return _renderTemplatesRaw(_tplCtx()); }
+function openTemplateModal(tpl) { return _openTemplateModalRaw(tpl, _tplCtx()); }
+function saveTemplate(ev) { return _saveTemplateRaw(ev, _tplCtx()); }
+function deleteTemplate() { return _deleteTemplateRaw(_tplCtx()); }
 
 /* ---------- Backup ---------- */
 
