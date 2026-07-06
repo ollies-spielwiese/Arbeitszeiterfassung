@@ -113,12 +113,19 @@ import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js'
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
+import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 
-const APP_VERSION = '3.9.9';
+const APP_VERSION = '3.9.10';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.10', items: [
+      'Modul-Split Phase 3.9a: modules/whatsnew.js',
+      'maybeShowWhatsNew + compareVersions als pure Funktionen mit ctx-DI extrahiert',
+      'app.js: What\'s-New-Block auf duennen Wrapper reduziert',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+    ] },
   { version: '3.9.9', items: [
       'Modul-Split Phase 3.8: modules/sw-update.js',
       'Service-Worker-Registration + Update-Banner + Activation gekapselt in initServiceWorkerUpdates',
@@ -2790,46 +2797,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ---------- What's New ---------- */
-
+// Siehe modules/whatsnew.js (extrahiert in Phase 3.9a).
 function maybeShowWhatsNew() {
-  let lastSeen = null;
-  try { lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY); } catch (e) { /* ignore */ }
-  if (lastSeen === APP_VERSION) return;
-  const container = document.getElementById('whatsnew-content');
-  const modal = document.getElementById('modal-whatsnew');
-  if (!container || !modal) return;
-  // Show entries up to and including the new version, since last seen
-  const entries = lastSeen
-    ? CHANGELOG.filter(c => compareVersions(c.version, lastSeen) > 0)
-    : CHANGELOG.slice(0, 1); // First install: only current version
-  if (!entries.length) {
-    try { localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); } catch (e) {}
-    return;
-  }
-  container.innerHTML = entries.map(e => `
-    <div class="whatsnew-block">
-      <div class="whatsnew-version">Version ${escapeHtml(e.version)}</div>
-      <ul class="whatsnew-list">
-        ${e.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}
-      </ul>
-    </div>
-  `).join('');
-  modal.classList.remove('hidden');
-  const markSeen = () => {
-    try { localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); } catch (e) {}
-  };
-  // Mark seen on any close action
-  modal.querySelectorAll('[data-close-modal]').forEach(btn => btn.addEventListener('click', markSeen, { once: true }));
-}
-
-function compareVersions(a, b) {
-  const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
-  const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const da = pa[i] || 0, db = pb[i] || 0;
-    if (da !== db) return da - db;
-  }
-  return 0;
+  return _maybeShowWhatsNewRaw({
+    appVersion: APP_VERSION,
+    lastSeenVersionKey: LAST_SEEN_VERSION_KEY,
+    changelog: CHANGELOG,
+    escapeHtml,
+  });
 }
 
 /* ---------- Service Worker with Update Prompt ---------- */
