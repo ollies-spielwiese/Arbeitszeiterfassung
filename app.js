@@ -112,12 +112,19 @@ import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
+import { initServiceWorkerUpdates } from './modules/sw-update.js';
 
-const APP_VERSION = '3.9.8';
+const APP_VERSION = '3.9.9';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.9', items: [
+      'Modul-Split Phase 3.8: modules/sw-update.js',
+      'Service-Worker-Registration + Update-Banner + Activation gekapselt in initServiceWorkerUpdates',
+      'app.js: SW-Block auf einen Modul-Import und einen Setup-Aufruf reduziert',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+    ] },
   { version: '3.9.8', items: [
       'Modul-Split Phase 3.7: modules/export/word.js, pdf.js, overview-pdf.js, download.js',
       'generateWordBlob, generatePdfBlob, generateOverviewPdfBlob sind pure Funktionen mit ctx-DI',
@@ -2779,13 +2786,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Show what's new on first start of a new version
   maybeShowWhatsNew();
 
-  registerServiceWorkerWithUpdatePrompt();
-
-  // Update banner buttons
-  const btnLater = document.getElementById('btn-update-later');
-  const btnNow = document.getElementById('btn-update-now');
-  if (btnLater) btnLater.addEventListener('click', hideUpdateBanner);
-  if (btnNow) btnNow.addEventListener('click', activateWaitingServiceWorker);
+  initServiceWorkerUpdates();
 });
 
 /* ---------- What's New ---------- */
@@ -2831,86 +2832,8 @@ function compareVersions(a, b) {
   return 0;
 }
 
-/* ---------- Service Worker with Update Prompt ----------
- *
- * Update-Strategie:
- * 1. SW registrieren. Wenn beim Load bereits ein waiting-Worker vorhanden ist,
- *    Banner zeigen.
- * 2. "Später" versteckt nur den Banner — keinen Reload. Beim nächsten
- *    App-Start greift entweder erneut der waiting-Check oder das What's-New-
- *    Modal (Version-Vergleich über APP_VERSION vs. lastSeenVersion).
- * 3. Der reg.update()-Aufruf auf visibilitychange löst KEIN automatisches Reload
- *    mehr aus — der controllerchange-Reload wird nur getriggert, wenn der User
- *    explizit "Jetzt aktualisieren" gedrückt hat. Damit gibt es keinen
- *    unerwarteten Neustart mit Blackscreen, wenn die App aus dem Hintergrund
- *    zurückkommt.
- * 4. Wenn beim Zurückkommen aus dem Hintergrund ein neuer waiting-SW
- *    installiert wird, zeigen wir den Banner — nicht mehr, nicht weniger.
- */
-
-let __swWaitingRegistration = null;
-let __swUserRequestedActivation = false;
-
-function registerServiceWorkerWithUpdatePrompt() {
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('sw.js').then(reg => {
-    // A waiting worker is already available at load time
-    if (reg.waiting && navigator.serviceWorker.controller) {
-      __swWaitingRegistration = reg;
-      showUpdateBanner();
-    }
-    // A new worker starts installing (kann auch nach visibilitychange->reg.update() passieren)
-    reg.addEventListener('updatefound', () => {
-      const installing = reg.installing;
-      if (!installing) return;
-      installing.addEventListener('statechange', () => {
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-          __swWaitingRegistration = reg;
-          showUpdateBanner();
-        }
-      });
-    });
-    // Poll for updates on visibility change (helps on iOS PWA)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        reg.update().catch(() => {});
-      }
-    });
-  }).catch(err => console.warn('SW registration failed:', err));
-
-  // Reload NUR wenn der User explizit "Jetzt aktualisieren" gedrückt hat.
-  // Ohne diese Bedingung entstehen unerwartete Reloads beim App-Wechsel auf iOS.
-  let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
-    if (!__swUserRequestedActivation) return;
-    reloading = true;
-    window.location.reload();
-  });
-}
-
-function showUpdateBanner() {
-  const el = document.getElementById('update-banner');
-  if (el) el.classList.remove('hidden');
-}
-
-function hideUpdateBanner() {
-  const el = document.getElementById('update-banner');
-  if (el) el.classList.add('hidden');
-}
-
-function activateWaitingServiceWorker() {
-  __swUserRequestedActivation = true;
-  const reg = __swWaitingRegistration;
-  if (!reg || !reg.waiting) {
-    // Kein waiting mehr — kann passieren, wenn iOS den SW zwischenzeitlich selbst aktiviert hat.
-    // In diesem Fall: einfach neu laden, damit die neueste Version aus dem SW-Cache greift.
-    hideUpdateBanner();
-    window.location.reload();
-    return;
-  }
-  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-}
+/* ---------- Service Worker with Update Prompt ---------- */
+// Siehe modules/sw-update.js (extrahiert in Phase 3.8).
 
 /* ---------- Module-Scope Compatibility Bridge (Phase 3.1) ----------
    Da app.js jetzt als type=module lädt, sind Top-Level-Deklarationen NICHT mehr
