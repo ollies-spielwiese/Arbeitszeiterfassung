@@ -92,12 +92,25 @@ import {
   getSummaryFields as _getSummaryFieldsRaw,
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
 } from './modules/selectors.js';
+import {
+  renderSummaryHTML as _renderSummaryHTMLRaw,
+  renderSummaryPdfLines as _renderSummaryPdfLinesRaw,
+  renderSummaryWordParagraphs as _renderSummaryWordParagraphsRaw,
+  renderSummaryPlaintext as _renderSummaryPlaintextRaw,
+} from './modules/render/summary.js';
 
-const APP_VERSION = '3.9.4';
+const APP_VERSION = '3.9.5';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.5', items: [
+      'Modul-Split Phase 3.6a: modules/render/summary.js — Summary-Renderer ausgelagert',
+      'renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext sind jetzt pure ES-Exports',
+      'docx-Konstruktoren bleiben Argument, formatMoney via ctx-DI',
+      'Regression-Skript robuster gegen Datumsdrift: freelance week/report kalenderwochen-tolerant',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+  ]},
   { version: '3.9.4', items: [
       'Modul-Split Phase 3.5: modules/selectors.js — State-lesende Selectors ausgelagert',
       'getEmployer, getCurrentReport, getCurrentOverview, getSummaryFields, getOverviewSummaryFields sind jetzt pure ES-Exports mit ctx-DI',
@@ -312,100 +325,20 @@ function getOverviewSummaryFields(ov) {
   return _getOverviewSummaryFieldsRaw(ov, _selectorsFmtCtx());
 }
 
-/* ---------- Renderer: HTML (.summary-grid) ---------- */
+/* ---------- Summary-Renderer (Wrapper — siehe modules/render/summary.js) ---------- */
+function _renderSummaryCtx() { return { formatMoney }; }
+
 function renderSummaryHTML(fields) {
-  return fields.map(f => {
-    if (f.kind === 'balance') {
-      return `<div class="summary-item"><div class="label">${f.label}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
-    }
-    if (f.kind === 'time') {
-      return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.valueHM}</div></div>`;
-    }
-    return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.value}</div></div>`;
-  }).join('\n');
+  return _renderSummaryHTMLRaw(fields);
 }
-
-/* ---------- Renderer: PDF-Zeilen (jsPDF flat text) ---------- */
-/* Gibt Array von Strings für doc.text() zurück. */
 function renderSummaryPdfLines(fields) {
-  return fields.map(f => {
-    if (f.kind === 'time') return `${f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label)}: ${f.valueHM} (${f.valueDec})`;
-    if (f.kind === 'balance') return `${f.label}: ${f.valueHM} (${f.valueDec})`;
-    if (f.kind === 'money') {
-      if (f.rawAmount) {
-        // Detailzeile mit Rechnung im Report-PDF
-        return `Netto-Summe: ${f.value}  (${f.rawAmount.hoursDec} h × ${formatMoney(f.rawAmount.rate, f.rawAmount.currency)}/h)`;
-      }
-      return `${f.label}: ${f.value}`;
-    }
-    if (f.kind === 'count') {
-      if (f.key === 'absences' && f.rawCounts) {
-        return `Urlaubstage: ${f.rawCounts.vacation}   Krankheitstage: ${f.rawCounts.sick}`;
-      }
-      return `${f.label}: ${f.value}`;
-    }
-    return `${f.label}: ${f.value || ''}`;
-  });
+  return _renderSummaryPdfLinesRaw(fields, _renderSummaryCtx());
 }
-
-/* ---------- Renderer: Word (docx) ---------- */
-/* Braucht docx-Konstruktoren aus dem generateWordBlob-Scope; deshalb Higher-Order-Funktion. */
 function renderSummaryWordParagraphs(fields, docxCtx) {
-  const { Paragraph, TextRun } = docxCtx;
-  return fields.map(f => {
-    if (f.kind === 'time') {
-      const label = f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label);
-      return new Paragraph({ children: [
-        new TextRun({ text: `${label}: `, bold: true }),
-        new TextRun({ text: `${f.valueHM} (${f.valueDec})` }),
-      ]});
-    }
-    if (f.kind === 'balance') {
-      return new Paragraph({ children: [
-        new TextRun({ text: `${f.label}: `, bold: true }),
-        new TextRun({ text: `${f.valueHM} (${f.valueDec})`, bold: true, color: f.sign === 'pos' ? '15803D' : 'B91C1C' }),
-      ]});
-    }
-    if (f.kind === 'money') {
-      const children = [
-        new TextRun({ text: 'Netto-Summe: ', bold: true }),
-        new TextRun({ text: f.value, bold: true }),
-      ];
-      if (f.rawAmount) {
-        children.push(new TextRun({ text: `  (${f.rawAmount.hoursDec} h × ${formatMoney(f.rawAmount.rate, f.rawAmount.currency)}/h)`, color: '64748B' }));
-      }
-      return new Paragraph({ children });
-    }
-    if (f.kind === 'count') {
-      if (f.key === 'absences' && f.rawCounts) {
-        return new Paragraph({ children: [
-          new TextRun({ text: 'Urlaubstage: ', bold: true }),
-          new TextRun({ text: `${f.rawCounts.vacation}` }),
-          new TextRun({ text: '   Krankheitstage: ', bold: true }),
-          new TextRun({ text: `${f.rawCounts.sick}` }),
-        ]});
-      }
-      return new Paragraph({ children: [
-        new TextRun({ text: `${f.label}: `, bold: true }),
-        new TextRun({ text: f.value }),
-      ]});
-    }
-    return new Paragraph({ children: [new TextRun({ text: `${f.label}: ${f.value || ''}` })] });
-  });
+  return _renderSummaryWordParagraphsRaw(fields, docxCtx, _renderSummaryCtx());
 }
-
-/* ---------- Renderer: Plaintext (E-Mail-Body als '• Label: Value'-Zeilen) ---------- */
 function renderSummaryPlaintext(fields) {
-  return fields.map(f => {
-    if (f.kind === 'time') return `• ${f.label}: ${f.valueHM} (${f.valueDec})`;
-    if (f.kind === 'balance') return `• ${f.label}: ${f.valueHM}`;
-    if (f.kind === 'money') return `• ${f.label}: ${f.value}`;
-    if (f.kind === 'count') {
-      if (f.key === 'absences') return `• Urlaub / Krank: ${f.value} Tage`;
-      return `• ${f.label}: ${f.value}`;
-    }
-    return `• ${f.label}: ${f.value || ''}`;
-  });
+  return _renderSummaryPlaintextRaw(fields);
 }
 
 
@@ -3664,6 +3597,10 @@ if (typeof window !== 'undefined') {
   // Selectors + Utilities für Regression
   if (typeof getSummaryFields === 'function') window.getSummaryFields = getSummaryFields;
   if (typeof getOverviewSummaryFields === 'function') window.getOverviewSummaryFields = getOverviewSummaryFields;
+  if (typeof renderSummaryHTML === 'function') window.renderSummaryHTML = renderSummaryHTML;
+  if (typeof renderSummaryPdfLines === 'function') window.renderSummaryPdfLines = renderSummaryPdfLines;
+  if (typeof renderSummaryWordParagraphs === 'function') window.renderSummaryWordParagraphs = renderSummaryWordParagraphs;
+  if (typeof renderSummaryPlaintext === 'function') window.renderSummaryPlaintext = renderSummaryPlaintext;
   if (typeof getEmployer === 'function') window.getEmployer = getEmployer;
   if (typeof getCurrentReport === 'function') window.getCurrentReport = getCurrentReport;
   if (typeof getCurrentOverview === 'function') window.getCurrentOverview = getCurrentOverview;

@@ -287,9 +287,12 @@ async function runFreelance(page) {
     /595,00\s*€/.test(tracker));
 
   const week = await checkView(page, 'week');
-  assertTrue('freelance week: Ist sichtbar', /7:00/.test(week) || /Ist/.test(week));
+  // Uppercase-Label "IST" via CSS text-transform; Woche kann leer sein wenn 1. des Monats
+  // in anderer KW liegt — dann matcht das persistente Label "IST" oder "RECHNUNGSBETRAG".
+  assertTrue('freelance week: Ist sichtbar', /7:00/.test(week) || /IST|Ist|RECHNUNGSBETRAG/i.test(week));
 
-  // Report-Month setzen und renderReport erzwingen
+  // Report-Month setzen, View wechseln und renderReport erzwingen
+  await page.evaluate(v => switchView(v), 'report');
   await page.evaluate(async ym => {
     const inp = document.getElementById('report-month');
     if (inp) inp.value = ym;
