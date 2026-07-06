@@ -115,12 +115,22 @@ import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw } from './modules/backup.js';
+import {
+  openShareModal as _openShareModalRaw,
+  showMailtoStage2 as _showMailtoStage2Raw,
+  shareReport as _shareReportRaw,
+  shareOverviewPdf as _shareOverviewPdfRaw,
+} from './modules/share.js';
 
-const APP_VERSION = '3.9.11';
+const APP_VERSION = '3.9.12';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.12', items: [
+      'Modul-Split Phase 3.9c: modules/share.js',
+      'openShareModal, showMailtoStage2, shareReport, shareOverviewPdf als pure Funktionen mit ctx-DI',
+    ] },
   { version: '3.9.11', items: [
       'Modul-Split Phase 3.9b: modules/backup.js',
       'JSON-Backup Export/Import in eigenes Modul mit ctx-DI + onImport-Callback',
@@ -1613,28 +1623,14 @@ async function exportOverviewPdf() {
 }
 
 async function shareOverviewPdf() {
-  const ov = getCurrentOverview();
-  if (!ov) return;
-  try {
-    const blob = generateOverviewPdfBlob(ov);
-    const filename = fileNameForOverview(ov, 'pdf');
-    const file = new File([blob], filename, { type: 'application/pdf' });
-    const shareData = {
-      title: `Arbeitszeit-Übersicht ${formatMonthYear(ov.ym)}`,
-      text: `Monatsübersicht – alle Arbeitgeber – ${formatMonthYear(ov.ym)}`,
-      files: [file],
-    };
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share(shareData);
-    } else {
-      downloadBlob(blob, filename);
-      toast('Datei heruntergeladen (Teilen wird nicht unterstützt)');
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') return;
-    console.error(err);
-    toast('Teilen fehlgeschlagen: ' + err.message);
-  }
+  return _shareOverviewPdfRaw({
+    getCurrentOverview,
+    generateOverviewPdfBlob,
+    fileNameForOverview,
+    formatMonthYear,
+    downloadBlob,
+    toast,
+  });
 }
 
 /* ---------- Export UI ---------- */
@@ -1681,295 +1677,33 @@ function getCurrentReport() {
 
 /* ---------- Share (Web Share API + Fallback) ---------- */
 
-function openShareModal() {
-  const r = getCurrentReport();
-  if (!r) return;
-  const modal = document.getElementById('modal-share');
-  const recipientList = document.getElementById('share-recipients');
-
-  const emp = r.employer;
-  const emailRecipients = [];
-  const own = state.settings.ownEmail;
-  if (own) emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' });
-  const contacts = (emp.contacts || []).filter(c => c.email);
-  contacts.forEach(c => emailRecipients.push({ label: c.name || 'Ansprechpartner', email: c.email, icon: '📧' }));
-
-  const cards = [];
-  cards.push(`
-    <div class="share-hint">Mehrere Empfänger möglich – die E-Mail-App öffnet sich mit allen Adressen im An-Feld.</div>
-  `);
-  cards.push(...emailRecipients.map((rc) => `
-    <label class="recipient-card">
-      <input type="checkbox" class="recipient-check" data-email="${escapeHtml(rc.email)}" />
-      <div class="recipient-icon">${rc.icon}</div>
-      <div class="recipient-info">
-        <div class="recipient-name">${escapeHtml(rc.label)}</div>
-        <div class="recipient-email">${escapeHtml(rc.email)}</div>
-      </div>
-    </label>
-  `));
-
-  cards.push(`
-    <div class="recipient-manual">
-      <label for="share-manual-emails" class="recipient-manual-label">Weitere E-Mail-Adressen (durch Komma getrennt)</label>
-      <input type="text" id="share-manual-emails" placeholder="z. B. buero@firma.de, chef@firma.de" autocomplete="off" />
-    </div>
-  `);
-
-  cards.push(`
-    <label class="recipient-card recipient-system">
-      <input type="radio" name="share-mode" id="share-mode-system" />
-      <div class="recipient-icon">📤</div>
-      <div class="recipient-info">
-        <div class="recipient-name">Nur teilen (System-Dialog)</div>
-        <div class="recipient-email">iOS/Android Teilen-Dialog – ohne E-Mail-Empfänger</div>
-      </div>
-    </label>
-  `);
-
-  recipientList.innerHTML = cards.join('');
-
-  const systemRadio = document.getElementById('share-mode-system');
-  const checks = recipientList.querySelectorAll('.recipient-check');
-  if (systemRadio) {
-    systemRadio.addEventListener('change', () => {
-      if (systemRadio.checked) {
-        checks.forEach(cb => cb.checked = false);
-        const manual = document.getElementById('share-manual-emails');
-        if (manual) manual.value = '';
-      }
-    });
-  }
-  checks.forEach(cb => cb.addEventListener('change', () => {
-    if (cb.checked && systemRadio) systemRadio.checked = false;
-  }));
-  const manualInput = document.getElementById('share-manual-emails');
-  if (manualInput) manualInput.addEventListener('input', () => {
-    if (manualInput.value.trim() && systemRadio) systemRadio.checked = false;
-  });
-
-  // Wire up the send button (replace to reset any previous listener)
-  const sendBtn = document.getElementById('share-send-btn');
-  if (sendBtn) {
-    const clone = sendBtn.cloneNode(true);
-    sendBtn.parentNode.replaceChild(clone, sendBtn);
-    clone.addEventListener('click', (evt) => {
-      const useSystem = document.getElementById('share-mode-system')?.checked;
-      const picked = Array.from(recipientList.querySelectorAll('.recipient-check:checked'))
-        .map(cb => cb.dataset.email).filter(Boolean);
-      const manualRaw = (document.getElementById('share-manual-emails')?.value || '').trim();
-      const manual = manualRaw ? manualRaw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) : [];
-      const emails = Array.from(new Set([...picked, ...manual]));
-
-      const format = document.querySelector('input[name="share-format"]:checked').value;
-
-      if (!useSystem && emails.length === 0) {
-        toast('Bitte mindestens einen Empfänger wählen oder „Nur teilen“ anklicken');
-        return;
-      }
-
-      // iOS / iPadOS (any browser – all use WebKit) needs a TWO-STAGE flow.
-      // Reason: WebKit has no sticky user activation, and combining a blob
-      // download with a mailto: navigation in one click reliably breaks the
-      // mailto call. We split it: first the user gets the file, THEN a second
-      // click opens the mail app.
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-        || /iPad|iPhone|iPod/i.test(navigator.userAgentData?.platform || '');
-
-      if (!useSystem && emails.length > 0) {
-        const r = getCurrentReport();
-        if (!r) return;
-        const filename = fileNameForReport(r, format);
-        const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
-        const summaryLines = renderSummaryPlaintext(getSummaryFields({
-          workedMin: r.workedMin,
-          targetMin: r.targetMin,
-          balance: r.balance,
-          vacationDays: r.vacationEntries.length,
-          sickDays: r.sickEntries.length,
-          hourlyRate: Number(r.employer.hourlyRate) || 0,
-          currency: r.employer.currency || 'EUR',
-        }));
-        const body =
-`Sehr geehrte Damen und Herren,
-
-anbei der Arbeitszeitnachweis für ${formatMonthYear(r.ym)}.
-
-Zusammenfassung:
-${summaryLines.join('\n')}
-
-Mit freundlichen Grüßen`;
-        const to = emails.map(encodeURIComponent).join(',');
-        const mailto = `mailto:${to}`
-          + `?subject=${encodeURIComponent(subject)}`
-          + `&body=${encodeURIComponent(body + '\n\nBitte den Anhang „' + filename + '“ hinzufügen.')}`;
-
-        if (isIOS) {
-          // Two-stage flow: this click generates the file only. A second click
-          // (on the newly-shown "E-Mail-App öffnen" button) navigates to mailto.
-          (async () => {
-            try {
-              const blob = format === 'docx' ? await generateWordBlob(r) : generatePdfBlob(r);
-              downloadBlob(blob, filename);
-              // Swap the modal into stage 2
-              showMailtoStage2(mailto, emails.length, filename);
-            } catch (err) {
-              console.error(err);
-              toast('Datei-Erstellung fehlgeschlagen: ' + err.message);
-            }
-          })();
-          return;
-        }
-
-        // Desktop / Android: one-stage flow. Mailto FIRST (synchronously in the
-        // click handler), then blob generation + download afterwards.
-        try { window.location.href = mailto; } catch (e) { console.warn('mailto failed', e); }
-        (async () => {
-          try {
-            const blob = format === 'docx' ? await generateWordBlob(r) : generatePdfBlob(r);
-            downloadBlob(blob, filename);
-            toast(emails.length === 1
-              ? 'E-Mail-App geöffnet – Datei heruntergeladen, bitte anhängen'
-              : `E-Mail-App geöffnet mit ${emails.length} Empfängern – Datei heruntergeladen`);
-          } catch (err) {
-            console.error(err);
-            toast('Datei-Erstellung fehlgeschlagen: ' + err.message);
-          }
-        })();
-        closeModals();
-        return;
-      }
-
-      // System-share path (no recipient): route through the existing async flow.
-      closeModals();
-      shareReport(format, []);
-    });
-  }
-
-  modal.classList.remove('hidden');
+function _shareCtx() {
+  return {
+    getCurrentReport,
+    getState: _getState,
+    escapeHtml,
+    fileNameForReport,
+    formatMonthYear,
+    renderSummaryPlaintext,
+    getSummaryFields,
+    generateWordBlob,
+    generatePdfBlob,
+    downloadBlob,
+    toast,
+    closeModals,
+  };
 }
 
+function openShareModal() {
+  return _openShareModalRaw(_shareCtx());
+}
 
 function showMailtoStage2(mailto, count, filename) {
-  const modal = document.getElementById('modal-share');
-  const content = modal.querySelector('.modal-content');
-  if (!content) return;
-  const label = count === 1
-    ? `Datei „${filename}“ heruntergeladen. Jetzt E-Mail-App öffnen und die Datei anhängen.`
-    : `Datei „${filename}“ heruntergeladen. Jetzt öffnet sich die E-Mail-App mit ${count} Empfängern – bitte die Datei anhängen.`;
-  content.innerHTML = `
-    <div class="modal-header">
-      <h3>Fast fertig</h3>
-      <button class="modal-close" data-close-modal>✕</button>
-    </div>
-    <div class="mailto-stage2">
-      <div class="mailto-stage2-icon">✉️</div>
-      <p class="mailto-stage2-text">${label}</p>
-      <a class="btn-primary mailto-stage2-btn" id="mailto-open-btn" href="${mailto.replace(/"/g, '&quot;')}">E-Mail-App öffnen</a>
-      <button type="button" class="btn-secondary" data-close-modal>Fertig / Abbrechen</button>
-    </div>
-  `;
-  // Re-bind close buttons (they were replaced)
-  content.querySelectorAll('[data-close-modal]').forEach(btn => {
-    btn.addEventListener('click', () => closeModals());
-  });
-  // Ensure the anchor closes the modal after the click too
-  const a = content.querySelector('#mailto-open-btn');
-  if (a) {
-    a.addEventListener('click', () => {
-      // Give iOS a moment to launch Mail, then close
-      setTimeout(() => closeModals(), 300);
-    });
-  }
+  return _showMailtoStage2Raw(mailto, count, filename, { closeModals });
 }
 
 async function shareReport(format, recipientEmails) {
-  const r = getCurrentReport();
-  if (!r) return;
-
-  // Normalize: accept array, string, or empty
-  const emails = Array.isArray(recipientEmails)
-    ? recipientEmails.filter(Boolean)
-    : (recipientEmails ? [recipientEmails] : []);
-
-  let blob, filename, mimeType;
-  try {
-    if (format === 'docx') {
-      blob = await generateWordBlob(r);
-      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      filename = fileNameForReport(r, 'docx');
-    } else {
-      blob = generatePdfBlob(r);
-      mimeType = 'application/pdf';
-      filename = fileNameForReport(r, 'pdf');
-    }
-  } catch (err) {
-    console.error(err); toast('Erstellung fehlgeschlagen: ' + err.message); return;
-  }
-
-  const subject = `Arbeitszeitnachweis ${formatMonthYear(r.ym)} – ${r.employer.name}`;
-  const summaryLines2 = renderSummaryPlaintext(getSummaryFields({
-    workedMin: r.workedMin,
-    targetMin: r.targetMin,
-    balance: r.balance,
-    vacationDays: r.vacationEntries.length,
-    sickDays: r.sickEntries.length,
-    hourlyRate: Number(r.employer.hourlyRate) || 0,
-    currency: r.employer.currency || 'EUR',
-  }));
-  const body =
-`Sehr geehrte Damen und Herren,
-
-anbei der Arbeitszeitnachweis für ${formatMonthYear(r.ym)}.
-
-Zusammenfassung:
-${summaryLines2.join('\n')}
-
-Mit freundlichen Grüßen`;
-
-  // With recipients: open the mail program in the SAME user gesture, then download.
-  // Doing download-first + setTimeout(location) was silently blocked on Chrome/Edge/iOS.
-  if (emails.length > 0) {
-    const to = emails.map(encodeURIComponent).join(',');
-    const mailto = `mailto:${to}`
-      + `?subject=${encodeURIComponent(subject)}`
-      + `&body=${encodeURIComponent(body + '\n\nBitte den Anhang „' + filename + '“ hinzufügen.')}`;
-
-    // Anchor click is more reliable than location.href for mailto on iOS + desktop
-    const a = document.createElement('a');
-    a.href = mailto;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    // Then trigger the download in the same synchronous tick
-    downloadBlob(blob, filename);
-
-    toast(emails.length === 1
-      ? 'E-Mail-App öffnet sich – Datei heruntergeladen, bitte anhängen'
-      : `E-Mail-App öffnet mit ${emails.length} Empfängern – Datei heruntergeladen`);
-    return;
-  }
-
-  // No recipient → Web Share API (system share sheet on iOS/Android)
-  const file = new File([blob], filename, { type: mimeType });
-  const shareData = { title: subject, text: body, files: [file] };
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share(shareData);
-      toast('Geteilt');
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-      console.warn('Web Share failed, falling back', err);
-    }
-  }
-
-  // Last-resort fallback: plain download
-  downloadBlob(blob, filename);
-  toast(`Datei „${filename}“ heruntergeladen`);
+  return _shareReportRaw(format, recipientEmails, _shareCtx());
 }
 
 // downloadBlob wurde nach modules/export/download.js verschoben (Phase 3.7).
