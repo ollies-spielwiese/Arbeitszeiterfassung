@@ -1,0 +1,14 @@
+// modules/export/download.js
+// Kleiner Blob-Download-Helper. Erzeugt einen anonymen <a>-Klick auf einer ObjectURL.
+// Nur im Browser sinnvoll (nutzt document + URL.createObjectURL).
+
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

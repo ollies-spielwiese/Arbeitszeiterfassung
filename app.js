@@ -108,12 +108,23 @@ import {
   buildTodaySummaryHTML as _buildTodaySummaryHTMLRaw,
   buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
 } from './modules/render/tracker.js';
+import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.js';
+import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
+import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
+import { downloadBlob } from './modules/export/download.js';
 
-const APP_VERSION = '3.9.7';
+const APP_VERSION = '3.9.8';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.8', items: [
+      'Modul-Split Phase 3.7: modules/export/word.js, pdf.js, overview-pdf.js, download.js',
+      'generateWordBlob, generatePdfBlob, generateOverviewPdfBlob sind pure Funktionen mit ctx-DI',
+      'downloadBlob als Re-Export aus modules/export/download.js',
+      'app.js: Exporter auf duenne Wrapper reduziert',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+    ] },
   { version: '3.9.7', items: [
       'Modul-Split Phase 3.6c: modules/render/entries.js, week.js, employers.js, archive.js, tracker.js',
       'buildEntriesHTML, buildWeekHTML, buildEmployerCardsHTML, buildArchiveHTML, buildTodaySummaryHTML, buildHomeofficeSegmentsHTML sind pure HTML-Builder mit ctx-DI',
@@ -1486,353 +1497,27 @@ function renderReport() {
 /* ---------- Word Export (.docx) ---------- */
 
 async function generateWordBlob(report) {
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle } = docx;
-
-  const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
-  const cellBorders = { top: border, bottom: border, left: border, right: border };
-
-  // Fixed column widths in DXA (1440 dxa = 1 inch). Page width A4 minus margins ≈ 9000 dxa.
-  // Widths: Datum 1700, Zeit 1400, Pause 900, Std. 900, Grund 2100, Bemerkung 2000 = 9000 total
-  const colWidths = [1700, 1400, 900, 900, 2100, 2000];
-  const headerCellW = (text, w) => new TableCell({
-    width: { size: w, type: WidthType.DXA },
-    borders: cellBorders,
-    shading: { fill: 'F1F5F9' },
-    children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 20 })] })],
+  return _generateWordBlobRaw(report, {
+    docx, state,
+    formatDate, formatDateLong, formatMonthYear, minutesToHM,
+    computeWorkMinutes, computeHomeofficeMinutes,
+    getSummaryFields, renderSummaryWordParagraphs,
   });
-  const cellW = (text, w, align = AlignmentType.LEFT) => new TableCell({
-    width: { size: w, type: WidthType.DXA },
-    borders: cellBorders,
-    children: [new Paragraph({ alignment: align, children: [new TextRun({ text: String(text || ''), size: 20 })] })],
-  });
-
-  const combinedRows = [
-    ...report.workEntries.map(e => ({ e, isHO: false })),
-    ...(report.homeofficeEntries || []).map(e => ({ e, isHO: true })),
-  ].sort((a, b) => a.e.date.localeCompare(b.e.date));
-
-  const workRowsFixed = combinedRows.map(({ e, isHO }) => {
-    if (isHO) {
-      const mins = computeHomeofficeMinutes(e);
-      return new TableRow({
-        children: [
-          cellW(formatDateLong(e.date), colWidths[0]),
-          cellW('Home-Office', colWidths[1]),
-          cellW('—', colWidths[2], AlignmentType.RIGHT),
-          cellW(minutesToHM(mins), colWidths[3], AlignmentType.RIGHT),
-          cellW('', colWidths[4]),
-          cellW(e.note || '', colWidths[5]),
-        ],
-      });
-    }
-    const mins = computeWorkMinutes(e);
-    return new TableRow({
-      children: [
-        cellW(formatDateLong(e.date), colWidths[0]),
-        cellW(`${e.start}–${e.end}`, colWidths[1]),
-        cellW(e.breakMinutes || 0, colWidths[2], AlignmentType.RIGHT),
-        cellW(minutesToHM(mins), colWidths[3], AlignmentType.RIGHT),
-        cellW(e.overtimeReason || '', colWidths[4]),
-        cellW(e.note || '', colWidths[5]),
-      ],
-    });
-  });
-
-  const workTable = combinedRows.length ? new Table({
-    width: { size: 9000, type: WidthType.DXA },
-    columnWidths: colWidths,
-    layout: 'fixed',
-    rows: [
-      new TableRow({ tableHeader: true, children: [
-        headerCellW('Datum', colWidths[0]),
-        headerCellW('Zeit', colWidths[1]),
-        headerCellW('Pause (Min)', colWidths[2]),
-        headerCellW('Std.', colWidths[3]),
-        headerCellW('Grund Überstunden', colWidths[4]),
-        headerCellW('Bemerkung', colWidths[5]),
-      ]}),
-      ...workRowsFixed,
-    ],
-  }) : null;
-
-  const absenceLines = [];
-  if (report.vacationEntries.length) {
-    absenceLines.push(new Paragraph({ children: [
-      new TextRun({ text: 'Urlaub: ', bold: true }),
-      new TextRun({ text: report.vacationEntries.map(e => formatDate(e.date)).join(', ') }),
-    ]}));
-  }
-  if (report.sickEntries.length) {
-    absenceLines.push(new Paragraph({ children: [
-      new TextRun({ text: 'Krankheit: ', bold: true }),
-      new TextRun({ text: report.sickEntries.map(e => formatDate(e.date)).join(', ') }),
-    ]}));
-  }
-  if (report.holidays && report.holidays.length) {
-    absenceLines.push(new Paragraph({ children: [
-      new TextRun({ text: 'Feiertage: ', bold: true }),
-      new TextRun({ text: report.holidays.map(h => `${formatDate(h.date)} ${h.name}`).join(', ') }),
-    ]}));
-  }
-
-  const overtimeSection = report.overtimeEntries.length ? [
-    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Überstunden – Begründung', bold: true })] }),
-    ...report.overtimeEntries.map(e => new Paragraph({ children: [
-      new TextRun({ text: `${formatDate(e.date)}: `, bold: true }),
-      new TextRun({ text: e.overtimeReason }),
-    ]})),
-  ] : [];
-
-  const empName = (state.settings.employeeName || '').trim();
-  const headerLines = [
-    new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'Arbeitszeitnachweis', bold: true })] }),
-    new Paragraph({ children: [new TextRun({ text: `${report.employer.name} – ${formatMonthYear(report.ym)}`, size: 24 })] }),
-  ];
-  if (empName) {
-    headerLines.push(new Paragraph({ children: [
-      new TextRun({ text: 'Arbeitnehmer/in: ', bold: true }),
-      new TextRun({ text: empName }),
-    ] }));
-  }
-  headerLines.push(new Paragraph({ children: [new TextRun({ text: `Erstellt am ${new Date().toLocaleDateString('de-DE')}`, italics: true, color: '64748B' })] }));
-  headerLines.push(new Paragraph({ text: '' }));
-
-  const wordSummaryFields = getSummaryFields({
-    workedMin: report.workedMin,
-    targetMin: report.targetMin,
-    balance: report.balance,
-    vacationDays: report.vacationEntries.length,
-    sickDays: report.sickEntries.length,
-    hourlyRate: Number(report.employer.hourlyRate) || 0,
-    currency: report.employer.currency || 'EUR',
-  });
-  const wordSummaryParagraphs = renderSummaryWordParagraphs(wordSummaryFields, { Paragraph, TextRun });
-
-  const children = [
-    ...headerLines,
-
-    new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Zusammenfassung', bold: true })] }),
-    ...wordSummaryParagraphs,
-    ...absenceLines,
-    new Paragraph({ text: '' }),
-
-    ...(workTable ? [
-      new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Einzelnachweis', bold: true })] }),
-      workTable,
-      ...((report.homeofficeEntries && report.homeofficeEntries.length) ? [new Paragraph({ children: [
-        new TextRun({ text: `davon Home-Office: ${report.homeofficeEntries.length} ${report.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(report.homeofficeMin || 0)}`, italics: true, color: '64748B', size: 18 }),
-      ]})] : []),
-      new Paragraph({ text: '' }),
-    ] : []),
-
-    ...overtimeSection,
-
-    new Paragraph({ text: '' }),
-    new Paragraph({ text: '' }),
-    new Table({
-      width: { size: 9000, type: WidthType.DXA },
-      columnWidths: [4200, 600, 4200],
-      layout: 'fixed',
-      borders: {
-        top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-        bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-        left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-        right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-        insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
-      },
-      rows: [
-        new TableRow({ children: [
-          new TableCell({ width: { size: 4200, type: WidthType.DXA }, borders: { top: { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [ new Paragraph({ children: [new TextRun({ text: empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', size: 18, color: '64748B' })] }) ] }),
-          new TableCell({ width: { size: 600, type: WidthType.DXA }, borders: { top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [new Paragraph({ text: '' })] }),
-          new TableCell({ width: { size: 4200, type: WidthType.DXA }, borders: { top: { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' }, bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }, right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' } }, children: [ new Paragraph({ children: [new TextRun({ text: 'Unterschrift Arbeitgeber / Datum', size: 18, color: '64748B' })] }) ] }),
-        ]}),
-      ],
-    }),
-  ];
-
-  const doc = new Document({
-    styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
-    sections: [{ children }],
-  });
-
-  return await Packer.toBlob(doc);
 }
 
 /* ---------- PDF Export (jsPDF) ---------- */
 
 function generatePdfBlob(report) {
-  // jsPDF is loaded as window.jspdf.jsPDF
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const marginX = 15;
-  let y = 20;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('Arbeitszeitnachweis', marginX, y);
-  y += 8;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  doc.text(`${report.employer.name} – ${formatMonthYear(report.ym)}`, marginX, y);
-  y += 6;
-
-  const empName = (state.settings.employeeName || '').trim();
-  if (empName) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    const label = 'Arbeitnehmer/in: ';
-    doc.setFont('helvetica', 'bold');
-    const labelWidth = doc.getTextWidth(label);
-    doc.text(label, marginX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(empName, marginX + labelWidth + 1, y);
-    y += 6;
-  }
-
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, marginX, y);
-  doc.setTextColor(0);
-  y += 8;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('Zusammenfassung', marginX, y);
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  const pdfSummaryFields = getSummaryFields({
-    workedMin: report.workedMin,
-    targetMin: report.targetMin,
-    balance: report.balance,
-    vacationDays: report.vacationEntries.length,
-    sickDays: report.sickEntries.length,
-    hourlyRate: Number(report.employer.hourlyRate) || 0,
-    currency: report.employer.currency || 'EUR',
+  return _generatePdfBlobRaw(report, {
+    jsPDF, state,
+    formatDate, formatDateLong, formatMonthYear, minutesToHM,
+    computeWorkMinutes, computeHomeofficeMinutes,
+    getSummaryFields, renderSummaryPdfLines, isFreelance,
   });
-  const lines = renderSummaryPdfLines(pdfSummaryFields);
-  for (const line of lines) { doc.text(line, marginX, y); y += 5; }
-
-  if (!isFreelance()) {
-    if (report.vacationEntries.length) {
-      y += 1;
-      const t = 'Urlaub: ' + report.vacationEntries.map(e => formatDate(e.date)).join(', ');
-      y = wrapText(doc, t, marginX, y, 180);
-    }
-    if (report.sickEntries.length) {
-      const t = 'Krankheit: ' + report.sickEntries.map(e => formatDate(e.date)).join(', ');
-      y = wrapText(doc, t, marginX, y, 180);
-    }
-    if (report.holidays && report.holidays.length) {
-      const t = 'Feiertage: ' + report.holidays.map(h => `${formatDate(h.date)} ${h.name}`).join(', ');
-      y = wrapText(doc, t, marginX, y, 180);
-    }
-  }
-
-  y += 4;
-
-  const homeofficeEntries = report.homeofficeEntries || [];
-  if (report.workEntries.length || homeofficeEntries.length) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text('Einzelnachweis', marginX, y);
-    y += 3;
-
-    const combinedRows = [
-      ...report.workEntries.map(e => ({ e, isHO: false })),
-      ...homeofficeEntries.map(e => ({ e, isHO: true })),
-    ].sort((a, b) => a.e.date.localeCompare(b.e.date));
-
-    const body = combinedRows.map(({ e, isHO }) => {
-      if (isHO) {
-        return [
-          formatDateLong(e.date),
-          'Home-Office',
-          '—',
-          minutesToHM(computeHomeofficeMinutes(e)),
-          '',
-          e.note || '',
-        ];
-      }
-      return [
-        formatDateLong(e.date),
-        `${e.start}-${e.end}`,
-        String(e.breakMinutes || 0),
-        minutesToHM(computeWorkMinutes(e)),
-        e.overtimeReason || '',
-        e.note || '',
-      ];
-    });
-    doc.autoTable({
-      startY: y + 2,
-      head: [['Datum', 'Zeit', 'Pause (Min)', 'Std.', 'Grund Überstunden', 'Bemerkung']],
-      body,
-      styles: { fontSize: 9, cellPadding: 2, overflow: 'linebreak', halign: 'left' },
-      headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
-      columnStyles: {
-        0: { cellWidth: 26 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 16 },
-        3: { cellWidth: 16 },
-        4: { cellWidth: 45 },
-        5: { cellWidth: 45 },
-      },
-      margin: { left: marginX, right: marginX },
-    });
-    y = doc.lastAutoTable.finalY + 6;
-
-    if (homeofficeEntries.length) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(9);
-      doc.setTextColor(100);
-      doc.text(`davon Home-Office: ${homeofficeEntries.length} ${homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(report.homeofficeMin || 0)}`, marginX, y);
-      doc.setTextColor(0);
-      doc.setFont('helvetica', 'normal');
-      y += 6;
-    }
-  }
-
-  if (report.overtimeEntries.length) {
-    if (y > 250) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text('Überstunden – Begründung', marginX, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    for (const e of report.overtimeEntries) {
-      const t = `${formatDate(e.date)}: ${e.overtimeReason}`;
-      y = wrapText(doc, t, marginX, y, 180);
-      if (y > 270) { doc.addPage(); y = 20; }
-    }
-  }
-
-  if (y > 250) { doc.addPage(); y = 20; }
-  y += 15;
-  const pageW = doc.internal.pageSize.getWidth();
-  const usableW = pageW - marginX * 2;
-  const sigLineW = 70;
-  const leftX = marginX;
-  const rightX = pageW - marginX - sigLineW;
-  doc.setDrawColor(150);
-  doc.line(leftX, y, leftX + sigLineW, y);
-  doc.line(rightX, y, rightX + sigLineW, y);
-  y += 5;
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', leftX, y);
-  doc.text('Unterschrift Arbeitgeber / Datum', rightX, y);
-
-  return doc.output('blob');
 }
 
-function wrapText(doc, text, x, y, maxWidth) {
-  const split = doc.splitTextToSize(text, maxWidth);
-  doc.text(split, x, y);
-  return y + split.length * 5;
-}
+// wrapText wurde nach modules/export/pdf.js + overview-pdf.js verschoben (Phase 3.7).
 
 /* ---------- Overview: Monatsauswertung über alle Arbeitgeber ---------- */
 
@@ -1876,135 +1561,10 @@ function renderOverview() {
 
 function generateOverviewPdfBlob(ov) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const marginX = 15;
-  let y = 20;
-
-  const ovFreelance = isFreelance();
-  const ovEmpLabel = ovFreelance ? 'Kunde' : 'Arbeitgeber';
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(ovFreelance ? 'Monatsübersicht – alle Kunden' : 'Monatsübersicht – alle Arbeitgeber', marginX, y);
-  y += 8;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  doc.text(formatMonthYear(ov.ym), marginX, y);
-  y += 6;
-
-  const empName = (state.settings.employeeName || '').trim();
-  if (empName) {
-    doc.setFontSize(10);
-    const label = 'Arbeitnehmer/in: ';
-    doc.setFont('helvetica', 'bold');
-    const labelWidth = doc.getTextWidth(label);
-    doc.text(label, marginX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(empName, marginX + labelWidth + 1, y);
-    y += 6;
-  }
-
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, marginX, y);
-  doc.setTextColor(0);
-  y += 8;
-
-  if (!ov.rows.length) {
-    doc.setFontSize(11);
-    doc.text('Keine Einträge für diesen Monat.', marginX, y);
-    return doc.output('blob');
-  }
-
-  let body, totalsRow, head, columnStyles, legend;
-  if (ovFreelance) {
-    const rowNet = (row) => {
-      const rate = Number(row.employer.hourlyRate) || 0;
-      if (rate <= 0) return '—';
-      return formatMoney((row.workedMin / 60) * rate, row.employer.currency || 'EUR');
-    };
-    const totalsNet = ov.rows.reduce((acc, row) => {
-      const rate = Number(row.employer.hourlyRate) || 0;
-      if (rate <= 0) return acc;
-      const cur = row.employer.currency || 'EUR';
-      acc[cur] = (acc[cur] || 0) + (row.workedMin / 60) * rate;
-      return acc;
-    }, {});
-    const totalsNetStr = Object.keys(totalsNet).length
-      ? Object.entries(totalsNet).map(([cur, amt]) => formatMoney(amt, cur)).join(' · ')
-      : '—';
-    body = ov.rows.map(row => [
-      row.employer.name,
-      String(row.workEntriesCount),
-      minutesToHM(row.workedMin),
-      rowNet(row),
-    ]);
-    totalsRow = [
-      'Gesamt',
-      String(ov.totals.workEntriesCount),
-      minutesToHM(ov.totals.workedMin),
-      totalsNetStr,
-    ];
-    head = [[ovEmpLabel, 'Tage', 'Ist', 'Rechnungsbetrag']];
-    columnStyles = {
-      0: { cellWidth: 70 },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 60 },
-    };
-    legend = 'Ist = geleistete Arbeitszeit. Rechnungsbetrag = Ist × Stundensatz. Freelance-Modus: kein Soll/Saldo.';
-  } else {
-    body = ov.rows.map(row => [
-      row.employer.name,
-      String(row.workEntriesCount),
-      minutesToHM(row.workedMin),
-      minutesToHM(row.targetMin),
-      `${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}`,
-      String(row.vacationDays),
-      String(row.sickDays),
-    ]);
-    totalsRow = [
-      'Gesamt',
-      String(ov.totals.workEntriesCount),
-      minutesToHM(ov.totals.workedMin),
-      minutesToHM(ov.totals.targetMin),
-      `${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}`,
-      String(ov.totals.vacationDays),
-      String(ov.totals.sickDays),
-    ];
-    head = [[ovEmpLabel, 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank']];
-    columnStyles = {
-      0: { cellWidth: 60 },
-      1: { cellWidth: 16 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 22 },
-      5: { cellWidth: 18 },
-      6: { cellWidth: 18 },
-    };
-    legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
-  }
-
-  doc.autoTable({
-    startY: y,
-    head,
-    body,
-    foot: [totalsRow],
-    styles: { fontSize: 10, cellPadding: 2.5, overflow: 'linebreak', halign: 'left' },
-    headStyles: { fillColor: [241, 245, 249], textColor: 30, fontStyle: 'bold', halign: 'left' },
-    footStyles: { fillColor: [226, 232, 240], textColor: 30, fontStyle: 'bold', halign: 'left' },
-    columnStyles,
-    margin: { left: marginX, right: marginX },
+  return _generateOverviewPdfBlobRaw(ov, {
+    jsPDF, state,
+    formatMonthYear, minutesToHM, formatMoney, isFreelance,
   });
-
-  y = doc.lastAutoTable.finalY + 10;
-
-  doc.setFontSize(9);
-  doc.setTextColor(90);
-  y = wrapText(doc, legend, marginX, y, 180);
-  doc.setTextColor(0);
-
-  return doc.output('blob');
 }
 
 function fileNameForOverview(ov, ext) {
@@ -2393,16 +1953,7 @@ Mit freundlichen Grüßen`;
   toast(`Datei „${filename}“ heruntergeladen`);
 }
 
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// downloadBlob wurde nach modules/export/download.js verschoben (Phase 3.7).
 
 /* ---------- Archive ---------- */
 
