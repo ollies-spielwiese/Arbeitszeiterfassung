@@ -72,13 +72,17 @@ export function openEmployerModal(emp, ctx) {
   const modal = document.getElementById('modal-employer');
   const isNew = !emp;
   document.getElementById('modal-employer-title').textContent = isNew ? L('newEmployer') : L('editEmployer');
+  // Neue Employer/Kunden: Im Freelance-Modus keine Soll-Stunden vorbelegen.
+  const freelanceDefault = isFreelance();
+  const defWeekly = freelanceDefault ? 0 : 40;
+  const defMonthly = freelanceDefault ? 0 : 160;
   const e = emp || {
     id: '', name: '', color: '#3b82f6', phone: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
-    hoursMode: 'week', weeklyHours: 40, monthlyHours: 160,
+    hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly,
     breakMode: 'legal', annualVacation: 0,
     hourlyRate: 0, currency: (state.settings && state.settings.currency) || 'EUR',
-    schedule: defaultSchedule(40),
+    schedule: defaultSchedule(defWeekly),
     notes: '',
   };
   document.getElementById('employer-id').value = e.id;
@@ -91,8 +95,9 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-contact2-name').value = contacts[1]?.name || '';
   document.getElementById('employer-contact2-email').value = contacts[1]?.email || '';
   document.getElementById('employer-hours-mode').value = e.hoursMode || 'week';
-  document.getElementById('employer-weekly-hours').value = e.weeklyHours || 40;
-  document.getElementById('employer-monthly-hours').value = e.monthlyHours || 160;
+  // WICHTIG: Nicht `|| 40` — sonst überschreibt der Fallback einen explizit gespeicherten 0-Wert.
+  document.getElementById('employer-weekly-hours').value = (e.weeklyHours != null ? e.weeklyHours : defWeekly);
+  document.getElementById('employer-monthly-hours').value = (e.monthlyHours != null ? e.monthlyHours : defMonthly);
   document.getElementById('employer-break-mode').value = e.breakMode || 'legal';
   document.getElementById('employer-annual-vacation').value = e.annualVacation || 0;
   document.getElementById('employer-notes').value = e.notes || '';
@@ -104,7 +109,7 @@ export function openEmployerModal(emp, ctx) {
   const nameLbl = document.querySelector('label[for="employer-name"]');
   if (nameLbl) nameLbl.textContent = L('employerName');
   document.getElementById('fs-employer-billing').classList.toggle('hidden', !isFreelance());
-  buildScheduleGrid(e.schedule || defaultSchedule(e.weeklyHours || 40));
+  buildScheduleGrid(e.schedule || defaultSchedule(e.weeklyHours != null ? e.weeklyHours : defWeekly));
   updateHoursModeVisibility();
   document.getElementById('btn-delete-employer').classList.toggle('hidden', isNew);
   modal.classList.remove('hidden');

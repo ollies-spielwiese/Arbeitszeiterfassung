@@ -756,6 +756,7 @@ function _entryCtx() {
     }),
     renderTracker,
     renderEntries,
+    refreshAll,
     toast,
     closeModals,
     uid,
@@ -779,6 +780,18 @@ function populateTemplatePicker(selectId) { return _populateTemplatePickerRaw(se
 
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+}
+
+// Zentraler Refresh nach Datenmutationen. Rendert nur Views die aktuell im DOM
+// existieren und aktiv sind — nicht-aktive Tabs werden bei switchView neu
+// gerechnet. Dadurch bleibt Monat/Übersicht/Woche/Bericht auf aktuellem Stand,
+// wenn der User im gerade sichtbaren Tab editiert.
+function refreshAll() {
+  try { if (typeof renderTracker === 'function')  renderTracker(); }  catch(e){}
+  try { if (typeof renderEntries === 'function')  renderEntries(); }  catch(e){}
+  try { if (typeof renderWeek === 'function')     renderWeek(); }     catch(e){}
+  try { if (typeof renderReport === 'function')   renderReport(); }   catch(e){}
+  try { if (typeof renderOverview === 'function') renderOverview(); } catch(e){}
 }
 function updateEntryTypeFields() {
   return _updateEntryTypeFieldsRaw();
@@ -830,6 +843,8 @@ function _hoCtx() {
     renderEntries,
     renderWeek,
     renderReport,
+    renderOverview,
+    refreshAll,
     closeModals,
     toast,
     uid,

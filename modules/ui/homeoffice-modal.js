@@ -170,7 +170,7 @@ export function updateHomeofficeLiveTotal(ctx) {
 export function saveHomeoffice(e, ctx) {
   const {
     getState, saveState, hhmmToMinutes, normalizeSegments,
-    renderTracker, renderEntries, renderWeek, renderReport,
+    renderTracker, renderEntries, renderWeek, renderReport, renderOverview, refreshAll,
     closeModals, toast, uid,
   } = ctx;
   if (e && e.preventDefault) e.preventDefault();
@@ -234,16 +234,21 @@ export function saveHomeoffice(e, ctx) {
   }
   saveState();
   closeModals();
-  renderTracker();
-  renderEntries();
-  renderWeek();
-  renderReport();
+  if (typeof refreshAll === 'function') {
+    refreshAll();
+  } else {
+    renderTracker();
+    renderEntries();
+    renderWeek();
+    renderReport();
+    if (typeof renderOverview === 'function') renderOverview();
+  }
   toast('Gespeichert');
 }
 
 export function deleteHomeoffice(ctx) {
   const {
-    getState, saveState, renderTracker, renderEntries, renderWeek, renderReport,
+    getState, saveState, renderTracker, renderEntries, renderWeek, renderReport, renderOverview, refreshAll,
     closeModals, toast,
   } = ctx;
   const state = getState();
@@ -253,9 +258,14 @@ export function deleteHomeoffice(ctx) {
   state.entries = state.entries.filter(e => e.id !== id);
   saveState();
   closeModals();
-  renderTracker();
-  renderEntries();
-  renderWeek();
-  renderReport();
+  if (typeof refreshAll === 'function') {
+    refreshAll();
+  } else {
+    renderTracker();
+    renderEntries();
+    renderWeek();
+    renderReport();
+    if (typeof renderOverview === 'function') renderOverview();
+  }
   toast('Gelöscht');
 }

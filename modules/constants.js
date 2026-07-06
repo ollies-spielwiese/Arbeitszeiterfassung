@@ -11,11 +11,20 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.22';
+export const APP_VERSION = '3.9.23';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.23', items: [
+      'Phase 4.9.1 Bugfix-Sammlung',
+      'Bug 1: Präsenz/Home-Office im Eintrag-Modal editierbar (Typ + Segmente)',
+      'Bug 2: Monat-Ansicht zeigt Soll/Saldo/Urlaub/Krank auch bei appMode=freelance, sobald Arbeitgeber Vertragsstunden hat',
+      'Bug 3: Saldo-Vorzeichen im Arbeitgeber-Report korrekt (Folge Bug 2)',
+      'Bug 4: Übersicht Layout pro Row — Employee/Freelance parallel je Arbeitgeber',
+      'Bug 5: Freelance-Kunde Default monthlyHours/weeklyHours = 0',
+      'Zusatz: refreshAll() nach saveEntry/deleteEntry/saveHomeoffice/deleteHomeoffice — Monat/Übersicht/Woche werden nach jeder Eintragsänderung neu berechnet',
+    ] },
   { version: '3.9.22', items: [
       'Phase 4.9: tsc --noEmit als CI-Typecheck',
       'tsconfig.json + types-globals.d.ts angelegt — checkJs an, DOM-Vendor-Globals typisiert',

@@ -69,6 +69,13 @@ export function buildReportHTML(r, ctx) {
     ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
     : '';
 
+  // Modus pro Arbeitgeber ableiten: hat der Arbeitgeber vertragliche Sollstunden,
+  // wird der Report als employee behandelt — unabhängig vom globalen App-Mode.
+  // Nur wenn KEINE Sollstunden hinterlegt sind, greift der Freelance-Modus
+  // (kein Soll/Saldo/Urlaub/Krank im Summary).
+  const empHasTarget =
+    (Number(r.employer.weeklyHours) || 0) > 0 ||
+    (Number(r.employer.monthlyHours) || 0) > 0;
   const mrFields = getSummaryFields({
     workedMin: r.workedMin,
     targetMin: r.targetMin,
@@ -77,6 +84,7 @@ export function buildReportHTML(r, ctx) {
     sickDays: r.sickEntries.length,
     hourlyRate: Number(r.employer.hourlyRate) || 0,
     currency: r.employer.currency || 'EUR',
+    mode: empHasTarget ? 'employee' : 'freelance',
   });
 
   return `

@@ -97,7 +97,13 @@ export function applyScheduleToEntry(ctx) {
 
 export function updateEntryTypeFields() {
   const type = document.getElementById('entry-type').value;
-  document.getElementById('work-fields').style.display = type === 'work' ? 'block' : 'none';
+  const isTimed = (type === 'work' || type === 'homeoffice');
+  document.getElementById('work-fields').style.display = isTimed ? 'block' : 'none';
+  // Pause und Überstunden-Grund sind nur für Präsenzarbeit sichtbar.
+  const breakRow = document.getElementById('entry-break')?.closest('.form-row');
+  const otRow = document.getElementById('entry-overtime-reason')?.closest('.form-row');
+  if (breakRow) breakRow.style.display = type === 'work' ? '' : 'none';
+  if (otRow) otRow.style.display = type === 'work' ? '' : 'none';
 }
 
 export function updateBreakHint(ctx) {
@@ -132,25 +138,52 @@ export function saveEntry(e, ctx) {
   if (!employerId) { toast('Bitte Arbeitgeber wählen'); return; }
   if (!date) { toast('Bitte Datum wählen'); return; }
 
-  const entryData = {
-    employerId,
-    date,
-    type,
-    start: type === 'work' ? document.getElementById('entry-start').value : '',
-    end: type === 'work' ? document.getElementById('entry-end').value : '',
-    breakMinutes: type === 'work' ? (parseInt(document.getElementById('entry-break').value) || 0) : 0,
-    overtimeReason: type === 'work' ? document.getElementById('entry-overtime-reason').value.trim() : '',
-    note: document.getElementById('entry-note').value.trim(),
-  };
+  const startVal = document.getElementById('entry-start').value;
+  const endVal   = document.getElementById('entry-end').value;
+  const breakVal = parseInt(document.getElementById('entry-break').value) || 0;
+  const overtimeReason = document.getElementById('entry-overtime-reason').value.trim();
+  const note = document.getElementById('entry-note').value.trim();
 
-  if (type === 'work' && (!entryData.start || !entryData.end)) {
+  if ((type === 'work' || type === 'homeoffice') && (!startVal || !endVal)) {
     toast('Bitte Beginn und Ende angeben');
     return;
   }
 
+  // Basis-Datensatz je Typ.
+  let entryData;
+  if (type === 'work') {
+    entryData = {
+      employerId, date, type: 'work',
+      start: startVal, end: endVal,
+      breakMinutes: breakVal,
+      overtimeReason,
+      note,
+    };
+  } else if (type === 'homeoffice') {
+    // Wechsel work → homeoffice: start/end als einzelnes Segment übernehmen.
+    // Bestehende segments (bei reinem Bemerkungs-Edit) beibehalten.
+    const existing = id ? state.entries.find(x => x.id === id) : null;
+    const hadSegments = existing && existing.type === 'homeoffice' && Array.isArray(existing.segments);
+    const segments = hadSegments ? existing.segments : [{ start: startVal, end: endVal }];
+    entryData = {
+      employerId, date, type: 'homeoffice',
+      segments,
+      note,
+    };
+  } else { // vacation / sick
+    entryData = { employerId, date, type, note };
+  }
+
   if (id) {
     const idx = state.entries.findIndex(x => x.id === id);
-    if (idx >= 0) state.entries[idx] = { ...state.entries[idx], ...entryData };
+    if (idx >= 0) {
+      const prev = state.entries[idx];
+      // Beim Typ-Wechsel typ-fremde Felder löschen, sonst spread über prev.
+      const cleaned = (prev.type === entryData.type)
+        ? { ...prev, ...entryData }
+        : { id: prev.id, createdAt: prev.createdAt, ...entryData };
+      state.entries[idx] = cleaned;
+    }
   } else {
     state.entries.push({ id: uid(), createdAt: new Date().toISOString(), ...entryData });
   }
@@ -158,6 +191,7 @@ export function saveEntry(e, ctx) {
   closeModals();
   renderTracker();
   renderEntries();
+  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
   toast('Gespeichert');
 }
 
@@ -172,5 +206,6 @@ export function deleteEntry(ctx) {
   closeModals();
   renderTracker();
   renderEntries();
+  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
   toast('Gelöscht');
 }

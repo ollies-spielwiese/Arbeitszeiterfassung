@@ -161,7 +161,14 @@ export function getSummaryFields(input, ctx) {
  */
 export function getOverviewSummaryFields(ov, ctx) {
   const { isFreelance, minutesToHM, hoursDecimal, formatMoney } = ctx;
-  const freelance = isFreelance();
+  // Neue Regel: Employee-Layout zeigen, wenn mindestens ein Employer im Report Vertragsstunden hat.
+  // Fällt zurück auf globales isFreelance() nur wenn keine Rows/Employers vorhanden.
+  const anyEmpHasTarget = Array.isArray(ov.rows) && ov.rows.some(r => {
+    const emp = r && r.employer;
+    if (!emp) return false;
+    return (Number(emp.weeklyHours) || 0) > 0 || (Number(emp.monthlyTargetHours) || 0) > 0 || (Number(emp.monthlyHours) || 0) > 0;
+  });
+  const freelance = anyEmpHasTarget ? false : isFreelance();
   // Netto-Summe pro Währung aggregieren
   const netByCurrency = ov.rows.reduce((acc, row) => {
     const rate = Number(row.employer.hourlyRate) || 0;
@@ -348,13 +355,22 @@ export function computeFormFields(entry, opts, ctx) {
     ? 'Zeit prüfen und speichern'
     : (isNew ? 'Zeit erfassen' : 'Zeit bearbeiten');
 
+  // Bei HO-Einträgen erstes Segment als Start/Ende vorschlagen (für Konvertierung HO→work).
+  let seedStart = entry?.start || '';
+  let seedEnd   = entry?.end   || '';
+  if (entry && entry.type === 'homeoffice' && Array.isArray(entry.segments) && entry.segments.length > 0) {
+    const first = entry.segments[0];
+    if (first && !seedStart) seedStart = first.start || '';
+    if (first && !seedEnd)   seedEnd   = first.end   || '';
+  }
+
   const values = entry ? {
     id: entry.id,
     employerId: entry.employerId || state.activeEmployerId,
     date: entry.date,
     type: entry.type,
-    start: entry.start || '',
-    end: entry.end || '',
+    start: seedStart,
+    end: seedEnd,
     breakMinutes: entry.breakMinutes || 0,
     overtimeReason: entry.overtimeReason || '',
     note: entry.note || '',
@@ -370,7 +386,7 @@ export function computeFormFields(entry, opts, ctx) {
     note: '',
   };
 
-  const showWorkFields = values.type === 'work';
+  const showWorkFields = (values.type === 'work' || values.type === 'homeoffice');
 
   const employerOptions = state.employers.map((e) => ({ id: e.id, name: e.name }));
 

@@ -24,7 +24,14 @@ export function buildOverviewHTML(ov, ym, ctx) {
     renderSummaryHTML,
   } = ctx;
 
-  const freelanceMode = isFreelance();
+  // Employee-Layout, wenn mindestens ein Employer im Report Vertragsstunden hat.
+  // Global-Fallback nur wenn keine Rows/Employers vorhanden.
+  const empHasTarget = (emp) => {
+    if (!emp) return false;
+    return (Number(emp.weeklyHours) || 0) > 0 || (Number(emp.monthlyTargetHours) || 0) > 0 || (Number(emp.monthlyHours) || 0) > 0;
+  };
+  const anyEmpHasTarget = Array.isArray(ov.rows) && ov.rows.some(r => empHasTarget(r && r.employer));
+  const freelanceMode = anyEmpHasTarget ? false : isFreelance();
   const empLabel = freelanceMode ? 'Kunde' : 'Arbeitgeber';
 
   const ovRowNetTotal = (row) => {
@@ -50,15 +57,17 @@ export function buildOverviewHTML(ov, ym, ctx) {
     </tr>
   `;
     }
+    // Employee-Layout: Zeile pro Employer. Freelance-Zeilen (kein Soll) zeigen "—" statt Soll/Saldo/Urlaub/Krank.
+    const rowHasTarget = empHasTarget(row.employer);
     return `
     <tr>
       <td data-label="${empLabel}">${escapeHtml(row.employer.name)}</td>
       <td class="num" data-label="Tage">${row.workEntriesCount}</td>
       <td class="num" data-label="Ist">${minutesToHM(row.workedMin)}</td>
-      <td class="num" data-label="Soll">${minutesToHM(row.targetMin)}</td>
-      <td class="num ${row.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo">${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}</td>
-      <td class="num" data-label="Urlaub">${row.vacationDays}</td>
-      <td class="num" data-label="Krank">${row.sickDays}</td>
+      <td class="num" data-label="Soll">${rowHasTarget ? minutesToHM(row.targetMin) : '—'}</td>
+      <td class="num ${rowHasTarget ? (row.balance >= 0 ? 'pos' : 'neg') : ''}" data-label="Saldo">${rowHasTarget ? (row.balance >= 0 ? '+' : '') + minutesToHM(row.balance) : '—'}</td>
+      <td class="num" data-label="Urlaub">${rowHasTarget ? row.vacationDays : '—'}</td>
+      <td class="num" data-label="Krank">${rowHasTarget ? row.sickDays : '—'}</td>
     </tr>
   `;
   }).join('');
