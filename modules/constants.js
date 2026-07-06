@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.20';
+export const APP_VERSION = '3.9.21';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.21', items: [
+      'Phase 4.8: Selector-Prinzip komplettiert',
+      'computeEntryRows in modules/selectors.js — Row-Compute raus aus render/entries.js',
+      'computeFormFields in modules/selectors.js — Modal-Feld-Regeln als pure Funktion',
+      'render/entries.js ist reiner HTML-Builder; ui/entry-modal.js liest nur noch Feld-Definitionen',
+      'Kein Verhaltens-Unterschied, 51/51 Regression grün',
+    ] },
   { version: '3.9.20', items: [
       'Modul-Split Phase 3.10b: modules/bootstrap.js',
       'wireEvents(ctx) kapselt alle ~200 Zeilen addEventListener-Wiring',

@@ -1,6 +1,7 @@
 // modules/selectors.js
 // State-lesende Selectors + Summary-Feld-Builder.
 // Phase 3.5 — extrahiert aus app.js.
+// Phase 4.8 — computeEntryRows und computeFormFields ergänzt (Selector-Prinzip vollständig).
 //
 // Reine Funktionen mit Dependency-Injection:
 //   - getEmployer(id, { state })
@@ -8,6 +9,8 @@
 //   - getCurrentOverview({ state, computeMonthOverview, toast, getYm })
 //   - getSummaryFields(input, { isFreelance, minutesToHM, hoursDecimal, formatMoney })
 //   - getOverviewSummaryFields(ov, { isFreelance, minutesToHM, hoursDecimal, formatMoney })
+//   - computeEntryRows(list, ctx) — pre-computed Row-Objekte für Einträge-Liste
+//   - computeFormFields(entry, opts, ctx) — Feld-Definitionen für Entry-Modal
 
 /**
  * Findet einen Arbeitgeber per ID.
@@ -216,4 +219,184 @@ export function getOverviewSummaryFields(ov, ctx) {
     });
   }
   return fields;
+}
+
+/**
+ * Baut vor-berechnete Row-Objekte für die Einträge-Liste.
+ * Rein: kein DOM, kein escape (das ist Aufgabe des Renderers).
+ * @param {Array<any>} list — bereits gefilterte und sortierte Entries
+ * @param {{getEmployer:(id:string)=>any, computeWorkMinutes:(e:any)=>number,
+ *          computeHomeofficeMinutes:(e:any)=>number,
+ *          computeMonthTargetMinutes:(emp:any, ym:string)=>number,
+ *          countWorkdaysInMonth:(ym:string, emp:any)=>number}} ctx
+ * @returns {Array<{id:string, entry:any, employer:any, color:string, type:string,
+ *                  rightKind:string, rightValueMin:number, isOvertime:boolean,
+ *                  detailsParts:Array<string>, badgeType:string|null,
+ *                  note:string|null}>}
+ */
+export function computeEntryRows(list, ctx) {
+  const {
+    getEmployer,
+    computeWorkMinutes,
+    computeHomeofficeMinutes,
+    computeMonthTargetMinutes,
+    countWorkdaysInMonth,
+  } = ctx;
+
+  return list.map((e) => {
+    const emp = getEmployer(e.employerId);
+    const color = (emp && emp.color) || '#3b82f6';
+
+    /** @type {{type:string, rightKind:string, rightValueMin:number, isOvertime:boolean,
+     *          detailsParts:Array<string>, badgeType:string|null}} */
+    let row;
+
+    if (e.type === 'work') {
+      const mins = computeWorkMinutes(e);
+      const monthlyTarget = emp ? computeMonthTargetMinutes(emp, e.date.slice(0, 7)) : 0;
+      const workdays = emp ? countWorkdaysInMonth(e.date.slice(0, 7), emp) : 0;
+      const dailyTarget = (emp && workdays > 0) ? monthlyTarget / workdays : 0;
+      const isOvertime = mins > dailyTarget && dailyTarget > 0;
+      const details = [];
+      details.push(`${e.start}\u2013${e.end}`);
+      if (e.breakMinutes) details.push(`Pause ${e.breakMinutes} Min`);
+      if (emp) details.push(emp.name);
+      row = {
+        type: 'work',
+        rightKind: 'hours',
+        rightValueMin: mins,
+        isOvertime,
+        detailsParts: details,
+        badgeType: e.overtimeReason ? 'overtime' : null,
+      };
+    } else if (e.type === 'homeoffice') {
+      const mins = computeHomeofficeMinutes(e);
+      const segCount = Array.isArray(e.segments)
+        ? e.segments.filter((s) => s && s.start && s.end).length
+        : 0;
+      const details = [];
+      details.push(`Home-Office`);
+      details.push(`${segCount} ${segCount === 1 ? 'Block' : 'Blöcke'}`);
+      if (emp) details.push(emp.name);
+      row = {
+        type: 'homeoffice',
+        rightKind: 'hours',
+        rightValueMin: mins,
+        isOvertime: false,
+        detailsParts: details,
+        badgeType: 'homeoffice',
+      };
+    } else if (e.type === 'vacation') {
+      row = {
+        type: 'vacation',
+        rightKind: 'absence-vacation',
+        rightValueMin: 0,
+        isOvertime: false,
+        detailsParts: emp ? [emp.name] : [],
+        badgeType: 'vacation',
+      };
+    } else {
+      row = {
+        type: 'sick',
+        rightKind: 'absence-sick',
+        rightValueMin: 0,
+        isOvertime: false,
+        detailsParts: emp ? [emp.name] : [],
+        badgeType: 'sick',
+      };
+    }
+
+    const noteParts = [];
+    if (e.overtimeReason) noteParts.push(`Grund: ${e.overtimeReason}`);
+    if (e.note) noteParts.push(e.note);
+
+    return {
+      id: e.id,
+      entry: e,
+      employer: emp,
+      color,
+      date: e.date,
+      ...row,
+      note: noteParts.length ? noteParts.join(' • ') : null,
+    };
+  });
+}
+
+/**
+ * Baut Feld-Definitionen für das Entry-Modal.
+ * Rein: kein DOM, keine Seiteneffekte. Rückgabe beschreibt, welche Felder
+ * mit welchen Defaults gezeigt werden.
+ * @param {any} entry — bestehender Eintrag oder null bei Neu-Anlage
+ * @param {{presetType?:string, justEnded?:boolean}} opts
+ * @param {{state:{employers:Array<any>, activeEmployerId:string}, todayISO:()=>string,
+ *          getEmployer:(id:string)=>any, DAY_KEYS:Array<string>,
+ *          DAY_LABELS_LONG:Array<string>, dayOfWeekISO:(iso:string)=>number}} ctx
+ * @returns {{isNew:boolean, title:string, values:any, showDeleteButton:boolean,
+ *            showWorkFields:boolean, employerOptions:Array<{id:string, name:string}>,
+ *            scheduleSuggestion:{visible:boolean, label:string, start:string,
+ *                                end:string, breakMinutes:number}|null}}
+ */
+export function computeFormFields(entry, opts, ctx) {
+  opts = opts || {};
+  const { state, todayISO, getEmployer, DAY_KEYS, DAY_LABELS_LONG, dayOfWeekISO } = ctx;
+  const isNew = !entry;
+
+  const title = opts.justEnded
+    ? 'Zeit prüfen und speichern'
+    : (isNew ? 'Zeit erfassen' : 'Zeit bearbeiten');
+
+  const values = entry ? {
+    id: entry.id,
+    employerId: entry.employerId || state.activeEmployerId,
+    date: entry.date,
+    type: entry.type,
+    start: entry.start || '',
+    end: entry.end || '',
+    breakMinutes: entry.breakMinutes || 0,
+    overtimeReason: entry.overtimeReason || '',
+    note: entry.note || '',
+  } : {
+    id: '',
+    employerId: state.activeEmployerId,
+    date: todayISO(),
+    type: opts.presetType || 'work',
+    start: '',
+    end: '',
+    breakMinutes: 0,
+    overtimeReason: '',
+    note: '',
+  };
+
+  const showWorkFields = values.type === 'work';
+
+  const employerOptions = state.employers.map((e) => ({ id: e.id, name: e.name }));
+
+  // Schedule-Suggestion: nur bei work, mit Employer und Datum, wenn Wochenschema hinterlegt
+  let scheduleSuggestion = null;
+  if (showWorkFields && values.employerId && values.date) {
+    const emp = getEmployer(values.employerId);
+    if (emp && emp.schedule) {
+      const key = DAY_KEYS[dayOfWeekISO(values.date)];
+      const day = emp.schedule[key];
+      if (day && day.enabled && day.start && day.end) {
+        scheduleSuggestion = {
+          visible: true,
+          label: `${DAY_LABELS_LONG[DAY_KEYS.indexOf(key)]} ${day.start}\u2013${day.end}${day.break ? ` (${day.break} Min Pause)` : ''}`,
+          start: day.start,
+          end: day.end,
+          breakMinutes: day.break || 0,
+        };
+      }
+    }
+  }
+
+  return {
+    isNew,
+    title,
+    values,
+    showDeleteButton: !isNew,
+    showWorkFields,
+    employerOptions,
+    scheduleSuggestion,
+  };
 }

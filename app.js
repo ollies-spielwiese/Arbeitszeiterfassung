@@ -91,6 +91,8 @@ import {
   getCurrentOverview as _getCurrentOverviewRaw,
   getSummaryFields as _getSummaryFieldsRaw,
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
+  computeEntryRows as _computeEntryRowsRaw,
+  computeFormFields as _computeFormFieldsRaw,
 } from './modules/selectors.js';
 import {
   renderSummaryHTML as _renderSummaryHTMLRaw,
@@ -730,6 +732,15 @@ function _entryCtx() {
     escapeHtml,
     populateTemplatePicker,
     computeSuggestedBreak,
+    // Phase 4.8: Selector fuer Feld-Definitionen mit partiell gebundenem ctx
+    computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
+      state,
+      todayISO,
+      getEmployer,
+      DAY_KEYS,
+      DAY_LABELS_LONG,
+      dayOfWeekISO,
+    }),
     renderTracker,
     renderEntries,
     toast,
@@ -908,15 +919,17 @@ function renderEntries() {
     return;
   }
 
-  container.innerHTML = _buildEntriesHTMLRaw(list, {
-    escapeHtml,
-    formatDateLong,
-    minutesToHM,
+  const rows = _computeEntryRowsRaw(list, {
     getEmployer,
     computeWorkMinutes,
     computeHomeofficeMinutes,
     computeMonthTargetMinutes,
     countWorkdaysInMonth,
+  });
+  container.innerHTML = _buildEntriesHTMLRaw(rows, {
+    escapeHtml,
+    formatDateLong,
+    minutesToHM,
   });
 
   container.querySelectorAll('.entry-card').forEach(card => {

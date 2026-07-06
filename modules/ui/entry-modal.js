@@ -1,6 +1,8 @@
 // modules/ui/entry-modal.js
 // Entry-Modal (Zeit erfassen/bearbeiten).
 // Reine Funktionen mit ctx-DI - kein Modul-State, keine globalen Referenzen.
+// Phase 4.8 — openEntryModal nutzt computeFormFields aus selectors.js;
+// die Modal-Funktion ist reiner Renderer der Feld-Definitionen.
 //
 // ctx = {
 //   getState,                 // liefert state (fuer employers, entries, activeEmployerId)
@@ -13,6 +15,7 @@
 //   escapeHtml,
 //   populateTemplatePicker,
 //   computeSuggestedBreak,
+//   computeFormFields,        // Phase 4.8 — Selector fuer Feld-Definitionen
 //   renderTracker,
 //   renderEntries,
 //   toast,
@@ -22,42 +25,30 @@
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
-  const { getState, todayISO, escapeHtml, populateTemplatePicker } = ctx;
-  const state = getState();
+  const { escapeHtml, populateTemplatePicker, computeFormFields } = ctx;
   const modal = document.getElementById('modal-entry');
   const form = document.getElementById('form-entry');
-  const isNew = !entry;
 
-  document.getElementById('modal-entry-title').textContent =
-    opts.justEnded ? 'Zeit prüfen und speichern' : (isNew ? 'Zeit erfassen' : 'Zeit bearbeiten');
+  const fields = computeFormFields(entry, opts);
+
+  document.getElementById('modal-entry-title').textContent = fields.title;
 
   const empSel = document.getElementById('entry-employer');
-  empSel.innerHTML = state.employers.map(e =>
+  empSel.innerHTML = fields.employerOptions.map((e) =>
     `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
 
-  const e = entry || {
-    id: '',
-    employerId: state.activeEmployerId,
-    date: todayISO(),
-    type: opts.presetType || 'work',
-    start: '',
-    end: '',
-    breakMinutes: 0,
-    overtimeReason: '',
-    note: '',
-  };
+  const v = fields.values;
+  form.querySelector('#entry-id').value = v.id;
+  empSel.value = v.employerId || '';
+  form.querySelector('#entry-date').value = v.date;
+  form.querySelector('#entry-type').value = v.type;
+  form.querySelector('#entry-start').value = v.start;
+  form.querySelector('#entry-end').value = v.end;
+  form.querySelector('#entry-break').value = v.breakMinutes;
+  form.querySelector('#entry-overtime-reason').value = v.overtimeReason;
+  form.querySelector('#entry-note').value = v.note;
 
-  form.querySelector('#entry-id').value = e.id;
-  empSel.value = e.employerId || state.activeEmployerId;
-  form.querySelector('#entry-date').value = e.date;
-  form.querySelector('#entry-type').value = e.type;
-  form.querySelector('#entry-start').value = e.start || '';
-  form.querySelector('#entry-end').value = e.end || '';
-  form.querySelector('#entry-break').value = e.breakMinutes || 0;
-  form.querySelector('#entry-overtime-reason').value = e.overtimeReason || '';
-  form.querySelector('#entry-note').value = e.note || '';
-
-  document.getElementById('btn-delete-entry').classList.toggle('hidden', isNew);
+  document.getElementById('btn-delete-entry').classList.toggle('hidden', !fields.showDeleteButton);
 
   populateTemplatePicker('entry-overtime-tpl');
   populateTemplatePicker('entry-note-tpl');

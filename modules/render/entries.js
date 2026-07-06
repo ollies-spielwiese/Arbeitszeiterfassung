@@ -1,69 +1,62 @@
 // modules/render/entries.js
-// Pure Builder für die Einträge-Liste (Präsenz, Home-Office, Urlaub, Krank).
-// Nimmt eine bereits gefilterte und sortierte Liste sowie einen Kontext mit
-// Formattern und Selectors — kein DOM-Zugriff, keine Seiteneffekte.
+// Reiner HTML-Builder für die Einträge-Liste (Präsenz, Home-Office, Urlaub, Krank).
+// Phase 4.8 — Compute wandert komplett nach selectors.computeEntryRows.
+// Renderer erwartet vor-berechnete Row-Objekte und macht nur noch DOM/HTML.
 //
 // ctx = {
 //   escapeHtml,
 //   formatDateLong,
 //   minutesToHM,
-//   getEmployer,
-//   computeWorkMinutes,
-//   computeHomeofficeMinutes,
-//   computeMonthTargetMinutes,
-//   countWorkdaysInMonth,
 // }
 
-export function buildEntriesHTML(list, ctx) {
-  const {
-    escapeHtml,
-    formatDateLong,
-    minutesToHM,
-    getEmployer,
-    computeWorkMinutes,
-    computeHomeofficeMinutes,
-    computeMonthTargetMinutes,
-    countWorkdaysInMonth,
-  } = ctx;
+const BADGE_LABELS = {
+  overtime: 'Überstunden',
+  homeoffice: 'Home-Office',
+  vacation: 'Urlaub',
+  sick: 'Krank',
+};
 
-  return list.map(e => {
-    const emp = getEmployer(e.employerId);
-    const color = emp?.color || '#3b82f6';
-    let right, details, typeBadge = '';
+function renderRight(row, ctx) {
+  const { minutesToHM } = ctx;
+  if (row.rightKind === 'hours') {
+    const overtimeClass = row.isOvertime ? ' overtime' : '';
+    return `<span class="entry-hours${overtimeClass}">${minutesToHM(row.rightValueMin)}</span>`;
+  }
+  if (row.rightKind === 'absence-vacation') {
+    return `<span class="entry-hours absence">Urlaub</span>`;
+  }
+  if (row.rightKind === 'absence-sick') {
+    return `<span class="entry-hours absence">Krank</span>`;
+  }
+  return '';
+}
 
-    if (e.type === 'work') {
-      const mins = computeWorkMinutes(e);
-      const dailyTarget = emp ? computeMonthTargetMinutes(emp, e.date.slice(0, 7)) / countWorkdaysInMonth(e.date.slice(0, 7), emp) : 0;
-      const isOvertime = mins > dailyTarget && dailyTarget > 0;
-      right = `<span class="entry-hours ${isOvertime ? 'overtime' : ''}">${minutesToHM(mins)}</span>`;
-      details = `${e.start}–${e.end}${e.breakMinutes ? ` • Pause ${e.breakMinutes} Min` : ''}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
-      if (e.overtimeReason) typeBadge = `<span class="entry-badge overtime">Überstunden</span>`;
-    } else if (e.type === 'homeoffice') {
-      const mins = computeHomeofficeMinutes(e);
-      const segCount = Array.isArray(e.segments) ? e.segments.filter(s => s && s.start && s.end).length : 0;
-      right = `<span class="entry-hours">${minutesToHM(mins)}</span>`;
-      details = `Home-Office • ${segCount} ${segCount === 1 ? 'Block' : 'Blöcke'}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
-      typeBadge = `<span class="entry-badge homeoffice">Home-Office</span>`;
-    } else if (e.type === 'vacation') {
-      right = `<span class="entry-hours absence">Urlaub</span>`;
-      details = emp ? escapeHtml(emp.name) : '';
-      typeBadge = `<span class="entry-badge vacation">Urlaub</span>`;
-    } else {
-      right = `<span class="entry-hours absence">Krank</span>`;
-      details = emp ? escapeHtml(emp.name) : '';
-      typeBadge = `<span class="entry-badge sick">Krank</span>`;
-    }
+function renderBadge(row) {
+  if (!row.badgeType) return '';
+  const label = BADGE_LABELS[row.badgeType] || '';
+  return `<span class="entry-badge ${row.badgeType}">${label}</span>`;
+}
 
-    const note = [e.overtimeReason && `Grund: ${e.overtimeReason}`, e.note].filter(Boolean).join(' • ');
-
+/**
+ * @param {Array<any>} rows — von computeEntryRows erzeugt
+ * @param {{escapeHtml:(s:string)=>string, formatDateLong:(iso:string)=>string,
+ *          minutesToHM:(min:number)=>string}} ctx
+ */
+export function buildEntriesHTML(rows, ctx) {
+  const { escapeHtml, formatDateLong } = ctx;
+  return rows.map((row) => {
+    const right = renderRight(row, ctx);
+    const badge = renderBadge(row);
+    const details = row.detailsParts.map(escapeHtml).join(' • ');
+    const note = row.note ? `<div class="entry-note">${escapeHtml(row.note)}</div>` : '';
     return `
-      <div class="entry-card" style="border-left-color: ${color}" data-id="${e.id}" data-testid="entry-${e.id}">
+      <div class="entry-card" style="border-left-color: ${row.color}" data-id="${row.id}" data-testid="entry-${row.id}">
         <div class="entry-header">
-          <div class="entry-date">${formatDateLong(e.date)}${typeBadge}</div>
+          <div class="entry-date">${formatDateLong(row.date)}${badge}</div>
           ${right}
         </div>
         <div class="entry-details">${details}</div>
-        ${note ? `<div class="entry-note">${escapeHtml(note)}</div>` : ''}
+        ${note}
       </div>
     `;
   }).join('');
