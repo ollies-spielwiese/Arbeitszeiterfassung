@@ -100,12 +100,26 @@ import {
 } from './modules/render/summary.js';
 import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
 import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
+import { buildEntriesHTML as _buildEntriesHTMLRaw } from './modules/render/entries.js';
+import { buildWeekHTML as _buildWeekHTMLRaw } from './modules/render/week.js';
+import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
+import { buildArchiveHTML as _buildArchiveHTMLRaw } from './modules/render/archive.js';
+import {
+  buildTodaySummaryHTML as _buildTodaySummaryHTMLRaw,
+  buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
+} from './modules/render/tracker.js';
 
-const APP_VERSION = '3.9.6';
+const APP_VERSION = '3.9.7';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.7', items: [
+      'Modul-Split Phase 3.6c: modules/render/entries.js, week.js, employers.js, archive.js, tracker.js',
+      'buildEntriesHTML, buildWeekHTML, buildEmployerCardsHTML, buildArchiveHTML, buildTodaySummaryHTML, buildHomeofficeSegmentsHTML sind pure HTML-Builder mit ctx-DI',
+      'app.js: renderEntries/renderWeek/renderEmployers/renderArchive/renderTodaySummary/renderHomeofficeSegments auf DOM-Wiring und Builder-Aufruf reduziert',
+      'Keine Verhaltensaenderung, 51/51 Regression-Checks gruen',
+  ]},
   { version: '3.9.6', items: [
       'Modul-Split Phase 3.6b: modules/render/report.js + modules/render/overview.js',
       'buildReportHTML und buildOverviewHTML sind pure HTML-Builder mit ctx-DI',
@@ -682,12 +696,10 @@ function renderTodaySummary() {
     currency: emp.currency || 'EUR',
   });
 
-  container.innerHTML = `
-    <h3>Diesen Monat (${formatMonthYear(ym)})</h3>
-    <div class="summary-grid">
-      ${renderSummaryHTML(summaryFields)}
-    </div>
-  `;
+  container.innerHTML = _buildTodaySummaryHTMLRaw({ ym, summaryFields }, {
+    formatMonthYear,
+    renderSummaryHTML,
+  });
 }
 
 function countWorkdaysInMonth(ym, employer) {
@@ -1125,17 +1137,7 @@ function renderHomeofficeSegments() {
   const container = document.getElementById('ho-segments');
   let segs;
   try { segs = JSON.parse(modal.dataset.segments || '[]'); } catch (e) { segs = []; }
-  if (!segs.length) segs = [{ start: '', end: '' }];
-
-  container.innerHTML = segs.map((s, idx) => `
-    <div class="ho-segment-row" data-idx="${idx}">
-      <span class="ho-segment-label">${idx + 1}.</span>
-      <input type="time" data-seg-start value="${s.start || ''}" aria-label="Beginn Block ${idx + 1}" data-testid="input-ho-start-${idx}" />
-      <span class="ho-segment-sep">–</span>
-      <input type="time" data-seg-end value="${s.end || ''}" aria-label="Ende Block ${idx + 1}" data-testid="input-ho-end-${idx}" />
-      <button type="button" class="btn-icon" data-remove-segment="${idx}" aria-label="Block entfernen" data-testid="button-remove-ho-segment-${idx}">✕</button>
-    </div>
-  `).join('');
+  container.innerHTML = _buildHomeofficeSegmentsHTMLRaw(segs);
   updateHomeofficeLiveTotal();
 }
 
@@ -1316,47 +1318,16 @@ function renderEntries() {
     return;
   }
 
-  container.innerHTML = list.map(e => {
-    const emp = getEmployer(e.employerId);
-    const color = emp?.color || '#3b82f6';
-    let right, details, typeBadge = '';
-
-    if (e.type === 'work') {
-      const mins = computeWorkMinutes(e);
-      const dailyTarget = emp ? computeMonthTargetMinutes(emp, e.date.slice(0, 7)) / countWorkdaysInMonth(e.date.slice(0, 7), emp) : 0;
-      const isOvertime = mins > dailyTarget && dailyTarget > 0;
-      right = `<span class="entry-hours ${isOvertime ? 'overtime' : ''}">${minutesToHM(mins)}</span>`;
-      details = `${e.start}–${e.end}${e.breakMinutes ? ` • Pause ${e.breakMinutes} Min` : ''}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
-      if (e.overtimeReason) typeBadge = `<span class="entry-badge overtime">Überstunden</span>`;
-    } else if (e.type === 'homeoffice') {
-      const mins = computeHomeofficeMinutes(e);
-      const segCount = Array.isArray(e.segments) ? e.segments.filter(s => s && s.start && s.end).length : 0;
-      right = `<span class="entry-hours">${minutesToHM(mins)}</span>`;
-      details = `Home-Office • ${segCount} ${segCount === 1 ? 'Block' : 'Blöcke'}${emp ? ` • ${escapeHtml(emp.name)}` : ''}`;
-      typeBadge = `<span class="entry-badge homeoffice">Home-Office</span>`;
-    } else if (e.type === 'vacation') {
-      right = `<span class="entry-hours absence">Urlaub</span>`;
-      details = emp ? escapeHtml(emp.name) : '';
-      typeBadge = `<span class="entry-badge vacation">Urlaub</span>`;
-    } else {
-      right = `<span class="entry-hours absence">Krank</span>`;
-      details = emp ? escapeHtml(emp.name) : '';
-      typeBadge = `<span class="entry-badge sick">Krank</span>`;
-    }
-
-    const note = [e.overtimeReason && `Grund: ${e.overtimeReason}`, e.note].filter(Boolean).join(' • ');
-
-    return `
-      <div class="entry-card" style="border-left-color: ${color}" data-id="${e.id}" data-testid="entry-${e.id}">
-        <div class="entry-header">
-          <div class="entry-date">${formatDateLong(e.date)}${typeBadge}</div>
-          ${right}
-        </div>
-        <div class="entry-details">${details}</div>
-        ${note ? `<div class="entry-note">${escapeHtml(note)}</div>` : ''}
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = _buildEntriesHTMLRaw(list, {
+    escapeHtml,
+    formatDateLong,
+    minutesToHM,
+    getEmployer,
+    computeWorkMinutes,
+    computeHomeofficeMinutes,
+    computeMonthTargetMinutes,
+    countWorkdaysInMonth,
+  });
 
   container.querySelectorAll('.entry-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -1415,7 +1386,7 @@ function renderWeek() {
   const today = todayISO();
 
   let totalMin = 0;
-  const dayRows = dates.map((d, idx) => {
+  const dayModels = dates.map((d) => {
     const holiday = isHoliday(d, stateCode);
     const dayEntries = state.entries.filter(e => e.employerId === empId && e.date === d);
     const workMin = dayEntries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
@@ -1424,7 +1395,7 @@ function renderWeek() {
     const hasSick = dayEntries.some(e => e.type === 'sick');
     const hasHomeoffice = dayEntries.some(e => e.type === 'homeoffice');
 
-    let hoursDisplay = workMin ? minutesToHM(workMin) : '–';
+    const hoursDisplay = workMin ? minutesToHM(workMin) : '–';
     let detail = '';
     if (hasVacation) detail = 'Urlaub';
     else if (hasSick) detail = 'Krank';
@@ -1438,17 +1409,8 @@ function renderWeek() {
       detail = parts.join(', ');
     }
 
-    const isToday = d === today;
-    return `
-      <div class="week-day-card ${isToday ? 'today' : ''}">
-        <div>
-          <div class="day-name">${DAY_LABELS_LONG[idx]}, ${formatDate(d)}${holiday ? `<span class="holiday-badge">${escapeHtml(holiday.name)}</span>` : ''}</div>
-          <div class="day-detail">${detail || '—'}</div>
-        </div>
-        <div class="day-hours">${hoursDisplay}</div>
-      </div>
-    `;
-  }).join('');
+    return { workMin, hoursDisplay, detail, isToday: d === today, holiday };
+  });
 
   const targetMin = computeWeekTargetMinutes(emp, dates);
   const balance = totalMin - targetMin;
@@ -1465,16 +1427,10 @@ function renderWeek() {
     holidayCount: holidaysInWeek.length,
   });
 
-  container.innerHTML = `
-    <div class="report-header">
-      <h3>${escapeHtml(emp.name)}</h3>
-      <div class="subtitle">${isoWeek} • ${formatDate(dates[0])} – ${formatDate(dates[6])}</div>
-    </div>
-    <div class="summary-grid">
-      ${renderSummaryHTML(weekFields)}
-    </div>
-    ${dayRows}
-  `;
+  container.innerHTML = _buildWeekHTMLRaw(
+    { emp, isoWeek, dates, dayModels, weekFields },
+    { escapeHtml, formatDate, renderSummaryHTML, DAY_LABELS_LONG },
+  );
 }
 
 /* ---------- Monthly Report ---------- */
@@ -2483,25 +2439,11 @@ function renderArchive() {
     container.innerHTML = '<div class="empty-state">Noch keine archivierten Monate.<br><br>Sie können abgeschlossene Monate in der Monatsauswertung archivieren.</div>';
     return;
   }
-  const sorted = [...state.archives].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
-  container.innerHTML = sorted.map(a => {
-    const s = a.snapshot;
-    return `
-      <div class="archive-card">
-        <div class="archive-header">
-          <div>
-            <div class="archive-title">${escapeHtml(s.employer.name)}</div>
-            <div class="employer-meta">${formatMonthYear(a.yearMonth)} • ${minutesToHM(s.workedMin)} / ${minutesToHM(s.targetMin)} • Saldo ${s.balance >= 0 ? '+' : ''}${minutesToHM(s.balance)}</div>
-          </div>
-        </div>
-        <div class="archive-actions">
-          <button class="btn-secondary" data-action="word" data-id="${a.id}">Word</button>
-          <button class="btn-secondary" data-action="pdf" data-id="${a.id}">PDF</button>
-          <button class="btn-danger" data-action="delete" data-id="${a.id}">Löschen</button>
-        </div>
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = _buildArchiveHTMLRaw(state.archives, {
+    escapeHtml,
+    formatMonthYear,
+    minutesToHM,
+  });
 
   container.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -2545,24 +2487,12 @@ function renderEmployers() {
     container.innerHTML = `<div class="empty-state">Noch kein ${escapeHtml(L('employer'))} angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>`;
     return;
   }
-  const showRate = isFreelance();
-  container.innerHTML = state.employers.map(e => {
-    const hoursDesc = e.hoursMode === 'week' ? `${e.weeklyHours || 0} h/Woche` : `${e.monthlyHours || 0} h/Monat`;
-    const contacts = (e.contacts || []).filter(c => c.name || c.email).map(c => c.name || c.email).join(', ');
-    const rateDesc = showRate && e.hourlyRate ? ` • ${formatMoney(e.hourlyRate, e.currency)}/h` : '';
-    return `
-      <div class="employer-card" data-id="${e.id}">
-        <div class="employer-color" style="background:${e.color}"></div>
-        <div class="employer-info">
-          <div class="employer-name">${escapeHtml(e.name)}</div>
-          <div class="employer-meta">
-            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${rateDesc}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}
-          </div>
-          ${contacts ? `<div class="employer-meta">👤 ${escapeHtml(contacts)}</div>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = _buildEmployerCardsHTMLRaw(state.employers, {
+    escapeHtml,
+    formatMoney,
+    breakModeLabel,
+    isFreelance,
+  });
 
   container.querySelectorAll('.employer-card').forEach(card => {
     card.addEventListener('click', () => {
