@@ -1,5 +1,6 @@
 // modules/render/report.js
 // Pure Builder für Monatsbericht-HTML.
+// Phase 4.9.2 Debug: window.__AZ_LAST_REPORT wird gesetzt, damit der User console.log(window.__AZ_LAST_REPORT) machen kann, um die aktuellen Rohwerte zu inspizieren.
 // Nimmt das computeMonthReport-Ergebnis + Kontext (Formatter, Selectors, Renderer)
 // und liefert ein reines HTML-Fragment zurück. Kein DOM-Zugriff, keine Seiteneffekte.
 //
@@ -76,6 +77,8 @@ export function buildReportHTML(r, ctx) {
   const empHasTarget =
     (Number(r.employer.weeklyHours) || 0) > 0 ||
     (Number(r.employer.monthlyHours) || 0) > 0;
+  // Debug-Bridge für Fehlersuche v3.9.24
+  try { if (typeof window !== 'undefined') /** @type {any} */(window).__AZ_LAST_REPORT = { employer: r.employer.name, ym: r.ym, workedMin: r.workedMin, targetMin: r.targetMin, creditedAbsenceMin: r.creditedAbsenceMin, dailyTargetMin: r.dailyTargetMin, workdays: r.workdays, balance: r.balance, vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length, hoursMode: r.employer.hoursMode, weeklyHours: r.employer.weeklyHours, monthlyHours: r.employer.monthlyHours }; } catch (_) {}
   const mrFields = getSummaryFields({
     workedMin: r.workedMin,
     targetMin: r.targetMin,

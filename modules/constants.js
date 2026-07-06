@@ -11,11 +11,19 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.23';
+export const APP_VERSION = '3.9.24';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.24', items: [
+      'Phase 4.9.2 Rechenweg-Fix Urlaub/Krank',
+      'Neue Regel: Gutschrift pro Urlaubs-/Kranktag = weeklyHours ÷ 5 (bei Wochenmodus)',
+      'Bei Monatsmodus: monthlyHours ÷ Werktage-Mo-Fr im Monat',
+      'Urlaub/Krank an Sa/So oder Feiertag bringt 0 Gutschrift',
+      'Wochenansicht Saldo berücksichtigt jetzt Urlaub/Krank (vorher: nur Ist − Soll)',
+      'Debug-Bridge window.__AZ_LAST_REPORT für Fehleranalyse',
+    ] },
   { version: '3.9.23', items: [
       'Phase 4.9.1 Bugfix-Sammlung',
       'Bug 1: Präsenz/Home-Office im Eintrag-Modal editierbar (Typ + Segmente)',

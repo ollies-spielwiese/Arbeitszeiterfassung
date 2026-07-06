@@ -1044,8 +1044,41 @@ function renderWeek() {
   });
 
   const targetMin = computeWeekTargetMinutes(emp, dates);
-  const balance = totalMin - targetMin;
   const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
+
+  // Urlaubs-/Krank-Gutschrift analog zum Monatsbericht:
+  // pro creditable day = weeklyHours ÷ 5 (bzw. monthlyHours ÷ durchschnittliche Werktage/Monat)
+  // Urlaub an Sa/So oder Feiertag bringt 0.
+  const holidaySetWeek = new Set(holidaysInWeek.map(h => h.date));
+  const perWorkdayMinWeek = (() => {
+    if (emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours)) {
+      return Math.round(((Number(emp.weeklyHours) || 0) * 60) / 5);
+    }
+    // hoursMode='month': gleiche Verteilung über Werktage im Kalendermonat der Wochenmitte
+    const mid = dates[3] || dates[0];
+    const ym = mid.slice(0, 7);
+    const overrides = state.settings?.holidayOverrides;
+    const monthDs = [];
+    const [yy, mm] = ym.split('-').map(Number);
+    const daysInMonth = new Date(yy, mm, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) monthDs.push(`${ym}-${String(d).padStart(2,'0')}`);
+    // @ts-ignore — getHolidaysInRange akzeptiert 4. Argument overrides zur Laufzeit
+    const monthHols = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-${String(daysInMonth).padStart(2,'0')}`, stateCode, overrides).map(h => h.date));
+    const wds = monthDs.filter(d => { const dt = new Date(d + 'T00:00:00'); const dow = (dt.getDay() + 6) % 7; return dow < 5 && !monthHols.has(d); });
+    if (!wds.length) return 0;
+    return Math.round(((Number(emp.monthlyHours) || 0) * 60) / wds.length);
+  })();
+  const isCreditableAbsenceDay = (dateISO) => {
+    const dt = new Date(dateISO + 'T00:00:00');
+    const dow = (dt.getDay() + 6) % 7;
+    if (dow > 4) return false;
+    if (holidaySetWeek.has(dateISO)) return false;
+    return true;
+  };
+  const weekVacationDays = state.entries.filter(e => e.employerId === empId && e.type === 'vacation' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
+  const weekSickDays = state.entries.filter(e => e.employerId === empId && e.type === 'sick' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
+  const creditedAbsenceMinWeek = (weekVacationDays + weekSickDays) * perWorkdayMinWeek;
+  const balance = totalMin + creditedAbsenceMinWeek - targetMin;
 
   const weekFields = getSummaryFields({
     workedMin: totalMin,

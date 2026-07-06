@@ -279,8 +279,30 @@ export function computeMonthReport(employerId, ym, ctx) {
   const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
   const targetMin = computeMonthTargetMinutes(emp, ym, innerCtx);
   const workdays = countWorkdaysInMonth(ym, emp, innerCtx);
-  const dailyTargetMin = targetMin / workdays;
-  const creditedAbsenceMin = Math.round((vacationEntries.length + sickEntries.length) * dailyTargetMin);
+  // Regel (User-vorgegeben, Phase 4.9.2):
+  // Gutschrift pro Urlaubs-/Kranktag = weeklyHours ÷ 5, unabhängig vom Schedule.
+  // Bei hoursMode='month': monthlyHours ÷ (Anzahl Werktage Mo–Fr im Monat).
+  // Urlaub/Krank an Wochenenden oder Feiertagen ergeben 0 Gutschrift.
+  const monthHolidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
+  const monthWorkdayDates = monthDates(ym).filter(d => dayOfWeekISO(d) < 5 && !monthHolidays.has(d));
+  const perWorkdayMin = (() => {
+    if (emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours)) {
+      return Math.round(((Number(emp.weeklyHours) || 0) * 60) / 5);
+    }
+    // hoursMode='month'
+    if (monthWorkdayDates.length === 0) return 0;
+    return Math.round(((Number(emp.monthlyHours) || 0) * 60) / monthWorkdayDates.length);
+  })();
+  const dailyTargetMin = perWorkdayMin; // für Rückwärtskompatibilität im Report
+  const countCreditableAbsence = (arr) => arr.filter(e => {
+    const dow = dayOfWeekISO(e.date);
+    if (dow > 4) return false; // Sa/So
+    if (monthHolidays.has(e.date)) return false; // Feiertag
+    return true;
+  }).length;
+  const creditableVacationDays = countCreditableAbsence(vacationEntries);
+  const creditableSickDays = countCreditableAbsence(sickEntries);
+  const creditedAbsenceMin = (creditableVacationDays + creditableSickDays) * perWorkdayMin;
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);
