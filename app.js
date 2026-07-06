@@ -142,12 +142,24 @@ import {
   saveHomeoffice as _saveHomeofficeRaw,
   deleteHomeoffice as _deleteHomeofficeRaw,
 } from './modules/ui/homeoffice-modal.js';
+import {
+  buildScheduleGrid as _buildScheduleGridRaw,
+  readScheduleFromGrid as _readScheduleFromGridRaw,
+  updateHoursModeVisibility as _updateHoursModeVisibilityRaw,
+  openEmployerModal as _openEmployerModalRaw,
+  saveEmployer as _saveEmployerRaw,
+  deleteEmployer as _deleteEmployerRaw,
+} from './modules/ui/employer-modal.js';
 
-const APP_VERSION = '3.9.14';
+const APP_VERSION = '3.9.15';
 const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 const CHANGELOG = [
+  { version: '3.9.15', items: [
+      'Modul-Split Phase 3.9f: modules/ui/employer-modal.js',
+      'openEmployerModal, saveEmployer, deleteEmployer sowie Wochenplan-Grid (build/read) und updateHoursModeVisibility als pure Funktionen mit ctx-DI',
+    ] },
   { version: '3.9.14', items: [
       'Modul-Split Phase 3.9e: modules/ui/homeoffice-modal.js',
       'openHomeofficeModal, saveHomeoffice, deleteHomeoffice und alle Segment-Helfer als pure Funktionen mit ctx-DI',
@@ -1561,158 +1573,30 @@ function breakModeLabel(mode) {
   })[mode] || mode;
 }
 
-function buildScheduleGrid(schedule) {
-  const container = document.getElementById('schedule-grid');
-  container.innerHTML = DAY_KEYS.map((k, i) => {
-    const s = schedule[k] || { enabled: false, start: '', end: '', break: 0 };
-    return `
-      <div class="schedule-day" data-day="${k}">
-        <div class="day-label">
-          <label style="display:flex;align-items:center;gap:0.35rem;font-weight:600;">
-            <input type="checkbox" class="day-toggle" ${s.enabled ? 'checked' : ''} />
-            ${DAY_LABELS[i]}
-          </label>
-        </div>
-        <input type="time" class="day-start" value="${s.start || ''}" ${s.enabled ? '' : 'disabled'} />
-        <input type="time" class="day-end" value="${s.end || ''}" ${s.enabled ? '' : 'disabled'} />
-        <input type="number" class="day-break" min="0" value="${s.break || 0}" style="width: 4rem;" placeholder="Pause" title="Pause in Minuten" ${s.enabled ? '' : 'disabled'} />
-      </div>
-    `;
-  }).join('');
+/* ---------- Employer-Modal via modules/ui/employer-modal.js (Phase 3.9f) ---------- */
 
-  container.querySelectorAll('.schedule-day').forEach(row => {
-    const toggle = row.querySelector('.day-toggle');
-    toggle.addEventListener('change', () => {
-      row.querySelectorAll('input[type="time"], input[type="number"]').forEach(inp => inp.disabled = !toggle.checked);
-    });
-  });
-}
-
-function readScheduleFromGrid() {
-  const rows = document.querySelectorAll('#schedule-grid .schedule-day');
-  const schedule = {};
-  rows.forEach(row => {
-    const k = row.dataset.day;
-    schedule[k] = {
-      enabled: row.querySelector('.day-toggle').checked,
-      start: row.querySelector('.day-start').value,
-      end: row.querySelector('.day-end').value,
-      break: parseInt(row.querySelector('.day-break').value) || 0,
-    };
-  });
-  return schedule;
-}
-
-function openEmployerModal(emp) {
-  const modal = document.getElementById('modal-employer');
-  const isNew = !emp;
-  document.getElementById('modal-employer-title').textContent = isNew ? L('newEmployer') : L('editEmployer');
-  const e = emp || {
-    id: '', name: '', color: '#3b82f6', phone: '',
-    contacts: [{ name:'', email:'' }, { name:'', email:'' }],
-    hoursMode: 'week', weeklyHours: 40, monthlyHours: 160,
-    breakMode: 'legal', annualVacation: 0,
-    hourlyRate: 0, currency: (state.settings && state.settings.currency) || 'EUR',
-    schedule: defaultSchedule(40),
-    notes: '',
+function _emCtx() {
+  return {
+    getState: () => state,
+    saveState,
+    getEmployer,
+    defaultSchedule,
+    L,
+    isFreelance,
+    uid,
+    closeModals,
+    renderEmployers,
+    renderTracker,
+    toast,
   };
-  document.getElementById('employer-id').value = e.id;
-  document.getElementById('employer-name').value = e.name;
-  document.getElementById('employer-color').value = e.color;
-  document.getElementById('employer-phone').value = e.phone || '';
-  const contacts = e.contacts || [];
-  document.getElementById('employer-contact1-name').value = contacts[0]?.name || '';
-  document.getElementById('employer-contact1-email').value = contacts[0]?.email || '';
-  document.getElementById('employer-contact2-name').value = contacts[1]?.name || '';
-  document.getElementById('employer-contact2-email').value = contacts[1]?.email || '';
-  document.getElementById('employer-hours-mode').value = e.hoursMode || 'week';
-  document.getElementById('employer-weekly-hours').value = e.weeklyHours || 40;
-  document.getElementById('employer-monthly-hours').value = e.monthlyHours || 160;
-  document.getElementById('employer-break-mode').value = e.breakMode || 'legal';
-  document.getElementById('employer-annual-vacation').value = e.annualVacation || 0;
-  document.getElementById('employer-notes').value = e.notes || '';
-  const rateEl = document.getElementById('employer-hourly-rate');
-  if (rateEl) rateEl.value = e.hourlyRate ? String(e.hourlyRate) : '';
-  const curEl = document.getElementById('employer-currency');
-  if (curEl) curEl.value = e.currency || (state.settings && state.settings.currency) || 'EUR';
-  // Namens-Label und Abrechnungs-Sichtbarkeit dem aktuellen Modus anpassen
-  const nameLbl = document.querySelector('label[for="employer-name"]');
-  if (nameLbl) nameLbl.textContent = L('employerName');
-  document.getElementById('fs-employer-billing').classList.toggle('hidden', !isFreelance());
-  buildScheduleGrid(e.schedule || defaultSchedule(e.weeklyHours || 40));
-  updateHoursModeVisibility();
-  document.getElementById('btn-delete-employer').classList.toggle('hidden', isNew);
-  modal.classList.remove('hidden');
 }
 
-function updateHoursModeVisibility() {
-  const mode = document.getElementById('employer-hours-mode').value;
-  document.getElementById('row-weekly-hours').style.display = mode === 'week' ? '' : 'none';
-  document.getElementById('row-monthly-hours').style.display = mode === 'month' ? '' : 'none';
-}
-
-function saveEmployer(ev) {
-  ev.preventDefault();
-  const id = document.getElementById('employer-id').value;
-  const data = {
-    name: document.getElementById('employer-name').value.trim(),
-    color: document.getElementById('employer-color').value,
-    phone: document.getElementById('employer-phone').value.trim(),
-    contacts: [
-      {
-        name: document.getElementById('employer-contact1-name').value.trim(),
-        email: document.getElementById('employer-contact1-email').value.trim(),
-      },
-      {
-        name: document.getElementById('employer-contact2-name').value.trim(),
-        email: document.getElementById('employer-contact2-email').value.trim(),
-      },
-    ],
-    hoursMode: document.getElementById('employer-hours-mode').value,
-    weeklyHours: parseFloat(document.getElementById('employer-weekly-hours').value) || 0,
-    monthlyHours: parseFloat(document.getElementById('employer-monthly-hours').value) || 0,
-    breakMode: document.getElementById('employer-break-mode').value,
-    annualVacation: parseInt(document.getElementById('employer-annual-vacation').value) || 0,
-    hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
-    currency: document.getElementById('employer-currency')?.value || 'EUR',
-    schedule: readScheduleFromGrid(),
-    notes: document.getElementById('employer-notes').value.trim(),
-  };
-  if (!data.name) { toast('Bitte Namen eingeben'); return; }
-  if (id) {
-    const idx = state.employers.findIndex(e => e.id === id);
-    if (idx >= 0) state.employers[idx] = { ...state.employers[idx], ...data };
-  } else {
-    const newEmp = { id: uid(), ...data };
-    state.employers.push(newEmp);
-    if (!state.activeEmployerId) state.activeEmployerId = newEmp.id;
-  }
-  saveState();
-  closeModals();
-  renderEmployers();
-  renderTracker();
-  toast('Gespeichert');
-}
-
-function deleteEmployer() {
-  const id = document.getElementById('employer-id').value;
-  if (!id) return;
-  const emp = getEmployer(id);
-  const hasEntries = state.entries.some(e => e.employerId === id);
-  const msg = hasEntries
-    ? `„${emp.name}" hat bereits Zeiteinträge. Diese werden mit gelöscht. Fortfahren?`
-    : `Arbeitgeber „${emp.name}" wirklich löschen?`;
-  if (!confirm(msg)) return;
-  state.employers = state.employers.filter(e => e.id !== id);
-  state.entries = state.entries.filter(e => e.employerId !== id);
-  if (state.activeEmployerId === id) state.activeEmployerId = state.employers[0]?.id || null;
-  if (state.runningTimer?.employerId === id) state.runningTimer = null;
-  saveState();
-  closeModals();
-  renderEmployers();
-  renderTracker();
-  toast('Gelöscht');
-}
+function buildScheduleGrid(schedule) { return _buildScheduleGridRaw(schedule); }
+function readScheduleFromGrid() { return _readScheduleFromGridRaw(); }
+function updateHoursModeVisibility() { return _updateHoursModeVisibilityRaw(); }
+function openEmployerModal(emp) { return _openEmployerModalRaw(emp, _emCtx()); }
+function saveEmployer(ev) { return _saveEmployerRaw(ev, _emCtx()); }
+function deleteEmployer() { return _deleteEmployerRaw(_emCtx()); }
 
 /* ---------- Templates (Notizvorlagen) ---------- */
 
