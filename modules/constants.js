@@ -11,11 +11,21 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.24';
+export const APP_VERSION = '3.9.25';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.25', items: [
+      'Phase 4.9.3 PWA-Feinschliff',
+      'Icon-Palette komplett: 16, 32, 96, 144, 180, 384 px plus 192/512-maskable',
+      'iOS Splash-Screens für iPhone SE/15/15 Pro Max und iPad mini/10.2/Pro 11/Pro 13',
+      'Manifest erweitert: id, dir, categories, display_override, prefer_related_applications',
+      'App-Shortcuts (Erfassen, Woche, Monat, Übersicht) via ?view=<tab>',
+      'Zusätzliche Favicon-Links (16/32/192 png plus svg) für Browser-Tabs',
+      'apple-touch-icon in 180 und 192, apple-mobile-web-app-title Arbeitszeit',
+      'Meta description, application-name und format-detection ergänzt',
+    ] },
   { version: '3.9.24', items: [
       'Phase 4.9.2 Rechenweg-Fix Urlaub/Krank',
       'Neue Regel: Gutschrift pro Urlaubs-/Kranktag = weeklyHours ÷ 5 (bei Wochenmodus)',

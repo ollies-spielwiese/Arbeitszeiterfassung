@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-24';
+const CACHE_NAME = 'arbeitszeit-v3-9-25';
 const ASSETS = [
   './',
   './index.html',
@@ -41,6 +41,31 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icon-512-maskable.png',
+  // Erweiterte Icon-Palette (PWA-Feinschliff v3.9.25)
+  './icons/icon-16.png',
+  './icons/icon-32.png',
+  './icons/icon-96.png',
+  './icons/icon-144.png',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-192-maskable.png',
+  './icons/icon-384.png',
+  './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
+  // iOS Splash Screens
+  './splash/iphone-15-pm-portrait.png',
+  './splash/iphone-15-pm-landscape.png',
+  './splash/iphone-15-portrait.png',
+  './splash/iphone-15-landscape.png',
+  './splash/iphone-se-portrait.png',
+  './splash/ipad-pro-13-portrait.png',
+  './splash/ipad-pro-13-landscape.png',
+  './splash/ipad-pro-11-portrait.png',
+  './splash/ipad-pro-11-landscape.png',
+  './splash/ipad-102-portrait.png',
+  './splash/ipad-102-landscape.png',
+  './splash/ipad-mini-portrait.png',
+  './splash/ipad-mini-landscape.png',
   'https://unpkg.com/docx@8.5.0/build/index.umd.js',
   'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
   'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',

@@ -249,7 +249,21 @@ export function wireEvents(ctx) {
       document.body.insertBefore(banner, document.body.firstChild);
     }
 
-    renderTracker();
+    // PWA-Shortcut-Support: ?view=<tab> springt beim Start direkt in die Zielansicht.
+    // Erlaubte Views entsprechen data-view-Werten der Top-Level-Tabs.
+    const allowedViews = ['tracker', 'entries', 'week', 'report', 'overview', 'employers', 'archive', 'guide', 'settings'];
+    let initialView = 'tracker';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const wanted = params.get('view');
+      if (wanted && allowedViews.includes(wanted)) initialView = wanted;
+    } catch (_) { /* URL-Zugriff kann in Sandbox scheitern, fallback tracker */ }
+
+    if (initialView === 'tracker') {
+      renderTracker();
+    } else {
+      switchView(initialView);
+    }
     updateModeVisibility();
 
     // Show what's new on first start of a new version
