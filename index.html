@@ -28,57 +28,55 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png" />
 
   <!-- iOS Splash Screens (apple-touch-startup-image)
-       Regeln:
-       - Portrait: device-width < device-height
-       - Landscape: device-width > device-height (vertauscht, KEIN orientation-Query)
-       - iPadOS 17+ verlangt exakt matchende Bilder; DPR-Suffix nur bei Retina
+       WICHTIG: iPadOS 26+ meldet device-width/-height rotationsabhängig.
+       Deshalb Portrait und Landscape mit vertauschten Werten, KEIN orientation-Suffix.
   -->
 
-  <!-- iPad Pro 12.9"/13" — 2048x2732 @2x -->
+  <!-- iPad Pro 12.9"/13" — CSS 1024×1366 (Portrait) / 1366×1024 (Landscape) @2x -->
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-13-portrait.png"
-    media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)" />
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-13-landscape.png"
-    media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" />
+    media="(device-width: 1366px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" />
 
-  <!-- iPad Pro 11" / Air — 1668x2388 @2x -->
+  <!-- iPad Pro 11" / Air — 834×1194 / 1194×834 @2x -->
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-11-portrait.png"
-    media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)" />
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-11-landscape.png"
-    media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" />
+    media="(device-width: 1194px) and (device-height: 834px) and (-webkit-device-pixel-ratio: 2)" />
 
-  <!-- iPad 10.2" — 1620x2160 @2x -->
+  <!-- iPad 10.2" — 810×1080 / 1080×810 @2x -->
   <link rel="apple-touch-startup-image" href="splash/ipad-102-portrait.png"
-    media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2)" />
   <link rel="apple-touch-startup-image" href="splash/ipad-102-landscape.png"
-    media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" />
+    media="(device-width: 1080px) and (device-height: 810px) and (-webkit-device-pixel-ratio: 2)" />
 
-  <!-- iPad mini / 9.7" — 1536x2048 @2x -->
+  <!-- iPad mini / 9.7" — 768×1024 / 1024×768 @2x -->
   <link rel="apple-touch-startup-image" href="splash/ipad-mini-portrait.png"
-    media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)" />
   <link rel="apple-touch-startup-image" href="splash/ipad-mini-landscape.png"
-    media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" />
+    media="(device-width: 1024px) and (device-height: 768px) and (-webkit-device-pixel-ratio: 2)" />
 
-  <!-- iPhone 15 Pro Max / 14 Pro Max — 1290x2796 @3x -->
+  <!-- iPhone 15 Pro Max / 14 Pro Max — 430×932 @3x -->
   <link rel="apple-touch-startup-image" href="splash/iphone-15-pm-portrait.png"
-    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" />
   <link rel="apple-touch-startup-image" href="splash/iphone-15-pm-landscape.png"
-    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" />
+    media="(device-width: 932px) and (device-height: 430px) and (-webkit-device-pixel-ratio: 3)" />
 
-  <!-- iPhone 15 / 14 — 1179x2556 @3x -->
+  <!-- iPhone 15 / 14 — 393×852 @3x -->
   <link rel="apple-touch-startup-image" href="splash/iphone-15-portrait.png"
-    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
   <link rel="apple-touch-startup-image" href="splash/iphone-15-landscape.png"
-    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" />
+    media="(device-width: 852px) and (device-height: 393px) and (-webkit-device-pixel-ratio: 3)" />
 
-  <!-- iPhone SE / 8 — 750x1334 @2x -->
+  <!-- iPhone SE / 8 — 375×667 @2x -->
   <link rel="apple-touch-startup-image" href="splash/iphone-se-portrait.png"
-    media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+    media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" />
 
-  <!-- Fallback ohne DPR-Suffix falls iPadOS pingelig ist -->
+  <!-- Universal-Fallback: matched jedes iPad Pro 12.9 unabhängig von DPR/Rotation -->
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-13-portrait.png"
-    media="(min-device-width: 1024px) and (max-device-width: 1024px) and (orientation: portrait)" />
+    media="(min-device-width: 1024px) and (max-device-width: 1024px)" />
   <link rel="apple-touch-startup-image" href="splash/ipad-pro-13-landscape.png"
-    media="(min-device-width: 1024px) and (max-device-width: 1024px) and (orientation: landscape)" />
+    media="(min-device-width: 1366px) and (max-device-width: 1366px)" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -100,7 +98,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.26</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.27</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>

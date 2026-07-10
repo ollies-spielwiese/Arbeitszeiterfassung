@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.26';
+export const APP_VERSION = '3.9.27';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.27', items: [
+      'Splash-Fix nach Diagnose: iPadOS 26 meldet device-width/-height rotationsabhängig',
+      'Landscape-Queries mit vertauschten Werten (1366×1024 statt 1024×1366+orientation)',
+      'Universal-Fallback für iPad Pro 12.9 in beliebiger Rotation ohne DPR-Suffix',
+    ] },
   { version: '3.9.26', items: [
       'PWA-Splash-Fix: Media-Queries neu sortiert (iPad zuerst), Fallback für iPad Pro 12.9" ohne DPR-Suffix',
       'Diagnose-Seite diag.html: zeigt live welches Startup-Image matched, Geräte-Metriken, SW-Status',
