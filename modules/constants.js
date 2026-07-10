@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.27';
+export const APP_VERSION = '3.9.28';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.28', items: [
+      'Icon wiederhergestellt: detaillierte blaue Galeere auf weißem Grund (Original)',
+      'Alle Icon-Größen (16–512, Maskable) und Splash-Screens aus dem Master neu gerendert',
+    ] },
   { version: '3.9.27', items: [
       'Splash-Fix nach Diagnose: iPadOS 26 meldet device-width/-height rotationsabhängig',
       'Landscape-Queries mit vertauschten Werten (1366×1024 statt 1024×1366+orientation)',
