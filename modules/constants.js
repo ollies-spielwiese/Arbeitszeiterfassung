@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.28';
+export const APP_VERSION = '3.9.29';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.29', items: [
+      'Performance: schwere Export-Libraries (docx, jsPDF, autotable ~850 KB) werden jetzt lazy geladen — erst beim ersten Export-Klick statt beim App-Start',
+      'Performance: modulepreload-Hints für die 8 wichtigsten Kern-Module (parallel statt Wasserfall)',
+      'Service Worker: robustere Registrierung mit Diagnose-Logging und sw-ready/sw-error-Events',
+    ] },
   { version: '3.9.28', items: [
       'Icon wiederhergestellt: detaillierte blaue Galeere auf weißem Grund (Original)',
       'Alle Icon-Größen (16–512, Maskable) und Splash-Screens aus dem Master neu gerendert',

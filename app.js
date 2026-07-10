@@ -124,6 +124,7 @@ import {
 import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.js';
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
+import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
@@ -1150,6 +1151,7 @@ function renderReport() {
 /* ---------- Word Export (.docx) ---------- */
 
 async function generateWordBlob(report) {
+  await ensureDocxLib();
   return _generateWordBlobRaw(report, {
     docx, state,
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
@@ -1160,7 +1162,8 @@ async function generateWordBlob(report) {
 
 /* ---------- PDF Export (jsPDF) ---------- */
 
-function generatePdfBlob(report) {
+async function generatePdfBlob(report) {
+  await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
   return _generatePdfBlobRaw(report, {
     jsPDF, state,
@@ -1212,7 +1215,8 @@ function renderOverview() {
   });
 }
 
-function generateOverviewPdfBlob(ov) {
+async function generateOverviewPdfBlob(ov) {
+  await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
   return _generateOverviewPdfBlobRaw(ov, {
     jsPDF, state,
@@ -1237,7 +1241,7 @@ async function exportOverviewPdf() {
   const ov = getCurrentOverview();
   if (!ov) return;
   try {
-    const blob = generateOverviewPdfBlob(ov);
+    const blob = await generateOverviewPdfBlob(ov);
     downloadBlob(blob, fileNameForOverview(ov, 'pdf'));
     toast('Übersicht als PDF heruntergeladen');
   } catch (err) {
@@ -1280,7 +1284,7 @@ async function exportPdf() {
   const r = getCurrentReport();
   if (!r) return;
   try {
-    const blob = generatePdfBlob(r);
+    const blob = await generatePdfBlob(r);
     downloadBlob(blob, fileNameForReport(r, 'pdf'));
     toast('PDF heruntergeladen');
   } catch (err) {
@@ -1394,7 +1398,7 @@ function renderArchive() {
           workedMin: s.workedMin, targetMin: s.targetMin, balance: s.balance,
           holidays: s.holidays || [], creditedAbsenceMin: 0,
         };
-        const blob = action === 'word' ? await generateWordBlob(report) : generatePdfBlob(report);
+        const blob = action === 'word' ? await generateWordBlob(report) : await generatePdfBlob(report);
         downloadBlob(blob, fileNameForReport(report, action === 'word' ? 'docx' : 'pdf'));
         toast('Datei heruntergeladen');
       }

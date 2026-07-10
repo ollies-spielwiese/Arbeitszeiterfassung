@@ -243,11 +243,11 @@ async function checkBlob(page, label, kind) {
     let blob = null;
     if (k === 'overviewPdf') {
       const ov = computeMonthOverview(ym);
-      blob = generateOverviewPdfBlob(ov);
+      blob = await generateOverviewPdfBlob(ov);
     } else {
       const r = computeMonthReport(state.activeEmployerId, ym);
       if (!r) return null;
-      if (k === 'pdf') blob = generatePdfBlob(r);
+      if (k === 'pdf') blob = await generatePdfBlob(r);
       else if (k === 'word') blob = await generateWordBlob(r);
     }
     if (!blob) return null;

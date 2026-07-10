@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-28';
+const CACHE_NAME = 'arbeitszeit-v3-9-29';
 const ASSETS = [
   './',
   './index.html',
@@ -36,6 +36,7 @@ const ASSETS = [
   './modules/regression-bridge.js',
   './modules/constants.js',
   './modules/bootstrap.js',
+  './modules/lib-loader.js',
   './manifest.json',
   './icon.svg',
   './icon-192.png',

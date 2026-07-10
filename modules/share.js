@@ -166,7 +166,7 @@ export function openShareModal(ctx) {
         if (isIOSPlatform()) {
           (async () => {
             try {
-              const blob = format === 'docx' ? await generateWordBlob(rep) : generatePdfBlob(rep);
+              const blob = format === 'docx' ? await generateWordBlob(rep) : await generatePdfBlob(rep);
               downloadBlob(blob, filename);
               showMailtoStage2(mailto, emails.length, filename, { closeModals });
             } catch (err) {
@@ -180,7 +180,7 @@ export function openShareModal(ctx) {
         try { window.location.href = mailto; } catch (e) { console.warn('mailto failed', e); }
         (async () => {
           try {
-            const blob = format === 'docx' ? await generateWordBlob(rep) : generatePdfBlob(rep);
+            const blob = format === 'docx' ? await generateWordBlob(rep) : await generatePdfBlob(rep);
             downloadBlob(blob, filename);
             toast(emails.length === 1
               ? 'E-Mail-App geöffnet – Datei heruntergeladen, bitte anhängen'
@@ -253,7 +253,7 @@ export async function shareReport(format, recipientEmails, ctx) {
       mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
       filename = fileNameForReport(r, 'docx');
     } else {
-      blob = generatePdfBlob(r);
+      blob = await generatePdfBlob(r);
       mimeType = 'application/pdf';
       filename = fileNameForReport(r, 'pdf');
     }
@@ -307,7 +307,7 @@ export async function shareOverviewPdf(ctx) {
   const ov = getCurrentOverview();
   if (!ov) return;
   try {
-    const blob = generateOverviewPdfBlob(ov);
+    const blob = await generateOverviewPdfBlob(ov);
     const filename = fileNameForOverview(ov, 'pdf');
     const file = new File([blob], filename, { type: 'application/pdf' });
     const shareData = {

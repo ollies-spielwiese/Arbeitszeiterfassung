@@ -43,8 +43,21 @@ function activateWaitingServiceWorker() {
 }
 
 function registerServiceWorkerWithUpdatePrompt() {
-  if (!('serviceWorker' in navigator)) return;
+  if (!('serviceWorker' in navigator)) {
+    console.info('[SW] Service Worker nicht unterstützt in diesem Browser');
+    return;
+  }
+  const t0 = performance.now();
   navigator.serviceWorker.register('sw.js').then(reg => {
+    const dt = Math.round(performance.now() - t0);
+    console.info('[SW] registriert (' + dt + 'ms), scope=' + reg.scope);
+    // Ready-Signal: wartet bis SW aktiv ist (auch bei erster Installation)
+    navigator.serviceWorker.ready.then(readyReg => {
+      const dt2 = Math.round(performance.now() - t0);
+      console.info('[SW] bereit (' + dt2 + 'ms), state=' + (readyReg.active ? readyReg.active.state : 'unknown'));
+      // Custom Event für diag.html / andere Interessenten
+      window.dispatchEvent(new CustomEvent('sw-ready', { detail: { registration: readyReg, elapsedMs: dt2 } }));
+    });
     // A waiting worker is already available at load time
     if (reg.waiting && navigator.serviceWorker.controller) {
       __swWaitingRegistration = reg;
@@ -67,7 +80,10 @@ function registerServiceWorkerWithUpdatePrompt() {
         reg.update().catch(() => {});
       }
     });
-  }).catch(err => console.warn('SW registration failed:', err));
+  }).catch(err => {
+    console.error('[SW] Registrierung fehlgeschlagen:', err);
+    window.dispatchEvent(new CustomEvent('sw-error', { detail: { error: err.message } }));
+  });
 
   // Reload NUR wenn der User explizit "Jetzt aktualisieren" gedrueckt hat.
   // Ohne diese Bedingung entstehen unerwartete Reloads beim App-Wechsel auf iOS.
