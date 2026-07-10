@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Arbeitszeit — PWA-Diagnose</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+           background: #0f172a; color: #e2e8f0; margin: 0; padding: 1.5rem; line-height: 1.5; }
+    h1 { color: #60a5fa; font-size: 1.4rem; margin: 0 0 1rem; }
+    h2 { color: #93c5fd; font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+    td, th { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #334155; vertical-align: top; }
+    th { color: #94a3b8; font-weight: 500; }
+    .match { color: #4ade80; font-weight: 600; }
+    .miss  { color: #64748b; }
+    code { background: #1e293b; padding: 0.15rem 0.35rem; border-radius: 3px; font-size: 0.8rem; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+    .big { font-size: 1.1rem; font-weight: 600; color: #fff; }
+    .warn { color: #fbbf24; }
+    a { color: #60a5fa; }
+    button { background: #2563eb; color: #fff; border: 0; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.9rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>PWA-Diagnose — Arbeitszeit</h1>
+
+  <div class="card">
+    <div class="big" id="mode-line">Modus wird ermittelt…</div>
+    <div id="mode-detail" style="color:#94a3b8; font-size:0.85rem; margin-top:0.3rem;"></div>
+  </div>
+
+  <h2>Geräte-Metriken</h2>
+  <table id="metrics"></table>
+
+  <h2>Startup-Images (nur diese matchen aktuell)</h2>
+  <table id="startup">
+    <thead><tr><th>Datei</th><th>Media-Query</th><th>Status</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Manifest</h2>
+  <div id="manifest-out" style="font-size:0.85rem; color:#94a3b8;">wird geladen…</div>
+
+  <h2>Service Worker</h2>
+  <div id="sw-out" style="font-size:0.85rem; color:#94a3b8;">wird geprüft…</div>
+
+  <button onclick="location.reload()">Neu prüfen</button>
+  <p style="margin-top:2rem; font-size:0.8rem; color:#64748b;">
+    <a href="./">← Zurück zur App</a>
+  </p>
+
+  <script>
+    function metric(label, value) {
+      return '<tr><th>' + label + '</th><td><code>' + value + '</code></td></tr>';
+    }
+
+    // Standalone-Modus (PWA-Fenster)?
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                      || window.navigator.standalone === true;
+    const modeLine = document.getElementById('mode-line');
+    const modeDetail = document.getElementById('mode-detail');
+    if (isStandalone) {
+      modeLine.textContent = '✓ PWA-Modus (Standalone)';
+      modeLine.style.color = '#4ade80';
+      modeDetail.textContent = 'App läuft im installierten Home-Screen-Fenster. Splash sollte hier greifen.';
+    } else {
+      modeLine.textContent = '⚠ Browser-Modus';
+      modeLine.style.color = '#fbbf24';
+      modeDetail.innerHTML = 'Diese Seite läuft im Browser-Tab, nicht als installierte PWA. '
+        + 'Splash-Screens werden nur bei App-Start via Home-Screen-Icon angezeigt.';
+    }
+
+    // Geräte-Metriken
+    const m = document.getElementById('metrics');
+    m.innerHTML =
+      metric('window.innerWidth', window.innerWidth) +
+      metric('window.innerHeight', window.innerHeight) +
+      metric('screen.width', screen.width) +
+      metric('screen.height', screen.height) +
+      metric('screen.availWidth', screen.availWidth) +
+      metric('screen.availHeight', screen.availHeight) +
+      metric('devicePixelRatio', window.devicePixelRatio) +
+      metric('orientation', screen.orientation ? screen.orientation.type : (window.orientation !== undefined ? window.orientation + '°' : 'unknown')) +
+      metric('user-agent', navigator.userAgent) +
+      metric('standalone (Apple)', window.navigator.standalone) +
+      metric('display-mode standalone', window.matchMedia('(display-mode: standalone)').matches) +
+      metric('display-mode fullscreen', window.matchMedia('(display-mode: fullscreen)').matches);
+
+    // Alle Startup-Images aus dem <head> parsen und live prüfen
+    const startupTbody = document.querySelector('#startup tbody');
+    const links = document.querySelectorAll('link[rel="apple-touch-startup-image"]');
+    if (links.length === 0) {
+      startupTbody.innerHTML = '<tr><td colspan="3" class="warn">Keine apple-touch-startup-image-Links gefunden. Diese Seite muss die gleichen Meta-Tags wie index.html enthalten.</td></tr>';
+    }
+    // Wir kopieren aus index.html — diag.html hat sie NICHT. Daher fetchen wir index.html.
+    fetch('index.html', { cache: 'no-store' })
+      .then(r => r.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const startups = doc.querySelectorAll('link[rel="apple-touch-startup-image"]');
+        if (startups.length === 0) {
+          startupTbody.innerHTML = '<tr><td colspan="3" class="warn">index.html enthält keine apple-touch-startup-image-Links.</td></tr>';
+          return;
+        }
+        let html2 = '';
+        let matched = 0;
+        startups.forEach(link => {
+          const href = link.getAttribute('href');
+          const media = link.getAttribute('media') || '';
+          const matches = media ? window.matchMedia(media).matches : true;
+          if (matches) matched++;
+          html2 += '<tr>'
+            + '<td>' + href + '</td>'
+            + '<td><code style="font-size:0.75rem;">' + media + '</code></td>'
+            + '<td class="' + (matches ? 'match' : 'miss') + '">' + (matches ? '✓ MATCH' : '—') + '</td>'
+            + '</tr>';
+        });
+        startupTbody.innerHTML = html2;
+
+        const summary = document.createElement('p');
+        summary.style.marginTop = '0.5rem';
+        summary.style.fontSize = '0.9rem';
+        summary.innerHTML = matched > 0
+          ? '<span class="match">' + matched + ' von ' + startups.length + ' Startup-Images matchen dein Gerät.</span>'
+          : '<span class="warn">Kein Startup-Image matched — iOS wird die background_color aus dem Manifest zeigen.</span>';
+        document.querySelector('#startup').after(summary);
+      })
+      .catch(err => {
+        startupTbody.innerHTML = '<tr><td colspan="3" class="warn">Fehler beim Laden von index.html: ' + err.message + '</td></tr>';
+      });
+
+    // Manifest anzeigen
+    fetch('manifest.json', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(mf => {
+        const out = document.getElementById('manifest-out');
+        out.innerHTML =
+          '<div>name: <code>' + mf.name + '</code></div>' +
+          '<div>id: <code>' + (mf.id || '(keine)') + '</code></div>' +
+          '<div>start_url: <code>' + mf.start_url + '</code></div>' +
+          '<div>display: <code>' + mf.display + '</code></div>' +
+          '<div>theme_color: <code>' + mf.theme_color + '</code></div>' +
+          '<div>background_color: <code>' + mf.background_color + '</code></div>' +
+          '<div>icons: <code>' + (mf.icons || []).length + '</code></div>' +
+          '<div>shortcuts: <code>' + (mf.shortcuts || []).length + '</code> ' +
+          '<span class="warn">(iOS zeigt Manifest-Shortcuts nicht — nur Android/Desktop)</span></div>';
+      })
+      .catch(err => {
+        document.getElementById('manifest-out').innerHTML = '<span class="warn">Manifest-Fehler: ' + err.message + '</span>';
+      });
+
+    // Service Worker Status
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        const out = document.getElementById('sw-out');
+        if (regs.length === 0) {
+          out.innerHTML = '<span class="warn">Kein Service Worker registriert.</span>';
+        } else {
+          out.innerHTML = regs.map(r =>
+            '<div>Scope: <code>' + r.scope + '</code></div>' +
+            '<div>State: <code>' + (r.active ? r.active.state : 'kein active') + '</code></div>'
+          ).join('');
+        }
+        // Cache-Namen
+        if ('caches' in window) {
+          caches.keys().then(keys => {
+            out.innerHTML += '<div style="margin-top:0.5rem;">Caches: <code>' + keys.join(', ') + '</code></div>';
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>

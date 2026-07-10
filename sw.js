@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-25';
+const CACHE_NAME = 'arbeitszeit-v3-9-26';
 const ASSETS = [
   './',
   './index.html',
@@ -66,6 +66,7 @@ const ASSETS = [
   './splash/ipad-102-landscape.png',
   './splash/ipad-mini-portrait.png',
   './splash/ipad-mini-landscape.png',
+  './diag.html',
   'https://unpkg.com/docx@8.5.0/build/index.umd.js',
   'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
   'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',

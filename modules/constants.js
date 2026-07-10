@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.25';
+export const APP_VERSION = '3.9.26';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.26', items: [
+      'PWA-Splash-Fix: Media-Queries neu sortiert (iPad zuerst), Fallback für iPad Pro 12.9" ohne DPR-Suffix',
+      'Diagnose-Seite diag.html: zeigt live welches Startup-Image matched, Geräte-Metriken, SW-Status',
+      'Hinweis: iOS unterstützt Manifest-Shortcuts NICHT — nur Android und Desktop',
+      'Reinstall nötig: App vom Home-Bildschirm löschen, Safari-Seite neu öffnen, Zum Home-Bildschirm',
+    ] },
   { version: '3.9.25', items: [
       'Phase 4.9.3 PWA-Feinschliff',
       'Icon-Palette komplett: 16, 32, 96, 144, 180, 384 px plus 192/512-maskable',
