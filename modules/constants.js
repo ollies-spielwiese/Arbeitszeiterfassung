@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.29';
+export const APP_VERSION = '3.9.30';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.30', items: [
+      'Dokumentation: Berechnungsregel für Urlaub/Krank präzisiert. Gutschrift = Wochen-Soll ÷ 5 pro Werktag (Durchschnittsprinzip nach § 3 EntgFG).',
+      'Grenzen der Regel: Bei Schichtdienst mit konkretem Tagesplan oder bei konzentrierter Teilzeit (z.B. 60 % auf Di/Mi/Do) muss Krank/Urlaub manuell korrigiert werden — die App kennt keinen Tages-Schedule.',
+      'Details siehe docs/ARCHITECTURE.md → "Berechnungsregel Urlaub/Krank".',
+    ] },
   { version: '3.9.29', items: [
       'Performance: schwere Export-Libraries (docx, jsPDF, autotable ~850 KB) werden jetzt lazy geladen — erst beim ersten Export-Klick statt beim App-Start',
       'Performance: modulepreload-Hints für die 8 wichtigsten Kern-Module (parallel statt Wasserfall)',

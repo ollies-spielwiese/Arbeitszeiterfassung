@@ -15,7 +15,7 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit mit mehreren A
 - Übersichts-Tab: alle Arbeitgeber im Monatsvergleich
 - PDF-Export einzelner Monatsberichte und der Übersicht
 - Feiertage für alle Bundesländer, inklusive nachträglicher Anpassung (deaktivieren, umbenennen, ergänzen)
-- Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt
+- Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = Wochen-Soll ÷ 5 pro Werktag, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
 - Vorlagen für häufige Überstundengründe
 - Datensicherung als JSON-Export mit Wiederherstellung
 - Läuft komplett offline. Keine Datenübertragung an Server. Alle Daten bleiben auf dem Gerät.

@@ -217,6 +217,47 @@ Nicht zentralisiert (Phase 4):
 
 ---
 
+## Berechnungsregel Urlaub/Krank (Absence-Credit)
+
+### Formel
+
+```
+perWorkdayMin = weeklyHours × 60 / 5                        (hoursMode = 'week', Default)
+perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat  (hoursMode = 'month')
+
+Gutschrift pro Urlaubs-/Kranktag = perWorkdayMin
+Gutschrift an Sa/So/Feiertag    = 0
+```
+
+Implementierung: `computeMonthReport()` in `modules/compute.js` (Zeilen 282–305).
+
+### Rechtlicher Kontext
+
+Deutsches Arbeitsrecht (§ 3 EntgFG, Grundsatz „Krank wie gearbeitet“) kennt drei Fälle:
+
+1. **Feste Arbeitszeiten Mo–Fr** (z. B. je 8h): Gutschrift = tatsächliche Tages-Soll-Zeit.
+2. **Schichtdienst / konkreter Tagesplan**: Gutschrift = die für diesen Tag geplante Zeit (z. B. 10h-Schicht).
+3. **Unregelmäßig ohne Plan / Gleitzeit**: Gutschrift = Wochen-Soll / übliche Werktage = Durchschnittsprinzip.
+
+### Was die App abbildet
+
+Die App verwendet **ausschließlich das Durchschnittsprinzip** (Fall 3). Das ist:
+
+- **Korrekt für Fall 1** (gleichmäßige Verteilung Mo–Fr): 40h ÷ 5 = 8h pro Tag → identisches Ergebnis.
+- **Korrekt für Fall 3** (unregelmäßig ohne Plan): entspricht dem Rechts-Text.
+- **Nicht abgebildet für Fall 2** (Schichtdienst): App kennt keinen Tages-Schedule.
+- **Nicht abgebildet für konzentrierte Teilzeit** (z. B. 60 % auf 3 Tage Di/Mi/Do): App gibt für Krank am Mo/Fr eine Gutschrift von `weeklyHours/5`, obwohl vertraglich 0 richtig wäre. Der User baut in diesem Fall fälschlich Stunden auf.
+
+### Warum kein Schedule
+
+Ein Wochen-Schedule pro Employer (7 Wochentage × Ist-Stunden) würde Fall 2 und konzentrierte Teilzeit korrekt abbilden. Der User hat sich bewusst gegen die Einführung entschieden — die aktuelle Regel bleibt Default, ist rechtlich für die Mehrheit der Fälle korrekt.
+
+### Empfehlung für abweichende Fälle
+
+User mit Schichtdienst oder konzentrierter Teilzeit müssen Krank/Urlaub-Gutschriften manuell anpassen — entweder über Überstunden-Einträge (positiv/negativ) oder über Anpassung der `weeklyHours` für den betroffenen Monat.
+
+---
+
 ## Migrations-Kontrakt
 
 Formalisiert in v3.8.3. Regeln:

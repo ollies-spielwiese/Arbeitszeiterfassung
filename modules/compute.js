@@ -279,10 +279,22 @@ export function computeMonthReport(employerId, ym, ctx) {
   const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
   const targetMin = computeMonthTargetMinutes(emp, ym, innerCtx);
   const workdays = countWorkdaysInMonth(ym, emp, innerCtx);
-  // Regel (User-vorgegeben, Phase 4.9.2):
-  // Gutschrift pro Urlaubs-/Kranktag = weeklyHours ÷ 5, unabhängig vom Schedule.
-  // Bei hoursMode='month': monthlyHours ÷ (Anzahl Werktage Mo–Fr im Monat).
-  // Urlaub/Krank an Wochenenden oder Feiertagen ergeben 0 Gutschrift.
+  // Berechnungsregel Urlaub/Krank — Durchschnittsprinzip.
+  //
+  // Formel:
+  //   hoursMode='week' (Default): perWorkdayMin = weeklyHours × 60 / 5
+  //   hoursMode='month':          perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat
+  //   Gutschrift an Sa/So/Feiertag = 0
+  //
+  // Rechtlicher Kontext (§ 3 EntgFG, Grundsatz "Krank wie gearbeitet"):
+  //   - Fall 1 (feste Zeiten Mo–Fr gleichmäßig): ABGEDECKT — Durchschnitt = Tages-Soll.
+  //   - Fall 2 (Schichtdienst mit Tagesplan):     NICHT ABGEDECKT — kein Tages-Schedule.
+  //   - Fall 3 (unregelmäßig / Gleitzeit):        ABGEDECKT — entspricht Durchschnittsprinzip.
+  //   - Konzentrierte Teilzeit (z.B. 60 % auf Di/Mi/Do): NICHT ABGEDECKT.
+  //     App vergibt für Krank/Urlaub am Mo/Fr Gutschrift, obwohl vertraglich 0 richtig wäre.
+  //     User muss in diesem Fall manuell korrigieren (Überstunden-Eintrag negativ).
+  //
+  // Details: docs/ARCHITECTURE.md → "Berechnungsregel Urlaub/Krank".
   const monthHolidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
   const monthWorkdayDates = monthDates(ym).filter(d => dayOfWeekISO(d) < 5 && !monthHolidays.has(d));
   const perWorkdayMin = (() => {
