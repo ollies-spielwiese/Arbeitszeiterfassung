@@ -141,7 +141,7 @@ async function runMigrationUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('mig-M1: changed=true bei Legacy-State', m1.changed === true, `changed=${m1.changed}`);
-  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 3);
+  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 4);
   const tpl2 = m1.state.templates.find(t => t.id === 'tpl-2');
   const tpl9 = m1.state.templates.find(t => t.id === 'tpl-9');
   assertEq('mig-M1: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
@@ -150,7 +150,7 @@ async function runMigrationUnits(page) {
   // Fall M2: State bereits auf aktueller Version darf nicht als changed markiert werden
   const m2 = await page.evaluate(() => {
     const currentState = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       employers: [], entries: [], archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
       settings: { state: 'HE' }, runningTimer: null,

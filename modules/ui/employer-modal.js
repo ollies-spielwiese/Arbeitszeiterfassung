@@ -80,7 +80,7 @@ export function openEmployerModal(emp, ctx) {
     id: '', name: '', color: '#3b82f6', phone: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly,
-    breakMode: 'legal', annualVacation: 0,
+    breakMode: 'legal', annualVacation: 0, hiredSince: '', vacationCarryOver: 0,
     hourlyRate: 0, currency: (state.settings && state.settings.currency) || 'EUR',
     schedule: defaultSchedule(defWeekly),
     notes: '',
@@ -100,6 +100,8 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-monthly-hours').value = (e.monthlyHours != null ? e.monthlyHours : defMonthly);
   document.getElementById('employer-break-mode').value = e.breakMode || 'legal';
   document.getElementById('employer-annual-vacation').value = e.annualVacation || 0;
+  document.getElementById('employer-hired-since').value = e.hiredSince || '';
+  document.getElementById('employer-vacation-carryover').value = e.vacationCarryOver || 0;
   document.getElementById('employer-notes').value = e.notes || '';
   const rateEl = document.getElementById('employer-hourly-rate');
   if (rateEl) rateEl.value = e.hourlyRate ? String(e.hourlyRate) : '';
@@ -139,6 +141,8 @@ export function saveEmployer(ev, ctx) {
     monthlyHours: parseFloat(document.getElementById('employer-monthly-hours').value) || 0,
     breakMode: document.getElementById('employer-break-mode').value,
     annualVacation: parseInt(document.getElementById('employer-annual-vacation').value) || 0,
+    hiredSince: document.getElementById('employer-hired-since').value || '',
+    vacationCarryOver: parseInt(document.getElementById('employer-vacation-carryover').value) || 0,
     hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
     currency: document.getElementById('employer-currency')?.value || 'EUR',
     schedule: readScheduleFromGrid(),

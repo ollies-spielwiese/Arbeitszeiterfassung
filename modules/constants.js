@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.30';
+export const APP_VERSION = '3.9.31';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.31', items: [
+    'Neue Employer-Felder: "Angestellt seit" (Datum) und "Resturlaubstage Vorjahr" (Zahl)',
+    'Automatische Migration: bestehende Arbeitgeber bekommen leere/0-Defaults',
+  ] },
   { version: '3.9.30', items: [
       'Dokumentation: Berechnungsregel für Urlaub/Krank präzisiert. Gutschrift = Wochen-Soll ÷ 5 pro Werktag (Durchschnittsprinzip nach § 3 EntgFG).',
       'Grenzen der Regel: Bei Schichtdienst mit konkretem Tagesplan oder bei konzentrierter Teilzeit (z.B. 60 % auf Di/Mi/Do) muss Krank/Urlaub manuell korrigiert werden — die App kennt keinen Tages-Schedule.',

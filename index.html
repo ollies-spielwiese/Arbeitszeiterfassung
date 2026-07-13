@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.30</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.31</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -792,6 +792,14 @@
           <div class="form-row" id="employer-vacation-row">
             <label for="employer-annual-vacation">Urlaubsanspruch / Jahr (Tage)</label>
             <input type="number" id="employer-annual-vacation" min="0" value="0" />
+          </div>
+          <div class="form-row" id="employer-hired-since-row">
+            <label for="employer-hired-since">Angestellt seit</label>
+            <input type="date" id="employer-hired-since" />
+          </div>
+          <div class="form-row" id="employer-vacation-carryover-row">
+            <label for="employer-vacation-carryover">Resturlaubstage Vorjahr</label>
+            <input type="number" id="employer-vacation-carryover" min="0" value="0" />
           </div>
         </fieldset>
 
