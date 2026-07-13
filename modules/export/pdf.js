@@ -165,7 +165,7 @@ export function generatePdfBlob(report, ctx) {
         4: { cellWidth: 45 },
         5: { cellWidth: 45 },
       },
-      margin: { left: marginX, right: marginX },
+      margin: { left: marginX, right: marginX, bottom: 20 },
     });
     y = doc.lastAutoTable.finalY + 6;
 
@@ -191,12 +191,12 @@ export function generatePdfBlob(report, ctx) {
     for (const e of report.overtimeEntries) {
       const t = `${formatDate(e.date)}: ${e.overtimeReason}`;
       y = wrapText(doc, t, marginX, y, 180);
-      if (y > 270) { doc.addPage(); y = 20; }
+      if (y > 260) { doc.addPage(); y = 20; }
     }
   }
 
   // "Erstellt am" nach unten — unter den Einzelnachweis, vor die Unterschriftszeilen
-  if (y > 260) { doc.addPage(); y = 20; }
+  if (y > 255) { doc.addPage(); y = 20; }
   y += 2;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(9);
@@ -206,7 +206,7 @@ export function generatePdfBlob(report, ctx) {
   doc.setFont('helvetica', 'normal');
   y += 6;
 
-  if (y > 250) { doc.addPage(); y = 20; }
+  if (y > 265) { doc.addPage(); y = 20; }
   y += 12;
   const pageW = doc.internal.pageSize.getWidth();
   const sigLineW = 70;
@@ -220,6 +220,22 @@ export function generatePdfBlob(report, ctx) {
   doc.setTextColor(100);
   doc.text(empName ? `${empName} – Unterschrift / Datum` : 'Unterschrift Arbeitnehmer / Datum', leftX, y);
   doc.text('Unterschrift Arbeitgeber / Datum', rightX, y);
+
+  // Footer mit Seitennummerierung auf jeder Seite (nach vollständigem Aufbau)
+  const totalPages = doc.internal.getNumberOfPages();
+  const pageH = doc.internal.pageSize.getHeight();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    const parts = ['Arbeitszeitnachweis', report.employer.name];
+    if (empName) parts.push(empName);
+    parts.push(`Monat ${formatMonthYear(report.ym)}`);
+    parts.push(`Seite ${p} von ${totalPages}`);
+    doc.text(parts.join(' – '), pageW / 2, pageH - 8, { align: 'center' });
+    doc.setTextColor(0);
+  }
 
   return doc.output('blob');
 }

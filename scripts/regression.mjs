@@ -450,6 +450,9 @@ async function runEmployee(page) {
     assertTrue('employee pdf-content: Resturlaub', /Resturlaub/.test(t), snippet(t));
     assertTrue('employee pdf-content: Resturlaub Vorjahr 5', /Resturlaub Vorjahr:\s*5/.test(t), snippet(t));
     assertTrue('employee pdf-content: Erstellt am unten', /Erstellt am/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Footer Seite 1 von', /Seite 1 von \d+/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Footer enthält Arbeitgeber', /Arbeitszeitnachweis.*Arbeitgeber A.*Seite/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Footer enthält Monat', /Seite \d+ von \d+/.test(t), snippet(t));
   }
   const emWord = await checkBlob(page, 'employee', 'word');
   if (emWord) {

@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.33';
+export const APP_VERSION = '3.9.34';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.34', items: [
+    'PDF-Fußzeile: Seitennummerierung "Arbeitszeitnachweis – Arbeitgeber – Name – Monat X Jahr – Seite N von M" mittig auf jeder Seite',
+    'Seitenumbruch vor Unterschriftszeile optimiert (weniger unnötige Leerseiten)',
+    'Regression: 3 neue Assertions für Footer und Multi-Page-Rendering',
+  ]},
   { version: '3.9.33', items: [
     'PDF-Kopf: neue Zeile "Angestellt seit", blau eingefärbte Überschrift',
     'PDF-Summary neu geordnet: Ist-Stunden → Soll-Stunden → Saldo (Saldo negativ rot) → Jahresurlaub → Resturlaub → Resturlaub Vorjahr → Urlaubstage Monat / Krankheitstage',
