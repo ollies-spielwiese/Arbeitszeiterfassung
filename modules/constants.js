@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.32';
+export const APP_VERSION = '3.9.33';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.33', items: [
+    'PDF-Kopf: neue Zeile "Angestellt seit", blau eingefärbte Überschrift',
+    'PDF-Summary neu geordnet: Ist-Stunden → Soll-Stunden → Saldo (Saldo negativ rot) → Jahresurlaub → Resturlaub → Resturlaub Vorjahr → Urlaubstage Monat / Krankheitstage',
+    'PDF: "Erstellt am" wandert nach unten vor die Unterschriftszeilen',
+    '7 neue Regressions-Assertions für das neue PDF-Layout',
+  ] },
   { version: '3.9.32', items: [
     'Neue Compute-Funktion computeVacationRemaining: berechnet Rest-Urlaub inkl. anteiliger Kürzung bei unterjähriger Anstellung (§ 5 BUrlG)',
     '5 neue Regressions-Tests für Urlaubskonto-Berechnung',

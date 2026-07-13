@@ -127,7 +127,33 @@ export function getSummaryFields(input, ctx) {
     });
   }
 
-  // 4. Urlaub/Krank (nur employee, nur wenn includeAbsences)
+  // 4a. Urlaubskonto (nur employee, wenn vacationRemaining vom Report bereitgestellt)
+  if (!freelance && input.vacationRemaining) {
+    const vr = input.vacationRemaining;
+    fields.push({
+      key: 'annualVacation',
+      label: 'Jahresurlaub',
+      kind: 'count',
+      value: `${vr.annual} Tage${vr.prorated ? ' (anteilig)' : ''}`,
+      rawVacation: vr,
+    });
+    fields.push({
+      key: 'remainingVacation',
+      label: 'Resturlaub',
+      kind: 'count',
+      value: `${vr.remaining} Tage`,
+      rawVacation: vr,
+    });
+    fields.push({
+      key: 'carryOverVacation',
+      label: 'Resturlaub Vorjahr',
+      kind: 'count',
+      value: `${vr.carryOver} Tage`,
+      rawVacation: vr,
+    });
+  }
+
+  // 4b. Urlaub/Krank (nur employee, nur wenn includeAbsences)
   if (!freelance && includeAbsences) {
     fields.push({
       key: 'absences',
@@ -135,6 +161,7 @@ export function getSummaryFields(input, ctx) {
       kind: 'count',
       value: `${input.vacationDays || 0} / ${input.sickDays || 0}`,
       rawCounts: { vacation: input.vacationDays || 0, sick: input.sickDays || 0 },
+      monthLabel: input.monthLabel || '',
     });
   }
 

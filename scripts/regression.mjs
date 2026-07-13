@@ -406,6 +406,7 @@ async function runEmployee(page) {
     id: 'e1', name: 'Arbeitgeber A',
     hourlyRate: 0, currency: 'EUR',
     targetHours: 160, weeklySchedule: null,
+    annualVacation: 30, hiredSince: '2020-03-15', vacationCarryOver: 5,
   });
 
   const tracker = await checkView(page, 'tracker');
@@ -442,6 +443,13 @@ async function runEmployee(page) {
     assertTrue('employee pdf-content: Saldo sichtbar', /\bSaldo\b/i.test(t), snippet(t));
     assertTrue('employee pdf-content: 7:00 (Ist-Stunden)', /7:00|07:00/.test(t), snippet(t));
     assertTrue('employee pdf-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
+    assertTrue('employee pdf-content: Ist-Stunden', /Ist-Stunden/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Soll-Stunden', /Soll-Stunden/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Angestellt seit', /Angestellt seit/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Jahresurlaub', /Jahresurlaub/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Resturlaub', /Resturlaub/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Resturlaub Vorjahr 5', /Resturlaub Vorjahr:\s*5/.test(t), snippet(t));
+    assertTrue('employee pdf-content: Erstellt am unten', /Erstellt am/.test(t), snippet(t));
   }
   const emWord = await checkBlob(page, 'employee', 'word');
   if (emWord) {

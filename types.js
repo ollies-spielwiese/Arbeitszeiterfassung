@@ -156,6 +156,8 @@
  * @property {string} [targetLabel]
  * @property {string} [balanceLabel]
  * @property {string} [netLabel]
+ * @property {{annual:number,carryOver:number,taken:number,remaining:number,prorated:boolean,hiredMonth:number}} [vacationRemaining]
+ * @property {string} [monthLabel]
  */
 
 /**

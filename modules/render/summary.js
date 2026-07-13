@@ -47,7 +47,8 @@ export function renderSummaryPdfLines(fields, ctx) {
     }
     if (f.kind === 'count') {
       if (f.key === 'absences' && f.rawCounts) {
-        return `Urlaubstage: ${f.rawCounts.vacation}   Krankheitstage: ${f.rawCounts.sick}`;
+        const monthPart = f.monthLabel ? ` ${f.monthLabel}` : '';
+        return `Urlaubstage Monat${monthPart}: ${f.rawCounts.vacation}   Krankheitstage: ${f.rawCounts.sick}`;
       }
       return `${f.label}: ${f.value}`;
     }
@@ -91,8 +92,9 @@ export function renderSummaryWordParagraphs(fields, docxCtx, ctx) {
     }
     if (f.kind === 'count') {
       if (f.key === 'absences' && f.rawCounts) {
+        const monthPart = f.monthLabel ? ` ${f.monthLabel}` : '';
         return new Paragraph({ children: [
-          new TextRun({ text: 'Urlaubstage: ', bold: true }),
+          new TextRun({ text: `Urlaubstage Monat${monthPart}: `, bold: true }),
           new TextRun({ text: `${f.rawCounts.vacation}` }),
           new TextRun({ text: '   Krankheitstage: ', bold: true }),
           new TextRun({ text: `${f.rawCounts.sick}` }),

@@ -29,7 +29,9 @@ export function generatePdfBlob(report, ctx) {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
+  doc.setTextColor(0, 82, 155); // blau
   doc.text('Arbeitszeitnachweis', marginX, y);
+  doc.setTextColor(0);
   y += 8;
 
   doc.setFont('helvetica', 'normal');
@@ -50,15 +52,26 @@ export function generatePdfBlob(report, ctx) {
     y += 6;
   }
 
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, marginX, y);
-  doc.setTextColor(0);
-  y += 8;
+  // Angestellt seit (neu, nur wenn gesetzt und nicht freelance)
+  if (!isFreelance() && report.employer.hiredSince) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const label = 'Angestellt seit: ';
+    doc.setFont('helvetica', 'bold');
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(formatDate(report.employer.hiredSince), marginX + labelWidth + 1, y);
+    y += 6;
+  }
+
+  y += 2;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
+  doc.setTextColor(0, 82, 155); // blau
   doc.text('Zusammenfassung', marginX, y);
+  doc.setTextColor(0);
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
@@ -70,9 +83,23 @@ export function generatePdfBlob(report, ctx) {
     sickDays: report.sickEntries.length,
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',
+    vacationRemaining: report.vacationRemaining,
+    monthLabel: formatMonthYear(report.ym),
   });
   const lines = renderSummaryPdfLines(pdfSummaryFields);
-  for (const line of lines) { doc.text(line, marginX, y); y += 5; }
+  // Saldo-Zeile ggf. rot einfärben
+  for (let i = 0; i < lines.length; i++) {
+    const field = pdfSummaryFields[i];
+    const isNegBalance = field && field.kind === 'balance' && field.sign === 'neg';
+    if (isNegBalance) doc.setTextColor(185, 28, 28);
+    doc.text(lines[i], marginX, y);
+    if (isNegBalance) doc.setTextColor(0);
+    // Leerzeile nach Saldo (vor Jahresurlaub-Block)
+    if (field && field.key === 'balance') y += 3;
+    // Leerzeile nach Resturlaub Vorjahr (vor Urlaub/Krank-Zeile)
+    if (field && field.key === 'carryOverVacation') y += 3;
+    y += 5;
+  }
 
   if (!isFreelance()) {
     if (report.vacationEntries.length) {
@@ -168,8 +195,19 @@ export function generatePdfBlob(report, ctx) {
     }
   }
 
+  // "Erstellt am" nach unten — unter den Einzelnachweis, vor die Unterschriftszeilen
+  if (y > 260) { doc.addPage(); y = 20; }
+  y += 2;
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, marginX, y);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
+  y += 6;
+
   if (y > 250) { doc.addPage(); y = 20; }
-  y += 15;
+  y += 12;
   const pageW = doc.internal.pageSize.getWidth();
   const sigLineW = 70;
   const leftX = marginX;
