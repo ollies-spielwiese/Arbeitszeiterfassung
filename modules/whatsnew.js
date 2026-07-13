@@ -46,7 +46,8 @@ export function maybeShowWhatsNew(ctx, opts = {}) {
     return;
   }
 
-  container.innerHTML = entries.map(e => `
+  const intro = `<p class="whatsnew-intro">Was sich in der App seit Deinem letzten Besuch geändert hat:</p>`;
+  container.innerHTML = intro + entries.map(e => `
     <div class="whatsnew-block">
       <div class="whatsnew-version">Version ${escapeHtml(e.version)}</div>
       <ul class="whatsnew-list">

@@ -45,6 +45,13 @@ function assertTrue(name, cond, detail = '') {
   record(name, !!cond, detail);
 }
 
+function assertContains(name, haystack, needle) {
+  const s = typeof haystack === 'string' ? haystack : String(haystack);
+  const ok = s.includes(needle);
+  const preview = s.length > 100 ? s.slice(0, 100) + '…' : s;
+  record(name, ok, ok ? preview : `nicht gefunden: "${needle}" in ${preview}`);
+}
+
 function assertAtLeast(name, actual, min) {
   const ok = typeof actual === 'number' && actual >= min;
   record(name, ok, ok ? `${actual}` : `erwartet≥${min} bekommen=${actual}`);
@@ -282,6 +289,57 @@ async function runVacationRemainingUnits(page) {
     return computeVacationRemaining(emp, '2026-07', entries);
   });
   assertTrue('V5: remaining bei Überbezug=0 (nicht negativ)', v5.remaining === 0, `remaining=${v5.remaining}`);
+
+  console.log('\n=== 1d) WhatsNew-Intro-Rendering ===');
+  // W1: Intro-Text erscheint im Modal bei neuer Version
+  const w1 = await page.evaluate(async () => {
+    const { maybeShowWhatsNew } = await import('/modules/whatsnew.js');
+    // Container + Modal ins DOM injizieren
+    document.getElementById('__wntest')?.remove();
+    const host = document.createElement('div');
+    host.id = '__wntest';
+    host.innerHTML = '<div id="wn-modal" class="modal hidden"><div id="wn-body"></div></div>';
+    document.body.appendChild(host);
+    // Alt-Version simulieren
+    localStorage.setItem('__wn-key', '3.9.30');
+    maybeShowWhatsNew({
+      appVersion: '3.9.35',
+      lastSeenVersionKey: '__wn-key',
+      changelog: [{ version: '3.9.35', items: ['Test-Eintrag'] }],
+      escapeHtml: (s) => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])),
+    }, { modalId: 'wn-modal', containerId: 'wn-body' });
+    const html = document.getElementById('wn-body').innerHTML;
+    const visible = !document.getElementById('wn-modal').classList.contains('hidden');
+    host.remove();
+    localStorage.removeItem('__wn-key');
+    return { html, visible };
+  });
+  assertTrue('W1: Modal wird sichtbar bei neuer Version', w1.visible, `visible=${w1.visible}`);
+  assertContains('W1: Intro-Text vorhanden', w1.html, 'seit Deinem letzten Besuch');
+  assertContains('W1: whatsnew-intro CSS-Klasse', w1.html, 'whatsnew-intro');
+  assertContains('W1: Changelog-Version gerendert', w1.html, 'Version 3.9.35');
+
+  // W2: Kein Modal wenn Version bereits gesehen
+  const w2 = await page.evaluate(async () => {
+    const { maybeShowWhatsNew } = await import('/modules/whatsnew.js');
+    document.getElementById('__wntest2')?.remove();
+    const host = document.createElement('div');
+    host.id = '__wntest2';
+    host.innerHTML = '<div id="wn-modal2" class="modal hidden"><div id="wn-body2"></div></div>';
+    document.body.appendChild(host);
+    localStorage.setItem('__wn-key2', '3.9.35');
+    maybeShowWhatsNew({
+      appVersion: '3.9.35',
+      lastSeenVersionKey: '__wn-key2',
+      changelog: [{ version: '3.9.35', items: ['x'] }],
+      escapeHtml: (s) => String(s),
+    }, { modalId: 'wn-modal2', containerId: 'wn-body2' });
+    const hidden = document.getElementById('wn-modal2').classList.contains('hidden');
+    host.remove();
+    localStorage.removeItem('__wn-key2');
+    return hidden;
+  });
+  assertTrue('W2: Modal bleibt hidden wenn Version bereits gesehen', w2 === true);
 }
 
 async function currentYm() {

@@ -3,17 +3,20 @@
 [![Regression](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/regression.yml/badge.svg)](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/regression.yml)
 [![Deploy](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/pages.yml/badge.svg)](https://github.com/ollies-spielwiese/Arbeitszeiterfassung/actions/workflows/pages.yml)
 
-Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit mit mehreren Arbeitgebern oder Kunden, Monatsübersicht, PDF- und Word-Export sowie rechtssicheren Pausen- und Feiertagsregeln für Deutschland. Zwei Modi: Angestellter (Soll/Ist/Saldo) und Freiberufler (Ist + Rechnungsbetrag).
+Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestellte und Freiberufler. Verwaltet mehrere Arbeitgeber oder Kunden parallel mit eigenen Sollstunden, Wochenplänen, Jahresurlaub und Resturlaub aus dem Vorjahr. Erzeugt monatliche Nachweise als PDF und Word inklusive Kopfzeile mit Anstellungsdatum, farblich hervorgehobenem Saldo und fortlaufender Seitennummerierung. Feiertage werden für alle deutschen Bundesländer automatisch berechnet und lassen sich pro Monat individuell anpassen. Alle Daten bleiben ausschließlich auf dem Gerät.
 
 **Live-App:** https://ollies-spielwiese.github.io/Arbeitszeiterfassung/
 
 ## Was die App kann
 
+- Zwei Modi: Angestellter (Soll/Ist/Saldo) und Freiberufler (Ist + Rechnungsbetrag)
 - Zeiterfassung per Start-/Stopp-Taste oder nachträglich per Formular
-- Mehrere Arbeitgeber parallel mit unterschiedlichen Sollstunden und Zeitplänen
+- Mehrere Arbeitgeber parallel mit eigenen Sollstunden, Wochenplänen und Anstellungsdatum
+- Jahresurlaub pro Arbeitgeber inklusive Resturlaub aus dem Vorjahr — automatisches Prorating im Anstellungsjahr
 - Wöchentliche und monatliche Übersichten mit Soll/Ist/Saldo
 - Übersichts-Tab: alle Arbeitgeber im Monatsvergleich
-- PDF-Export einzelner Monatsberichte und der Übersicht
+- PDF-Nachweise mit strukturierter Kopfzeile (Arbeitgeber, Zeitraum, Anstellungsdatum), farbcodiertem Saldo und Seitennummerierung „Seite N von M“ auf jeder Seite
+- Word-Export einzelner Monatsberichte
 - Feiertage für alle Bundesländer, inklusive nachträglicher Anpassung (deaktivieren, umbenennen, ergänzen)
 - Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = Wochen-Soll ÷ 5 pro Werktag, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
 - Vorlagen für häufige Überstundengründe

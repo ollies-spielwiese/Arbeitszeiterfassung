@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.34';
+export const APP_VERSION = '3.9.35';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.35', items: [
+    'WhatsNew-Modal: einleitender Erklärsatz über den Changelog-Einträgen',
+    'README aktualisiert: neue Feature-Beschreibung mit Urlaubs-Prorating, PDF-Kopfzeile und Seitennummerierung',
+    'Regression: 5 neue Assertions für das WhatsNew-Rendering',
+  ]},
   { version: '3.9.34', items: [
     'PDF-Fußzeile: Seitennummerierung "Arbeitszeitnachweis – Arbeitgeber – Name – Monat X Jahr – Seite N von M" mittig auf jeder Seite',
     'Seitenumbruch vor Unterschriftszeile optimiert (weniger unnötige Leerseiten)',
