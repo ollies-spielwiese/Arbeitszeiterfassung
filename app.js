@@ -95,6 +95,7 @@ import {
   countWorkdaysInMonth as _countWorkdaysInMonthRaw,
   computeMonthReport as _computeMonthReportRaw,
   computeMonthOverview as _computeMonthOverviewRaw,
+  computeVacationRemaining,
 } from './modules/compute.js';
 import {
   getEmployer as _getEmployerRaw,
@@ -1646,7 +1647,7 @@ if (typeof window !== 'undefined') {
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
-    computeMonthReport, computeMonthOverview,
+    computeMonthReport, computeMonthOverview, computeVacationRemaining,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
   });
 }

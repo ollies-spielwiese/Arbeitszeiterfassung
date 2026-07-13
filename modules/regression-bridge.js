@@ -36,7 +36,7 @@ export function exportBridge(target, refs) {
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
-    computeMonthReport, computeMonthOverview,
+    computeMonthReport, computeMonthOverview, computeVacationRemaining,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
   } = refs;
 
@@ -100,6 +100,7 @@ export function exportBridge(target, refs) {
   if (typeof countWorkdaysInMonth === 'function') target.countWorkdaysInMonth = countWorkdaysInMonth;
   if (typeof computeMonthReport === 'function') target.computeMonthReport = computeMonthReport;
   if (typeof computeMonthOverview === 'function') target.computeMonthOverview = computeMonthOverview;
+  if (typeof computeVacationRemaining === 'function') target.computeVacationRemaining = computeVacationRemaining;
   if (typeof generatePdfBlob === 'function') target.generatePdfBlob = generatePdfBlob;
   if (typeof generateOverviewPdfBlob === 'function') target.generateOverviewPdfBlob = generateOverviewPdfBlob;
   if (typeof generateWordBlob === 'function') target.generateWordBlob = generateWordBlob;

@@ -255,6 +255,57 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
  * @param {AZComputeCtx} [ctx] muss ctx.state enthalten
  * @returns {AZMonthReport|null}
  */
+/**
+ * Berechnet Urlaubs-Kontostand für einen Employer.
+ *
+ * Kontrakt:
+ *   - Grundlage: annualVacation (Jahresanspruch) + vacationCarryOver (Vorjahr).
+ *   - Genommen: alle vacation-Einträge des Kalenderjahres von ym mit date <= letzter Tag von ym.
+ *   - remaining = annualVacation + carryOver - taken
+ *   - Wenn hiredSince im gleichen Jahr liegt: annualVacation wird anteilig gekürzt (pro Monat 1/12).
+ *     Bei hiredSince='' oder Vorjahr: voller Jahresanspruch.
+ *   - Bei negativem Ergebnis: 0 (kein Überbezug in Zahl, App zeigt Warnung).
+ *
+ * @param {any} emp Employer-Objekt (mit annualVacation, vacationCarryOver, hiredSince)
+ * @param {string} ym Monat im Format YYYY-MM — bestimmt Kalenderjahr und Stichtag
+ * @param {Array<any>} allEntries Alle Einträge (state.entries) — werden employer-/jahresgefiltert
+ * @returns {{annual:number, carryOver:number, taken:number, remaining:number, prorated:boolean, hiredMonth:number|null}}
+ */
+export function computeVacationRemaining(emp, ym, allEntries) {
+  if (!emp) return { annual: 0, carryOver: 0, taken: 0, remaining: 0, prorated: false, hiredMonth: null };
+  const annualBase = Math.max(0, parseInt(emp.annualVacation) || 0);
+  const carryOver = Math.max(0, parseInt(emp.vacationCarryOver) || 0);
+  const year = ym.slice(0, 4);
+  const yearNum = parseInt(year, 10);
+  const lastDayOfMonth = new Date(yearNum, parseInt(ym.slice(5, 7), 10), 0).getDate();
+  const stichtag = `${ym}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+  // Anteilige Kürzung bei Anstellung im laufenden Jahr
+  let annual = annualBase;
+  let prorated = false;
+  let hiredMonth = null;
+  if (emp.hiredSince && typeof emp.hiredSince === 'string' && emp.hiredSince.length >= 7) {
+    const hiredYear = emp.hiredSince.slice(0, 4);
+    if (hiredYear === year) {
+      hiredMonth = parseInt(emp.hiredSince.slice(5, 7), 10);
+      const monthsWorked = 13 - hiredMonth; // Mai=5 → 8 Monate
+      annual = Math.round((annualBase * monthsWorked) / 12);
+      prorated = true;
+    }
+  }
+
+  // Genommene Urlaubstage im Kalenderjahr bis Stichtag
+  const taken = (allEntries || []).filter(e =>
+    e.type === 'vacation' &&
+    e.employerId === emp.id &&
+    e.date && e.date.startsWith(year) &&
+    e.date <= stichtag
+  ).length;
+
+  const remaining = Math.max(0, annual + carryOver - taken);
+  return { annual, carryOver, taken, remaining, prorated, hiredMonth };
+}
+
 export function computeMonthReport(employerId, ym, ctx) {
   const state = ctx && ctx.state;
   if (!state) return null;
@@ -319,10 +370,12 @@ export function computeMonthReport(employerId, ym, ctx) {
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);
   const holidays = getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides);
+  const vacationRemaining = computeVacationRemaining(emp, ym, state.entries);
 
   return {
     employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
+    vacationRemaining,
   };
 }
 

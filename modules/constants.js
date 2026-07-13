@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.31';
+export const APP_VERSION = '3.9.32';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.32', items: [
+    'Neue Compute-Funktion computeVacationRemaining: berechnet Rest-Urlaub inkl. anteiliger Kürzung bei unterjähriger Anstellung (§ 5 BUrlG)',
+    '5 neue Regressions-Tests für Urlaubskonto-Berechnung',
+  ] },
   { version: '3.9.31', items: [
     'Neue Employer-Felder: "Angestellt seit" (Datum) und "Resturlaubstage Vorjahr" (Zahl)',
     'Automatische Migration: bestehende Arbeitgeber bekommen leere/0-Defaults',

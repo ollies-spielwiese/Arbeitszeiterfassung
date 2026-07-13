@@ -225,6 +225,65 @@ async function seedState(page, mode, employer) {
   await page.evaluate(() => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')));
 }
 
+async function runVacationRemainingUnits(page) {
+  console.log('\n=== 1c) computeVacationRemaining Unit-Tests ===');
+
+  // V1: Voller Jahresanspruch (kein hiredSince), 0 Vorjahr, 0 genommen
+  const v1 = await page.evaluate(() => {
+    const emp = { id: 'e1', annualVacation: 30, vacationCarryOver: 0, hiredSince: '' };
+    return computeVacationRemaining(emp, '2026-07', []);
+  });
+  assertEq('V1: annual=30 bei leerem hiredSince', v1.annual, 30);
+  assertEq('V1: remaining=30 bei 0 genommen', v1.remaining, 30);
+  assertEq('V1: prorated=false', v1.prorated, false);
+
+  // V2: Anteilige Kürzung bei Mai-Anstellung im aktuellen Jahr (8/12 von 30 = 20)
+  const v2 = await page.evaluate(() => {
+    const emp = { id: 'e1', annualVacation: 30, vacationCarryOver: 0, hiredSince: '2026-05-01' };
+    return computeVacationRemaining(emp, '2026-07', []);
+  });
+  assertEq('V2: annual anteilig gekürzt (Mai → 8/12 von 30 = 20)', v2.annual, 20);
+  assertEq('V2: prorated=true', v2.prorated, true);
+  assertEq('V2: hiredMonth=5', v2.hiredMonth, 5);
+
+  // V3: Anstellung im Vorjahr — kein Prorating
+  const v3 = await page.evaluate(() => {
+    const emp = { id: 'e1', annualVacation: 30, vacationCarryOver: 3, hiredSince: '2020-01-01' };
+    return computeVacationRemaining(emp, '2026-07', []);
+  });
+  assertEq('V3: annual=30 bei Vorjahr-Anstellung', v3.annual, 30);
+  assertEq('V3: carryOver=3', v3.carryOver, 3);
+  assertEq('V3: remaining=33 (30+3-0)', v3.remaining, 33);
+
+  // V4: Genommene Urlaubstage bis Stichtag werden abgezogen, zukünftige nicht
+  const v4 = await page.evaluate(() => {
+    const emp = { id: 'e1', annualVacation: 30, vacationCarryOver: 0, hiredSince: '' };
+    const entries = [
+      { id: 'a', type: 'vacation', employerId: 'e1', date: '2026-03-10' },  // vor ym — zählt
+      { id: 'b', type: 'vacation', employerId: 'e1', date: '2026-07-15' },  // in ym — zählt
+      { id: 'c', type: 'vacation', employerId: 'e1', date: '2026-07-31' },  // Stichtag — zählt
+      { id: 'd', type: 'vacation', employerId: 'e1', date: '2026-08-01' },  // Zukunft — zählt NICHT
+      { id: 'e', type: 'vacation', employerId: 'e1', date: '2026-12-20' },  // Zukunft — zählt NICHT
+      { id: 'f', type: 'vacation', employerId: 'e2', date: '2026-05-01' },  // anderer Employer — zählt NICHT
+      { id: 'g', type: 'sick',     employerId: 'e1', date: '2026-04-01' },  // Krank — zählt NICHT
+      { id: 'h', type: 'vacation', employerId: 'e1', date: '2025-12-15' },  // Vorjahr — zählt NICHT
+    ];
+    return computeVacationRemaining(emp, '2026-07', entries);
+  });
+  assertEq('V4: taken=3 (nur eigene Urlaube bis Stichtag)', v4.taken, 3);
+  assertEq('V4: remaining=27 (30-3)', v4.remaining, 27);
+
+  // V5: Überbezug wird auf 0 gekappt, nicht negativ
+  const v5 = await page.evaluate(() => {
+    const emp = { id: 'e1', annualVacation: 5, vacationCarryOver: 0, hiredSince: '' };
+    const entries = Array.from({length: 10}, (_, i) => ({
+      id: `x${i}`, type: 'vacation', employerId: 'e1', date: `2026-0${i%9+1}-01`,
+    }));
+    return computeVacationRemaining(emp, '2026-07', entries);
+  });
+  assertTrue('V5: remaining bei Überbezug=0 (nicht negativ)', v5.remaining === 0, `remaining=${v5.remaining}`);
+}
+
 async function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -409,6 +468,7 @@ async function runEmployee(page) {
   try {
     await runSelectorUnits(page);
     await runMigrationUnits(page);
+    await runVacationRemainingUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {
