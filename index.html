@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.42</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.43</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -296,7 +296,7 @@
               <li><strong>Präsenz / Home-Office:</strong> kleiner Umschalter direkt über den Start/Stop-Buttons. Standard ist immer <strong>Präsenz</strong>. Auf <strong>Home-Office</strong> wechseln, wenn du von zu Hause arbeitest.</li>
               <li><strong>▶ Arbeitsbeginn:</strong> startet die laufende Zeiterfassung. Ein grüner Live‑Zähler zeigt an, wie lange du bereits arbeitest.</li>
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
-              <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen.</li>
+              <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen. Hat der Arbeitgeber feste Wochenarbeitszeiten hinterlegt (siehe Reiter Arbeitgeber), schlägt die App die passende Uhrzeit für den gewählten Tag vor — per Tipp übernehmen.</li>
               <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
               <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein. Im Auswahlfeld „Art“ steht neben Urlaub und Krankheit auch <strong>Gleitzeit-Überstundenabbau</strong> zur Verfügung — für ganze freie Tage zum Abbau von Überstunden, die wie ein Arbeitstag angerechnet werden, aber den Urlaubsanspruch nicht mindern.</li>
               <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Krankheit oder Gleitzeit-Überstundenabbau), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären.</li>
@@ -407,6 +407,7 @@
                   <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
                   <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
                   <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen.</li>
+                  <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
                 </ul>
               </li>
             </ul>
@@ -446,7 +447,7 @@
         <details class="guide-section">
           <summary>10. Reiter „Einstellungen“ – Feinjustage</summary>
           <div class="guide-body">
-            <p>Neben Name, E‑Mail und Bundesland findest du hier:</p>
+            <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich) — Details dazu in Abschnitt 12a. Daneben findest du:</p>
             <ul>
               <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
                 <ul>
@@ -489,6 +490,7 @@
               <li>Regelmäßig ein <strong>Backup exportieren</strong> – am besten am Monatsende.</li>
               <li>Feiertage werden automatisch aus dem gewählten Bundesland gezogen.</li>
               <li>Bei einem Arbeitgeberwechsel: alten Arbeitgeber nicht löschen, damit alte Nachweise erhalten bleiben.</li>
+              <li>Erscheint unten der Hinweis <strong>„Neue Version verfügbar“</strong>: Mit <strong>Jetzt aktualisieren</strong> lädt die App sofort die neue Version, mit <strong>Später</strong> bleibt der aktuelle Stand bis zum nächsten Neustart erhalten. Nach einem Update zeigt ein Fenster „Was ist neu“ die Änderungen der neuen Version.</li>
             </ul>
           </div>
         </details>

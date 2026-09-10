@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.42';
+export const APP_VERSION = '3.9.43';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.43', items: [
+    'Anleitung (Reiter "Anleitung") aktualisiert: fehlende Doku für "Zeit aus Wochenschema übernehmen" (Erfassen und Arbeitgeber), den Modus-Umschalter (Einstellungen) und den Update-Hinweis "Neue Version verfügbar" ergänzt',
+    'Keine Logikänderung, reine Dokumentationskorrektur',
+  ]},
   { version: '3.9.42', items: [
     'Neu: Abwesenheitsart "Gleitzeit-Überstundenabbau" — für ganze freie Tage zum Abbau von Überstunden, getrennt vom Urlaub',
     'Wählbar in „Erfassen“ (Eintragstyp) und in „Zeitraum erfassen“ (auch für mehrtägige Bereiche)',
