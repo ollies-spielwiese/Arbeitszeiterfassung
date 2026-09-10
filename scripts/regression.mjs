@@ -441,6 +441,100 @@ async function runOvertimeReductionUnits(page) {
   assertContains('OT9: Word-Export enthält "Überstundenabbau"', ot9Text, 'Überstundenabbau');
 }
 
+// ---------- 1e-3) Datums-Konflikt-Schutz für Ganztagesabwesenheiten (v3.9.44) ----------
+
+async function runAbsenceDuplicateGuardUnits(page) {
+  console.log('\n=== 1e-3) Datums-Konflikt-Schutz (Urlaub/Krank/Überstundenabbau) ===');
+
+  // DUP1: Neuer Eintrag auf freiem Datum wird ganz normal angelegt (Regressionsschutz
+  // für den unveränderten Normalfall).
+  const dup1 = await page.evaluate(async () => {
+    const { saveEntry } = await import('/modules/ui/entry-modal.js');
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const empId = '__dup-guard-e1__';
+    state.employers.push({ id: empId, name: 'Dup-Guard-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' });
+    let lastToast = '';
+    const ctx = {
+      getState: () => state, saveState, closeModals: () => {}, renderTracker: () => {}, renderEntries: () => {},
+      toast: (m) => { lastToast = m; }, uid,
+    };
+    document.getElementById('entry-id').value = '';
+    document.getElementById('entry-employer').innerHTML = `<option value="${empId}">Test</option>`;
+    document.getElementById('entry-employer').value = empId;
+    document.getElementById('entry-date').value = '2027-01-04';
+    document.getElementById('entry-type').value = 'sick';
+    document.getElementById('entry-start').value = '';
+    document.getElementById('entry-end').value = '';
+    document.getElementById('entry-break').value = '0';
+    document.getElementById('entry-overtime-reason').value = '';
+    document.getElementById('entry-note').value = '';
+    saveEntry({ preventDefault: () => {} }, ctx);
+    const created = state.entries.filter(e => e.employerId === empId);
+    return { count: created.length, type: created[0]?.type, lastToast };
+  });
+  assertEq('DUP1: freies Datum \u2014 Eintrag wird angelegt', dup1.count, 1);
+  assertEq('DUP1: Typ korrekt gespeichert (sick)', dup1.type, 'sick');
+  assertEq('DUP1: Erfolgs-Toast im Normalfall (kein Konflikt-Hinweis)', dup1.lastToast, 'Gespeichert');
+
+  // DUP2: Zweiter NEUER Eintrag auf demselben Datum (anderer Typ) wird blockiert \u2014
+  // reproduziert den gemeldeten Fehler (Gleitzeit-Tag wurde als "Krank" anger\u00fcndigt/angezeigt,
+  // weil ein zweiter Eintrag klanglos neben dem ersten existierte).
+  const dup2 = await page.evaluate(async () => {
+    const { saveEntry } = await import('/modules/ui/entry-modal.js');
+    const empId = '__dup-guard-e1__'; // von DUP1 wiederverwendet
+    let lastToast = '';
+    const ctx = {
+      getState: () => state, saveState, closeModals: () => {}, renderTracker: () => {}, renderEntries: () => {},
+      toast: (m) => { lastToast = m; }, uid,
+    };
+    document.getElementById('entry-id').value = '';
+    document.getElementById('entry-employer').value = empId;
+    document.getElementById('entry-date').value = '2027-01-04'; // gleiches Datum wie DUP1
+    document.getElementById('entry-type').value = 'overtime_reduction';
+    document.getElementById('entry-note').value = '';
+    saveEntry({ preventDefault: () => {} }, ctx);
+    const entriesForDate = state.entries.filter(e => e.employerId === empId && e.date === '2027-01-04');
+    return { count: entriesForDate.length, types: entriesForDate.map(e => e.type), lastToast };
+  });
+  assertEq('DUP2: belegtes Datum \u2014 kein zweiter Eintrag wird angelegt', dup2.count, 1);
+  assertTrue('DUP2: der urspr\u00fcngliche Eintrag (sick) bleibt unver\u00e4ndert erhalten',
+    dup2.types.length === 1 && dup2.types[0] === 'sick', `types=${JSON.stringify(dup2.types)}`);
+  assertContains('DUP2: Toast nennt den Konflikt und den bestehenden Typ (Krank)', dup2.lastToast, 'Krank');
+  assertContains('DUP2: Toast weist auf bereits existierenden Eintrag hin', dup2.lastToast, 'bereits ein Eintrag');
+
+  // DUP3: Bearbeiten DESSELBEN Eintrags (gleiche id, gleiches Datum, Typwechsel) darf
+  // nicht fälschlich als Konflikt mit sich selbst erkannt werden.
+  const dup3 = await page.evaluate(async () => {
+    const { saveEntry } = await import('/modules/ui/entry-modal.js');
+    const empId = '__dup-guard-e1__';
+    const existing = state.entries.find(e => e.employerId === empId && e.date === '2027-01-04');
+    let lastToast = '';
+    const ctx = {
+      getState: () => state, saveState, closeModals: () => {}, renderTracker: () => {}, renderEntries: () => {},
+      toast: (m) => { lastToast = m; }, uid,
+    };
+    document.getElementById('entry-id').value = existing.id;
+    document.getElementById('entry-employer').value = empId;
+    document.getElementById('entry-date').value = '2027-01-04';
+    document.getElementById('entry-type').value = 'overtime_reduction';
+    document.getElementById('entry-note').value = '';
+    saveEntry({ preventDefault: () => {} }, ctx);
+    const entriesForDate = state.entries.filter(e => e.employerId === empId && e.date === '2027-01-04');
+    return { count: entriesForDate.length, type: entriesForDate[0]?.type, lastToast };
+  });
+  assertEq('DUP3: Bearbeiten des eigenen Eintrags erzeugt keinen falschen Konflikt (Erfolgs-Toast statt Konflikt-Meldung)', dup3.lastToast, 'Gespeichert');
+  assertEq('DUP3: weiterhin genau 1 Eintrag an diesem Datum', dup3.count, 1);
+  assertEq('DUP3: Typwechsel beim Bearbeiten wird \u00fcbernommen (overtime_reduction)', dup3.type, 'overtime_reduction');
+
+  // DUP4: Aufräumen, damit nachfolgende Tests im selben Page-Context nicht beeinflusst werden.
+  await page.evaluate(() => {
+    const empId = '__dup-guard-e1__';
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+  });
+}
+
 async function runRangeVacationStatsUnits(page) {
   console.log('\n=== 1f) Urlaubskonto-Anzeige im Zeitraum-Modal ===');
 
@@ -1031,6 +1125,7 @@ function runActiveUpdateCheckOnLoadCheck() {
     await runVacationPlanningUnits(page);
     await runRangeEntryUnits(page);
     await runOvertimeReductionUnits(page);
+    await runAbsenceDuplicateGuardUnits(page);
     await runRangeVacationStatsUnits(page);
     await runFreelance(page);
     await runEmployee(page);

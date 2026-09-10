@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.43';
+export const APP_VERSION = '3.9.44';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.44', items: [
+    'Fehler behoben: Ein neuer Urlaubs-/Krank-/Überstundenabbau-Eintrag ("+ Urlaub / Krankheit" und "Urlaubszeitraum erfassen") konnte unbemerkt neben einem bereits bestehenden Eintrag am selben Datum gespeichert werden, wenn zuvor schon ein Eintrag mit anderem Typ (z.B. "Krank") für dieses Datum existierte',
+    'Dadurch wurde in "Einträge" nur der ältere Eintrag angezeigt bzw. priorisiert und die Saldoberechnung in "Woche" zählte beide Einträge gleichzeitig an (Doppelanrechnung, falscher Saldo)',
+    'Neu: Beim Anlegen/Bearbeiten eines einzelnen Eintrags über "+ Urlaub / Krankheit" wird jetzt geprüft, ob für Arbeitgeber+Datum bereits ein anderer Eintrag existiert; falls ja, erscheint ein Hinweis mit dem bestehenden Typ und der neue Eintrag wird nicht gespeichert (analog zur bereits bestehenden Prüfung in "Zeitraum erfassen")',
+    'Betroffen sind bestehende, bereits fälschlich doppelt angelegte Einträge NICHT automatisch — dafür in "Einträge" das jeweilige Datum prüfen und den falschen/überflüssigen Eintrag manuell löschen',
+    'Regression: 12 neue Assertions (DUP1-DUP3) für Normalfall (freies Datum), Konflikt-Blockade (belegtes Datum, Toast-Text) und korrektes Bearbeiten des eigenen Eintrags (kein Selbst-Konflikt)',
+  ]},
   { version: '3.9.43', items: [
     'Anleitung (Reiter "Anleitung") aktualisiert: fehlende Doku für "Zeit aus Wochenschema übernehmen" (Erfassen und Arbeitgeber), den Modus-Umschalter (Einstellungen) und den Update-Hinweis "Neue Version verfügbar" ergänzt',
     'Keine Logikänderung, reine Dokumentationskorrektur',

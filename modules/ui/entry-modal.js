@@ -149,6 +149,20 @@ export function saveEntry(e, ctx) {
     return;
   }
 
+  // Ganztägige Abwesenheits-Typen (Urlaub/Krank/Gleitzeit-Überstundenabbau) sind exklusiv:
+  // ein neuer Eintrag darf ein bereits belegtes Datum nicht duplizieren, sonst entstehen
+  // widersprüchliche Karten in "Einträge" und die Woche/Monat-Anrechnung zählt den Tag doppelt.
+  // Analog zu buildRangeEntries() in modules/range-entry.js (dort: skippedExisting).
+  if (type === 'vacation' || type === 'sick' || type === 'overtime_reduction') {
+    const conflict = state.entries.find(x => x.employerId === employerId && x.date === date && x.id !== id);
+    if (conflict) {
+      const CONFLICT_LABELS = { work: 'Arbeitszeit', homeoffice: 'Home-Office', vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Überstundenabbau' };
+      const label = CONFLICT_LABELS[conflict.type] || conflict.type;
+      toast(`Für dieses Datum existiert bereits ein Eintrag (${label}). Bitte zuerst löschen oder bearbeiten.`);
+      return;
+    }
+  }
+
   // Basis-Datensatz je Typ.
   let entryData;
   if (type === 'work') {
