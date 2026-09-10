@@ -27,7 +27,7 @@
  *     schedule: { mon:{enabled,start,end,break}, tue:..., wed:..., thu:..., fri:..., sat:..., sun:... },
  *     notes
  *   }],
- *   entries: [{ id, employerId, date, type:'work'|'homeoffice'|'vacation'|'sick', start, end, breakMinutes, segments, overtimeReason, note, createdAt }],
+ *   entries: [{ id, employerId, date, type:'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction', start, end, breakMinutes, segments, overtimeReason, note, createdAt }],
  *   // 'work' (Präsenz): start, end, breakMinutes, overtimeReason.
  *   // 'homeoffice': segments = [{start, end}, ...]; keine Pause, kein Überstundengrund. Netto = Summe der Segmente.
  *   archives: [{ id, employerId, yearMonth, generatedAt, snapshot }],
@@ -595,9 +595,10 @@ function renderTodaySummary() {
   const workedMin = entries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
   const vacationDays = entries.filter(e => e.type === 'vacation').length;
   const sickDays = entries.filter(e => e.type === 'sick').length;
+  const overtimeReductionDays = entries.filter(e => e.type === 'overtime_reduction').length;
   const targetMin = computeMonthTargetMinutes(emp, ym);
   const dailyTargetMin = targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0;
-  const creditedAbsenceMin = Math.round((vacationDays + sickDays) * dailyTargetMin);
+  const creditedAbsenceMin = Math.round((vacationDays + sickDays + overtimeReductionDays) * dailyTargetMin);
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const summaryFields = getSummaryFields({
@@ -606,6 +607,7 @@ function renderTodaySummary() {
     balance,
     vacationDays,
     sickDays,
+    overtimeReductionDays,
     hourlyRate: Number(emp.hourlyRate) || 0,
     currency: emp.currency || 'EUR',
   });
@@ -1063,12 +1065,14 @@ function renderWeek() {
     totalMin += workMin;
     const hasVacation = dayEntries.some(e => e.type === 'vacation');
     const hasSick = dayEntries.some(e => e.type === 'sick');
+    const hasOvertimeReduction = dayEntries.some(e => e.type === 'overtime_reduction');
     const hasHomeoffice = dayEntries.some(e => e.type === 'homeoffice');
 
     const hoursDisplay = workMin ? minutesToHM(workMin) : '–';
     let detail = '';
     if (hasVacation) detail = 'Urlaub';
     else if (hasSick) detail = 'Krank';
+    else if (hasOvertimeReduction) detail = 'Überstundenabbau';
     else if (hasHomeoffice && !dayEntries.some(e => e.type === 'work')) {
       // Reine Home-Office-Tage: Segmente bleiben privat, nur Label anzeigen
       detail = 'Home-Office';
@@ -1116,7 +1120,8 @@ function renderWeek() {
   };
   const weekVacationDays = state.entries.filter(e => e.employerId === empId && e.type === 'vacation' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
   const weekSickDays = state.entries.filter(e => e.employerId === empId && e.type === 'sick' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
-  const creditedAbsenceMinWeek = (weekVacationDays + weekSickDays) * perWorkdayMinWeek;
+  const weekOvertimeReductionDays = state.entries.filter(e => e.employerId === empId && e.type === 'overtime_reduction' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
+  const creditedAbsenceMinWeek = (weekVacationDays + weekSickDays + weekOvertimeReductionDays) * perWorkdayMinWeek;
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
 
   const weekFields = getSummaryFields({
@@ -1413,6 +1418,7 @@ function archiveCurrentMonth() {
     entries: r.entries.map(e => ({ ...e })),
     workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance,
     vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length,
+    overtimeReductionDays: r.overtimeReductionEntries.length,
     holidays: r.holidays,
   };
 
@@ -1455,6 +1461,7 @@ function renderArchive() {
           workEntries: s.entries.filter(e => e.type === 'work'),
           vacationEntries: s.entries.filter(e => e.type === 'vacation'),
           sickEntries: s.entries.filter(e => e.type === 'sick'),
+          overtimeReductionEntries: s.entries.filter(e => e.type === 'overtime_reduction'),
           overtimeEntries: s.entries.filter(e => e.type === 'work' && e.overtimeReason),
           workedMin: s.workedMin, targetMin: s.targetMin, balance: s.balance,
           holidays: s.holidays || [], creditedAbsenceMin: 0,

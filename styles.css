@@ -354,11 +354,13 @@ textarea { resize: vertical; min-height: 3rem; }
 .entry-badge.vacation { background: #dbeafe; color: #1d4ed8; }
 .entry-badge.sick { background: #fee2e2; color: #991b1b; }
 .entry-badge.overtime { background: #fef3c7; color: #92400e; }
+.entry-badge.overtime_reduction { background: #ede9fe; color: #6d28d9; }
 
 @media (prefers-color-scheme: dark) {
   .entry-badge.vacation { background: #1e3a8a; color: #93c5fd; }
   .entry-badge.sick { background: #7f1d1d; color: #fca5a5; }
   .entry-badge.overtime { background: #78350f; color: #fcd34d; }
+  .entry-badge.overtime_reduction { background: #4c1d95; color: #d8b4fe; }
 }
 
 .empty-state {

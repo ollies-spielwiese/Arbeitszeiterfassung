@@ -66,15 +66,17 @@
 
 /**
  * Eintrag im Kalender. Feld-Belegung hängt vom type ab:
- *   - 'work'       : start, end, breakMinutes, ggf. overtimeReason
- *   - 'homeoffice' : segments (Array), keine breakMinutes, kein overtimeReason
- *   - 'vacation'   : nur date + type
- *   - 'sick'       : nur date + type
+ *   - 'work'               : start, end, breakMinutes, ggf. overtimeReason
+ *   - 'homeoffice'         : segments (Array), keine breakMinutes, kein overtimeReason
+ *   - 'vacation'           : nur date + type
+ *   - 'sick'               : nur date + type
+ *   - 'overtime_reduction' : nur date + type (Gleitzeit-Überstundenabbau: ganzer freier Tag,
+ *                            wird wie ein Arbeitstag gutgeschrieben, zählt aber NICHT gegen den Urlaubsanspruch)
  * @typedef {Object} AZEntry
  * @property {string} id
  * @property {string} employerId
  * @property {string} date 'YYYY-MM-DD'
- * @property {'work'|'homeoffice'|'vacation'|'sick'} type
+ * @property {'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction'} type
  * @property {string} [start] 'HH:MM' (work)
  * @property {string} [end] 'HH:MM' (work)
  * @property {number} [breakMinutes] (work)
@@ -146,6 +148,7 @@
  * @property {number} [balance]
  * @property {number} [vacationDays]
  * @property {number} [sickDays]
+ * @property {number} [overtimeReductionDays]
  * @property {number} [holidayCount]
  * @property {number} [hourlyRate]
  * @property {string} [currency]
@@ -189,11 +192,12 @@
  * @property {AZEntry[]} homeofficeEntries
  * @property {AZEntry[]} vacationEntries
  * @property {AZEntry[]} sickEntries
+ * @property {AZEntry[]} overtimeReductionEntries Gleitzeit-Überstundenabbau-Tage
  * @property {AZEntry[]} overtimeEntries
  * @property {number} workedMin Ist-Minuten inkl. Home-Office
  * @property {number} homeofficeMin Reine Home-Office-Minuten
  * @property {number} targetMin
- * @property {number} creditedAbsenceMin Angerechnete Urlaub/Krank-Minuten
+ * @property {number} creditedAbsenceMin Angerechnete Urlaub/Krank/Überstundenabbau-Minuten
  * @property {number} balance workedMin + creditedAbsenceMin - targetMin
  * @property {number} dailyTargetMin
  * @property {AZHoliday[]} holidays
@@ -209,6 +213,7 @@
  * @property {number} balance
  * @property {number} vacationDays
  * @property {number} sickDays
+ * @property {number} overtimeReductionDays
  * @property {number} workEntriesCount
  */
 
@@ -220,6 +225,7 @@
  * @property {number} balance
  * @property {number} vacationDays
  * @property {number} sickDays
+ * @property {number} overtimeReductionDays
  * @property {number} workEntriesCount
  */
 

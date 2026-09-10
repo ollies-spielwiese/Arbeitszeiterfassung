@@ -68,6 +68,7 @@ export function buildOverviewHTML(ov, ym, ctx) {
       <td class="num ${rowHasTarget ? (row.balance >= 0 ? 'pos' : 'neg') : ''}" data-label="Saldo">${rowHasTarget ? (row.balance >= 0 ? '+' : '') + minutesToHM(row.balance) : '—'}</td>
       <td class="num" data-label="Urlaub">${rowHasTarget ? row.vacationDays : '—'}</td>
       <td class="num" data-label="Krank">${rowHasTarget ? row.sickDays : '—'}</td>
+      <td class="num" data-label="Abbau">${rowHasTarget ? (row.overtimeReductionDays || 0) : '—'}</td>
     </tr>
   `;
   }).join('');
@@ -88,6 +89,7 @@ export function buildOverviewHTML(ov, ym, ctx) {
       <td class="num ${ov.totals.balance >= 0 ? 'pos' : 'neg'}" data-label="Saldo"><strong>${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}</strong></td>
       <td class="num" data-label="Urlaub"><strong>${ov.totals.vacationDays}</strong></td>
       <td class="num" data-label="Krank"><strong>${ov.totals.sickDays}</strong></td>
+      <td class="num" data-label="Abbau"><strong>${ov.totals.overtimeReductionDays || 0}</strong></td>
     </tr>
   `;
 
@@ -109,6 +111,7 @@ export function buildOverviewHTML(ov, ym, ctx) {
             <th class="num">Saldo</th>
             <th class="num">Urlaub</th>
             <th class="num">Krank</th>
+            <th class="num">Abbau</th>
           </tr>
   `;
 

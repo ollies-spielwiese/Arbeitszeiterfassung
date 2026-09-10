@@ -105,6 +105,7 @@ export function generateOverviewPdfBlob(ov, ctx) {
       `${row.balance >= 0 ? '+' : ''}${minutesToHM(row.balance)}`,
       String(row.vacationDays),
       String(row.sickDays),
+      String(row.overtimeReductionDays || 0),
     ]);
     totalsRow = [
       'Gesamt',
@@ -114,16 +115,18 @@ export function generateOverviewPdfBlob(ov, ctx) {
       `${ov.totals.balance >= 0 ? '+' : ''}${minutesToHM(ov.totals.balance)}`,
       String(ov.totals.vacationDays),
       String(ov.totals.sickDays),
+      String(ov.totals.overtimeReductionDays || 0),
     ];
-    head = [[ovEmpLabel, 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank']];
+    head = [[ovEmpLabel, 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank', 'Abbau']];
     columnStyles = {
-      0: { cellWidth: 60 },
-      1: { cellWidth: 16 },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 22 },
-      5: { cellWidth: 18 },
-      6: { cellWidth: 18 },
+      0: { cellWidth: 48 },
+      1: { cellWidth: 14 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 16 },
+      6: { cellWidth: 16 },
+      7: { cellWidth: 16 },
     };
     legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
   }

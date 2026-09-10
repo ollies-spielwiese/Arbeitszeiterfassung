@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.41';
+export const APP_VERSION = '3.9.42';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.42', items: [
+    'Neu: Abwesenheitsart "Gleitzeit-Überstundenabbau" — für ganze freie Tage zum Abbau von Überstunden, getrennt vom Urlaub',
+    'Wählbar in „Erfassen“ (Eintragstyp) und in „Zeitraum erfassen“ (auch für mehrtägige Bereiche)',
+    'Wird wie ein normaler Arbeitstag gutgeschrieben (kein Minus gegen das Soll), mindert aber NICHT den Urlaubsanspruch',
+    'Erscheint in Wochenansicht, Monatsauswertung, Übersichtstabelle (Spalte „Abbau“) sowie in den PDF- und Word-Exporten',
+    'Regression: 9 neue Assertions (OT1-OT9) für Anlage, Anrechnung, Ausschluss aus dem Urlaubsanspruch, Übersicht und Export-Inhalte',
+  ]},
   { version: '3.9.41', items: [
     'Zeitraum erfassen: Beschriftung im Urlaubskonto-Hinweis von "Geplant" zu "Urlaubsanspruch" geändert (klarer, da es sich um den Jahresanspruch inkl. Resturlaub Vorjahr handelt)',
   ]},

@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.41</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.42</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -298,7 +298,7 @@
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
               <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen.</li>
               <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
-              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen kompletten Tag (oder mehrere Tage) als Abwesenheit ein.</li>
+              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen kompletten Tag (oder mehrere Tage) als Abwesenheit ein. Im Auswahlfeld „Art“ steht neben Urlaub und Krankheit auch <strong>Gleitzeit-Überstundenabbau</strong> zur Verfügung — für ganze freie Tage zum Abbau von Überstunden, die wie ein Arbeitstag angerechnet werden, aber den Urlaubsanspruch nicht mindern.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -618,20 +618,19 @@
           <label for="entry-employer">Arbeitgeber</label>
           <select id="entry-employer" required></select>
         </div>
-        <div class="form-row two-col">
-          <div>
-            <label for="entry-date">Datum</label>
-            <input type="date" id="entry-date" required />
-          </div>
-          <div>
-            <label for="entry-type">Art</label>
-            <select id="entry-type">
-              <option value="work">Arbeit (Präsenz)</option>
-              <option value="homeoffice">Home-Office</option>
-              <option value="vacation">Urlaub</option>
-              <option value="sick">Krankheit</option>
-            </select>
-          </div>
+        <div class="form-row">
+          <label for="entry-date">Datum</label>
+          <input type="date" id="entry-date" required />
+        </div>
+        <div class="form-row">
+          <label for="entry-type">Art</label>
+          <select id="entry-type">
+            <option value="work">Arbeit (Präsenz)</option>
+            <option value="homeoffice">Home-Office</option>
+            <option value="vacation">Urlaub</option>
+            <option value="sick">Krankheit</option>
+            <option value="overtime_reduction">Gleitzeit-Überstundenabbau</option>
+          </select>
         </div>
         <div id="work-fields">
           <div class="form-row two-col">
@@ -699,6 +698,7 @@
           <select id="range-type">
             <option value="vacation">Urlaub</option>
             <option value="sick">Krankheit</option>
+            <option value="overtime_reduction">Gleitzeit-Überstundenabbau</option>
           </select>
         </div>
         <div id="range-vacation-stats" class="range-vacation-stats" hidden aria-live="polite"></div>

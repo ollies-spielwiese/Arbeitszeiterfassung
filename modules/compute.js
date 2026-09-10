@@ -367,6 +367,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   const homeofficeEntries = entries.filter(e => e.type === 'homeoffice');
   const vacationEntries = entries.filter(e => e.type === 'vacation');
   const sickEntries = entries.filter(e => e.type === 'sick');
+  const overtimeReductionEntries = entries.filter(e => e.type === 'overtime_reduction');
 
   const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
     + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
@@ -408,7 +409,11 @@ export function computeMonthReport(employerId, ym, ctx) {
   }).length;
   const creditableVacationDays = countCreditableAbsence(vacationEntries);
   const creditableSickDays = countCreditableAbsence(sickEntries);
-  const creditedAbsenceMin = (creditableVacationDays + creditableSickDays) * perWorkdayMin;
+  // Gleitzeit-Überstundenabbau: ganzer freier Tag, wird wie Urlaub/Krank als Arbeitstag angerechnet
+  // (kein Soll-Ist-Defizit), zählt aber bewusst NICHT in computeVacationRemaining/computeYearlyVacationPlanning,
+  // da es kein Urlaubstag ist und den Urlaubsanspruch nicht mindert.
+  const creditableOvertimeReductionDays = countCreditableAbsence(overtimeReductionEntries);
+  const creditedAbsenceMin = (creditableVacationDays + creditableSickDays + creditableOvertimeReductionDays) * perWorkdayMin;
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);
@@ -416,7 +421,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   const vacationRemaining = computeVacationRemaining(emp, ym, state.entries);
 
   return {
-    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeEntries,
+    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeReductionEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
     vacationRemaining,
   };
@@ -430,7 +435,7 @@ export function computeMonthReport(employerId, ym, ctx) {
  */
 export function computeMonthOverview(ym, ctx) {
   const state = ctx && ctx.state;
-  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, workEntriesCount: 0 } };
+  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, workEntriesCount: 0 } };
 
   const rows = state.employers.map(emp => {
     const r = computeMonthReport(emp.id, ym, ctx);
@@ -442,6 +447,7 @@ export function computeMonthOverview(ym, ctx) {
       balance: r.balance,
       vacationDays: r.vacationEntries.length,
       sickDays: r.sickEntries.length,
+      overtimeReductionDays: r.overtimeReductionEntries.length,
       workEntriesCount: r.workEntries.length,
     };
   }).filter(Boolean);
@@ -452,8 +458,9 @@ export function computeMonthOverview(ym, ctx) {
     balance: acc.balance + row.balance,
     vacationDays: acc.vacationDays + row.vacationDays,
     sickDays: acc.sickDays + row.sickDays,
+    overtimeReductionDays: acc.overtimeReductionDays + row.overtimeReductionDays,
     workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
-  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, workEntriesCount: 0 });
+  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, workEntriesCount: 0 });
 
   return { ym, rows, totals };
 }

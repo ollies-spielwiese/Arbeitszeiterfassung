@@ -34,7 +34,7 @@ import { isHoliday } from './holidays.js';
  * @param {string} params.startISO 'YYYY-MM-DD'
  * @param {string} params.endISO 'YYYY-MM-DD' (inklusiv, >= startISO)
  * @param {string} params.employerId
- * @param {'vacation'|'sick'} params.type
+ * @param {'vacation'|'sick'|'overtime_reduction'} params.type
  * @param {string} [params.note]
  * @param {boolean} [params.skipWeekendsHolidays] Default true.
  * @param {string} params.stateCode Bundesland-Code, z. B. 'HE' (für Feiertagsprüfung).
@@ -53,7 +53,7 @@ export function buildRangeEntries(params) {
 
   const result = { toCreate: [], totalDays: 0, created: 0, skippedWeekend: 0, skippedHoliday: 0, skippedExisting: 0 };
 
-  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'sick')) return result;
+  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'sick' || type === 'overtime_reduction')) return result;
   if (endISO < startISO) return result;
 
   const existingDates = new Set(
@@ -102,12 +102,16 @@ export function buildRangeEntries(params) {
 /**
  * Baut die Zusammenfassungs-Toast-Nachricht aus einem AZRangeEntryResult.
  * @param {AZRangeEntryResult} r
- * @param {'vacation'|'sick'} type
+ * @param {'vacation'|'sick'|'overtime_reduction'} type
  * @returns {string}
  */
 export function formatRangeEntrySummary(r, type) {
-  const label = type === 'sick' ? 'Krankheitstag' : 'Urlaubstag';
-  const labelPlural = type === 'sick' ? 'Krankheitstage' : 'Urlaubstage';
+  const LABELS = {
+    vacation: ['Urlaubstag', 'Urlaubstage'],
+    sick: ['Krankheitstag', 'Krankheitstage'],
+    overtime_reduction: ['Überstundenabbau-Tag', 'Überstundenabbau-Tage'],
+  };
+  const [label, labelPlural] = LABELS[type] || LABELS.vacation;
   const n = r.created;
   const parts = [`${n} ${n === 1 ? label : labelPlural} angelegt`];
   const skipParts = [];

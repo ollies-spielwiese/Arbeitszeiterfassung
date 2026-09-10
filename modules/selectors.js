@@ -163,6 +163,16 @@ export function getSummaryFields(input, ctx) {
       rawCounts: { vacation: input.vacationDays || 0, sick: input.sickDays || 0 },
       monthLabel: input.monthLabel || '',
     });
+    // 4c. Gleitzeit-Überstundenabbau (eigenes Feld, zählt bewusst nicht in "Urlaub / Krank"
+    // und nicht in den Urlaubsanspruch — siehe computeVacationRemaining).
+    fields.push({
+      key: 'overtimeReduction',
+      label: 'Gleitzeit-Überstundenabbau',
+      kind: 'count',
+      value: `${input.overtimeReductionDays || 0} Tage`,
+      rawCounts: { overtimeReduction: input.overtimeReductionDays || 0 },
+      monthLabel: input.monthLabel || '',
+    });
   }
 
   // 5. Feiertage (wenn explizit angefordert, z.B. Woche)
@@ -181,7 +191,7 @@ export function getSummaryFields(input, ctx) {
 /**
  * Aggregierte Variante für Übersicht (mehrere Kunden/Arbeitgeber).
  * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
- * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, vacationDays:number, sickDays:number}}} ov
+ * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, vacationDays:number, sickDays:number, overtimeReductionDays?:number}}} ov
  * @param {{isFreelance:()=>boolean, minutesToHM:(min:number)=>string,
  *          hoursDecimal:(min:number)=>string, formatMoney:(amt:number, cur:string)=>string}} ctx
  * @returns {import('../types.js').AZSummaryField[]}
@@ -253,6 +263,12 @@ export function getOverviewSummaryFields(ov, ctx) {
       label: 'Urlaub / Krank',
       kind: 'count',
       value: `${ov.totals.vacationDays} / ${ov.totals.sickDays}`,
+    });
+    fields.push({
+      key: 'overtimeReduction',
+      label: 'Gleitzeit-Überstundenabbau',
+      kind: 'count',
+      value: `${ov.totals.overtimeReductionDays || 0} Tage`,
     });
   }
   return fields;
@@ -332,7 +348,7 @@ export function computeEntryRows(list, ctx) {
         detailsParts: emp ? [emp.name] : [],
         badgeType: 'vacation',
       };
-    } else {
+    } else if (e.type === 'sick') {
       row = {
         type: 'sick',
         rightKind: 'absence-sick',
@@ -340,6 +356,17 @@ export function computeEntryRows(list, ctx) {
         isOvertime: false,
         detailsParts: emp ? [emp.name] : [],
         badgeType: 'sick',
+      };
+    } else {
+      // 'overtime_reduction' (Gleitzeit-Überstundenabbau) — ganzer freier Tag,
+      // wird wie Urlaub/Krank angerechnet, mindert aber nicht den Urlaubsanspruch.
+      row = {
+        type: 'overtime_reduction',
+        rightKind: 'absence-overtime_reduction',
+        rightValueMin: 0,
+        isOvertime: false,
+        detailsParts: emp ? [emp.name] : [],
+        badgeType: 'overtime_reduction',
       };
     }
 

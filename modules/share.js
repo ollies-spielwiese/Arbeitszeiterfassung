@@ -40,6 +40,7 @@ function buildMailBody(report, ctx) {
     balance: report.balance,
     vacationDays: report.vacationEntries.length,
     sickDays: report.sickEntries.length,
+    overtimeReductionDays: (report.overtimeReductionEntries || []).length,
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',
   }));

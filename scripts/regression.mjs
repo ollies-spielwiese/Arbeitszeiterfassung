@@ -299,6 +299,148 @@ async function runRangeEntryUnits(page) {
   assertEq('R6: computeMonthReport zählt 5 Urlaubstage', r6.vacationDays, 5);
 }
 
+// ---------- 1e-2) Gleitzeit-Überstundenabbau (Option B, v3.9.42) ----------
+
+async function runOvertimeReductionUnits(page) {
+  console.log('\n=== 1e-2) Gleitzeit-Überstundenabbau Unit-Tests ===');
+
+  // OT1: buildRangeEntries akzeptiert type='overtime_reduction' und legt Werktage an
+  // (identisch zum Urlaub-Fall R1, nur mit dem neuen Typ).
+  const ot1 = await page.evaluate(() => buildRangeEntries({
+    startISO: '2026-06-08', endISO: '2026-06-14', // Mo-So
+    employerId: 'e1', type: 'overtime_reduction', note: '',
+    skipWeekendsHolidays: true, stateCode: 'HE',
+    existingEntries: [], uid: () => 'x' + Math.random(),
+  }));
+  assertEq('OT1: genau 5 Einträge angelegt (Mo-Fr)', ot1.created, 5);
+  assertTrue('OT1: alle erzeugten Einträge sind type=overtime_reduction',
+    ot1.toCreate.every(e => e.type === 'overtime_reduction'), '');
+
+  // OT2: formatRangeEntrySummary liefert den Überstundenabbau-spezifischen Text.
+  const ot2 = await page.evaluate(() => {
+    const res = buildRangeEntries({
+      startISO: '2026-06-08', endISO: '2026-06-09', // Mo-Di
+      employerId: 'e1', type: 'overtime_reduction', note: '',
+      skipWeekendsHolidays: true, stateCode: 'HE',
+      existingEntries: [], uid: () => 'x' + Math.random(),
+    });
+    return formatRangeEntrySummary(res, 'overtime_reduction');
+  });
+  assertContains('OT2: Summary nennt "Überstundenabbau-Tage"', ot2, 'Überstundenabbau-Tage');
+
+  // OT3+OT4: Integration — computeMonthReport zählt die Tage separat, rechnet sie
+  // wie Urlaub/Krank als volle Tage an (creditedAbsenceMin), mindert aber NICHT
+  // den Urlaubsanspruch aus computeVacationRemaining.
+  const ot34 = await page.evaluate(() => {
+    const empId = '__ot-check-e34__';
+    state.employers.push({
+      id: empId, name: 'OT-Check', hoursMode: 'week', weeklyHours: 40,
+      breakMode: 'none', annualVacation: 30,
+    });
+    const res = buildRangeEntries({
+      startISO: '2026-06-08', endISO: '2026-06-09', // Mo+Di, 2 Werktage
+      employerId: empId, type: 'overtime_reduction', note: '',
+      skipWeekendsHolidays: true, stateCode: 'HE',
+      existingEntries: state.entries, uid: () => 'rg' + Math.random(),
+    });
+    state.entries.push(...res.toCreate);
+    const report = computeMonthReport(empId, '2026-06');
+    const vacRemaining = computeVacationRemaining(
+      { id: empId, annualVacation: 30, vacationCarryOver: 0, hiredSince: '' },
+      '2026-06', state.entries,
+    );
+    const dailyTargetMin = report.dailyTargetMin;
+    const result = {
+      created: res.created,
+      overtimeReductionDays: report.overtimeReductionEntries.length,
+      creditedAbsenceMin: report.creditedAbsenceMin,
+      dailyTargetMin,
+      vacationRemaining: vacRemaining.remaining,
+      vacationTaken: vacRemaining.taken,
+    };
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return result;
+  });
+  assertEq('OT3: 2 angelegte Überstundenabbau-Tage', ot34.created, 2);
+  assertEq('OT3: computeMonthReport zählt 2 Überstundenabbau-Tage', ot34.overtimeReductionDays, 2);
+  assertEq('OT3: creditedAbsenceMin = 2 × Tagessoll (volle Anrechnung)',
+    ot34.creditedAbsenceMin, 2 * ot34.dailyTargetMin);
+  assertEq('OT4: Urlaubsanspruch bleibt bei 30 (Überstundenabbau mindert ihn NICHT)',
+    ot34.vacationRemaining, 30);
+  assertEq('OT4: computeVacationRemaining zählt 0 genommene Urlaubstage', ot34.vacationTaken, 0);
+
+  // OT5: computeMonthOverview summiert overtimeReductionDays korrekt über die Totals.
+  const ot5 = await page.evaluate(() => {
+    const empId = '__ot-check-e5__';
+    state.employers.push({
+      id: empId, name: 'OT-Check-5', hoursMode: 'week', weeklyHours: 40,
+      breakMode: 'none', annualVacation: 30,
+    });
+    state.entries.push(
+      { id: 'ot5a', employerId: empId, date: '2026-06-08', type: 'overtime_reduction' },
+      { id: 'ot5b', employerId: empId, date: '2026-06-09', type: 'overtime_reduction' },
+    );
+    const ov = computeMonthOverview('2026-06');
+    const row = ov.rows.find(r => r.employer.id === empId);
+    const result = { rowDays: row ? row.overtimeReductionDays : -1, totalsDays: ov.totals.overtimeReductionDays };
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return result;
+  });
+  assertAtLeast('OT5: Übersicht-Zeile zählt mind. 2 Überstundenabbau-Tage', ot5.rowDays, 2);
+  assertAtLeast('OT5: Übersicht-Totals zählen mind. 2 Überstundenabbau-Tage', ot5.totalsDays, 2);
+
+  // OT6: getSummaryFields liefert das neue Feld mit korrektem Wert.
+  const ot6 = await page.evaluate(() => getSummaryFields({
+    mode: 'employee', workedMin: 9600, targetMin: 9600, balance: 0,
+    vacationDays: 1, sickDays: 0, overtimeReductionDays: 2,
+  }));
+  const ot6Field = ot6.find(f => f.key === 'overtimeReduction');
+  assertTrue('OT6: Feld overtimeReduction vorhanden', !!ot6Field, `keys=${ot6.map(f=>f.key).join(',')}`);
+  assertContains('OT6: Wert nennt "2 Tage"', ot6Field?.value || '', '2 Tage');
+
+  // OT7: computeEntryRows liefert badgeType/rightKind für den neuen Typ.
+  const ot7 = await page.evaluate(async () => {
+    const { computeEntryRows } = await import('/modules/selectors.js');
+    const rows = computeEntryRows(
+      [{ id: 'x1', employerId: 'e1', date: '2026-06-08', type: 'overtime_reduction' }],
+      {
+        getEmployer: () => ({ id: 'e1', name: 'Test', color: '#3b82f6' }),
+        computeWorkMinutes: () => 0,
+        computeHomeofficeMinutes: () => 0,
+        computeMonthTargetMinutes: () => 0,
+        countWorkdaysInMonth: () => 0,
+      },
+    );
+    return rows[0];
+  });
+  assertEq('OT7: rightKind = absence-overtime_reduction', ot7.rightKind, 'absence-overtime_reduction');
+  assertEq('OT7: badgeType = overtime_reduction', ot7.badgeType, 'overtime_reduction');
+
+  // OT8+OT9: PDF/Word-Export enthalten die Überstundenabbau-Zeile mit Datum.
+  const ot89 = await page.evaluate(async () => {
+    const empId = '__ot-check-e89__';
+    state.employers.push({
+      id: empId, name: 'OT-Export-Check', hoursMode: 'week', weeklyHours: 40,
+      breakMode: 'none', annualVacation: 30,
+    });
+    state.entries.push({ id: 'ot89a', employerId: empId, date: '2026-06-08', type: 'overtime_reduction' });
+    const report = computeMonthReport(empId, '2026-06');
+    const pdfBlob = await generatePdfBlob(report);
+    const wordBlob = await generateWordBlob(report);
+    const pdfBytes = Array.from(new Uint8Array(await pdfBlob.arrayBuffer()));
+    const wordBytes = Array.from(new Uint8Array(await wordBlob.arrayBuffer()));
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return { pdfBytes, wordBytes };
+  });
+  const ot8Text = await extractPdfText(Buffer.from(ot89.pdfBytes));
+  assertContains('OT8: PDF-Export enthält "Überstundenabbau"', ot8Text, 'Überstundenabbau');
+  const ot9Text = await extractWordText(Buffer.from(ot89.wordBytes));
+  assertContains('OT9: Word-Export enthält "Überstundenabbau"', ot9Text, 'Überstundenabbau');
+}
+
 async function runRangeVacationStatsUnits(page) {
   console.log('\n=== 1f) Urlaubskonto-Anzeige im Zeitraum-Modal ===');
 
@@ -888,6 +1030,7 @@ function runActiveUpdateCheckOnLoadCheck() {
     await runVacationRemainingUnits(page);
     await runVacationPlanningUnits(page);
     await runRangeEntryUnits(page);
+    await runOvertimeReductionUnits(page);
     await runRangeVacationStatsUnits(page);
     await runFreelance(page);
     await runEmployee(page);
