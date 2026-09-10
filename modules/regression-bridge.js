@@ -29,6 +29,8 @@ export function exportBridge(target, refs) {
     uid, normalizeSegments, normalizeHolidayOverrides,
     // Holidays
     getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
+    // Range-Entry (Option B — Bulk-Erfassung Zeitraum)
+    buildRangeEntries, formatRangeEntrySummary,
     // Rendering + Views
     switchView, renderReport, renderTracker, renderEntries, renderEmployers, renderArchive, renderSettings,
     // Compute + Export
@@ -75,6 +77,8 @@ export function exportBridge(target, refs) {
   if (typeof isHoliday === 'function') target.isHoliday = isHoliday;
   if (typeof easterSunday === 'function') target.easterSunday = easterSunday;
   if (typeof applyHolidayOverrides === 'function') target.applyHolidayOverrides = applyHolidayOverrides;
+  if (typeof buildRangeEntries === 'function') target.buildRangeEntries = buildRangeEntries;
+  if (typeof formatRangeEntrySummary === 'function') target.formatRangeEntrySummary = formatRangeEntrySummary;
 
   // Rendering + Views
   if (typeof switchView === 'function') target.switchView = switchView;

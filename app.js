@@ -146,6 +146,11 @@ import {
   deleteEntry as _deleteEntryRaw,
 } from './modules/ui/entry-modal.js';
 import {
+  openRangeEntryModal as _openRangeEntryModalRaw,
+  saveRangeEntry as _saveRangeEntryRaw,
+} from './modules/ui/range-entry-modal.js';
+import { buildRangeEntries, formatRangeEntrySummary } from './modules/range-entry.js';
+import {
   openHomeofficeModal as _openHomeofficeModalRaw,
   updateHomeofficeContext as _updateHomeofficeContextRaw,
   readHomeofficeSegmentsFromDom as _readHomeofficeSegmentsFromDomRaw,
@@ -809,6 +814,29 @@ function saveEntry(e) {
 
 function deleteEntry() {
   return _deleteEntryRaw(_entryCtx());
+}
+
+/* ---------- Range-Entry Modal (Zeitraum erfassen, Option B) ---------- */
+function _rangeEntryCtx() {
+  return {
+    getState: _getState,
+    saveState,
+    escapeHtml,
+    renderTracker,
+    renderEntries,
+    refreshAll,
+    toast,
+    closeModals,
+    uid,
+  };
+}
+
+function openRangeEntryModal() {
+  return _openRangeEntryModalRaw(_rangeEntryCtx());
+}
+
+function saveRangeEntry(e) {
+  return _saveRangeEntryRaw(e, _rangeEntryCtx());
 }
 
 /* ---------- Home-Office Mode & Modal ---------- */
@@ -1600,6 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   openEntryModal, saveEntry, deleteEntry,
   updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
   applyScheduleToEntry,
+  openRangeEntryModal, saveRangeEntry,
   openHomeofficeModal, saveHomeoffice, deleteHomeoffice,
   addHomeofficeSegment, updateHomeofficeContext,
   removeHomeofficeSegment, updateHomeofficeLiveTotal,
@@ -1642,6 +1671,7 @@ if (typeof window !== 'undefined') {
     getEmployer, getCurrentReport, getCurrentOverview,
     uid, normalizeSegments, normalizeHolidayOverrides,
     getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
+    buildRangeEntries, formatRangeEntrySummary,
     switchView, renderReport, renderTracker, renderEntries, renderEmployers, renderArchive, renderSettings,
     DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,

@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.35</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.36</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -166,6 +166,9 @@
         </button>
         <button id="btn-add-absence" class="btn-secondary" data-testid="button-add-absence">
           + Urlaub / Krankheit
+        </button>
+        <button id="btn-add-range" class="btn-secondary" data-testid="button-add-range">
+          📅 Zeitraum erfassen
         </button>
       </div>
 
@@ -662,6 +665,54 @@
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
           <button type="button" id="btn-delete-entry" class="btn-danger hidden">Löschen</button>
           <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Range Entry Form (Zeitraum erfassen — Urlaub/Krankheit „von … bis …") -->
+  <div id="modal-range-entry" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Zeitraum erfassen</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-range-entry">
+        <div class="form-row">
+          <label for="range-employer">Arbeitgeber</label>
+          <select id="range-employer" required></select>
+        </div>
+        <div class="form-row">
+          <label for="range-type">Typ</label>
+          <select id="range-type">
+            <option value="vacation">Urlaub</option>
+            <option value="sick">Krankheit</option>
+          </select>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="range-start">Von</label>
+            <input type="date" id="range-start" required />
+          </div>
+          <div>
+            <label for="range-end">Bis</label>
+            <input type="date" id="range-end" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-row" for="range-skip-weekends-holidays">
+            <input type="checkbox" id="range-skip-weekends-holidays" checked />
+            Wochenenden/Feiertage automatisch auslassen
+          </label>
+        </div>
+        <div class="form-row">
+          <label for="range-note">Bemerkung (optional)</label>
+          <input type="text" id="range-note" />
+        </div>
+        <small class="hint">Für jeden Tag im Zeitraum wird ein eigener Eintrag angelegt. Tage mit bereits vorhandenem Eintrag werden übersprungen.</small>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="submit" class="btn-primary">Anlegen</button>
         </div>
       </form>
     </div>

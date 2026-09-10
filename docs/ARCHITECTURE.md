@@ -349,6 +349,16 @@ Nicht kritisch, kommt in Phase 4 dran:
 
 Nicht Code, sondern `getHolidays` (`app.js:939`). Konstante Tabelle erweitern. Regression sollte einen Test bekommen, wenn der Feiertag exotisch ist.
 
+### Neue Bulk-Erfassung (Zeitraum, z. B. „Fortbildungstage“)
+
+Muster für „von … bis …“-Erfassung, umgesetzt für Urlaub/Krankheit in Phase 4.9 (Option B):
+
+1. **Reine Logik in `modules/range-entry.js`** (kein DOM, kein State-Write): `buildRangeEntries(params)` iteriert Tag für Tag über `[startISO, endISO]`, nutzt `dayOfWeekISO`/`isoDateAdd` aus `util-time.js` und `isHoliday` aus `holidays.js`, und liefert `{ toCreate, totalDays, created, skippedWeekend, skippedHoliday, skippedExisting }` zurück. Bereits belegte Tage (gleicher `employerId`+`date` in `existingEntries`) werden übersprungen, nie überschrieben. `formatRangeEntrySummary(result, type)` baut die Toast-Zusammenfassung.
+2. **UI-Layer in `modules/ui/range-entry-modal.js`**: `openRangeEntryModal(ctx)` füllt das Modal, `saveRangeEntry(e, ctx)` liest die Formularfelder, ruft `buildRangeEntries`, pusht `toCreate` in `state.entries`, ruft `saveState()` + Renderer + `refreshAll()` — exakt das Save-Fn-Muster von `modules/ui/entry-modal.js`.
+3. **Wiring**: neue Funktionen in `app.js` über `_rangeEntryCtx()` mit DI versorgen, in den `wireEvents({...})`-Aufruf und in `modules/bootstrap.js` (Button-Click + Form-Submit) einhängen.
+4. **Kein Migrationsbedarf**: erzeugte Entries haben exakt die Form manuell angelegter Urlaub/Krank-Einträge (`{ id, employerId, date, type, note, createdAt }`) — `computeMonthReport` und alle Exporte behandeln sie identisch.
+5. **Regression**: reine Unit-Tests direkt gegen `buildRangeEntries`/`formatRangeEntrySummary` über die `regression-bridge.js` (kein UI-Formular-Ausfüllen nötig) — siehe `runRangeEntryUnits` in `scripts/regression.mjs` (Wochenend-Filter, Feiertags-Filter, Schutz bestehender Einträge, Filter-Deaktivierung, Summary-Text, Monatsbericht-Integration).
+
 ---
 
 ## Versionierung & Release

@@ -558,6 +558,14 @@ textarea { resize: vertical; min-height: 3rem; }
   gap: 0.65rem;
 }
 .hint { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.checkbox-row input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; flex-shrink: 0; }
 
 .modal-actions {
   display: flex;

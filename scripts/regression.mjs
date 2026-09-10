@@ -198,6 +198,101 @@ async function runMigrationUnits(page) {
     hoOn15[0]?.segments?.length === 2, `segs=${hoOn15[0]?.segments?.length}`);
 }
 
+// ---------- 1e) Range-Entry (Option B) Unit-Tests ----------
+
+async function runRangeEntryUnits(page) {
+  console.log('\n=== 1e) buildRangeEntries Unit-Tests (Zeitraum erfassen) ===');
+
+  // R1: Mo-Fr + folgendes Sa/So — nur 5 Werktage werden angelegt, Wochenende übersprungen.
+  const r1 = await page.evaluate(() => buildRangeEntries({
+    startISO: '2026-06-08', // Montag
+    endISO: '2026-06-14',   // Sonntag
+    employerId: 'e1', type: 'vacation', note: '',
+    skipWeekendsHolidays: true, stateCode: 'HE',
+    existingEntries: [], uid: () => 'x' + Math.random(),
+  }));
+  assertEq('R1: 7 Kalendertage im Bereich', r1.totalDays, 7);
+  assertEq('R1: genau 5 Urlaubseinträge (Mo-Fr)', r1.created, 5);
+  assertEq('R1: 2 Tage wegen Wochenende übersprungen', r1.skippedWeekend, 2);
+  assertTrue('R1: alle erzeugten Einträge sind type=vacation',
+    r1.toCreate.every(e => e.type === 'vacation'), '');
+  assertTrue('R1: kein Sa/So unter den erzeugten Daten',
+    !r1.toCreate.some(e => ['2026-06-13', '2026-06-14'].includes(e.date)), '');
+
+  // R2: Bestehender Eintrag am selben Tag/Employer wird nicht überschrieben (übersprungen).
+  const r2 = await page.evaluate(() => buildRangeEntries({
+    startISO: '2026-06-08', endISO: '2026-06-10', // Mo-Mi
+    employerId: 'e1', type: 'vacation', note: '',
+    skipWeekendsHolidays: true, stateCode: 'HE',
+    existingEntries: [{ id: 'p1', employerId: 'e1', date: '2026-06-09', type: 'work' }],
+    uid: () => 'x' + Math.random(),
+  }));
+  assertEq('R2: 2 von 3 Tagen angelegt (1 bereits belegt)', r2.created, 2);
+  assertEq('R2: 1 Tag wegen bestehendem Eintrag übersprungen', r2.skippedExisting, 1);
+  assertTrue('R2: der belegte Tag 2026-06-09 wird nicht erneut erzeugt',
+    !r2.toCreate.some(e => e.date === '2026-06-09'), '');
+
+  // R3: Feiertag auf einem Werktag (Tag der Arbeit, Fr 2026-05-01) wird eigenständig über
+  // skippedHoliday erfasst — Mi/Do/Fr, keine Wochenendüberlappung.
+  const r3 = await page.evaluate(() => buildRangeEntries({
+    startISO: '2026-04-29', endISO: '2026-05-01', // Mi, Do, Fr(Feiertag)
+    employerId: 'e1', type: 'sick', note: '',
+    skipWeekendsHolidays: true, stateCode: 'HE',
+    existingEntries: [], uid: () => 'x' + Math.random(),
+  }));
+  assertEq('R3: 2 von 3 Tagen angelegt (Feiertag am 01.05. ausgelassen)', r3.created, 2);
+  assertEq('R3: genau 1 Tag wegen Feiertag übersprungen', r3.skippedHoliday, 1);
+  assertEq('R3: 0 Tage wegen Wochenende übersprungen (reine Werktage)', r3.skippedWeekend, 0);
+  assertTrue('R3: 2026-05-01 (Feiertag) taucht nicht unter den erzeugten Terminen auf',
+    !r3.toCreate.some(e => e.date === '2026-05-01'), `created=${JSON.stringify(r3.toCreate.map(e=>e.date))}`);
+
+  // R4: skipWeekendsHolidays=false — auch Sa/So werden angelegt.
+  const r4 = await page.evaluate(() => buildRangeEntries({
+    startISO: '2026-06-13', endISO: '2026-06-14', // Sa, So
+    employerId: 'e1', type: 'vacation', note: '',
+    skipWeekendsHolidays: false, stateCode: 'HE',
+    existingEntries: [], uid: () => 'x' + Math.random(),
+  }));
+  assertEq('R4: ohne Filter werden beide Wochenendtage angelegt', r4.created, 2);
+  assertEq('R4: skippedWeekend=0 wenn Filter deaktiviert', r4.skippedWeekend, 0);
+
+  // R5: formatRangeEntrySummary liefert lesbaren Text mit Zahlen aus dem Ergebnis.
+  const r5 = await page.evaluate(() => {
+    const res = buildRangeEntries({
+      startISO: '2026-06-08', endISO: '2026-06-14',
+      employerId: 'e1', type: 'vacation', note: '',
+      skipWeekendsHolidays: true, stateCode: 'HE',
+      existingEntries: [], uid: () => 'x' + Math.random(),
+    });
+    return formatRangeEntrySummary(res, 'vacation');
+  });
+  assertContains('R5: Summary enthält Anzahl angelegter Urlaubstage', r5, '5 Urlaubstage angelegt');
+  assertContains('R5: Summary erwähnt übersprungene Wochenendtage', r5, 'Wochenende/Feiertag');
+
+  // R6: Integration — über buildRangeEntries angelegte Urlaubstage werden vom bestehenden
+  // computeMonthReport()-Pfad korrekt als Urlaub gezählt (keine Änderung an compute.js nötig,
+  // da die erzeugten Entries dieselbe Form wie manuell angelegte haben).
+  const r6 = await page.evaluate(() => {
+    const empId = '__range-check-e6__';
+    state.employers.push({ id: empId, name: 'Range-Check', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    const res = buildRangeEntries({
+      startISO: '2026-06-08', endISO: '2026-06-12', // Mo-Fr, 5 Werktage
+      employerId: empId, type: 'vacation', note: '',
+      skipWeekendsHolidays: true, stateCode: 'HE',
+      existingEntries: state.entries, uid: () => 'rg' + Math.random(),
+    });
+    state.entries.push(...res.toCreate);
+    const report = computeMonthReport(empId, '2026-06');
+    const vacationDays = report ? report.vacationEntries.length : -1;
+    // Aufräumen, damit nachfolgende Tests im selben Page-Context nicht beeinflusst werden.
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return { vacationDays, created: res.created };
+  });
+  assertEq('R6: 5 angelegte Urlaubstage', r6.created, 5);
+  assertEq('R6: computeMonthReport zählt 5 Urlaubstage', r6.vacationDays, 5);
+}
+
 // ---------- Helpers für E2E ----------
 
 /*
@@ -538,6 +633,7 @@ async function runEmployee(page) {
     await runSelectorUnits(page);
     await runMigrationUnits(page);
     await runVacationRemainingUnits(page);
+    await runRangeEntryUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

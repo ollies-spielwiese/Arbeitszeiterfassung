@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.35';
+export const APP_VERSION = '3.9.36';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.36', items: [
+    'Neu: "Zeitraum erfassen" — Urlaub/Krankheit lassen sich jetzt als "von … bis …" für einen ganzen Zeitraum auf einmal anlegen, statt Tag für Tag',
+    'Wochenenden und Feiertage werden dabei automatisch ausgelassen (abschaltbar), bereits belegte Tage werden nicht überschrieben',
+    'Zusammenfassungs-Hinweis nach dem Anlegen: Anzahl angelegter Tage + übersprungene Tage (Wochenende/Feiertag bzw. bereits belegt)',
+    'Regression: 6 neue Assertions für die Zeitraum-Erfassung (Wochenend-/Feiertags-Filter, Schutz bestehender Einträge, Monatsbericht-Integration)',
+  ]},
   { version: '3.9.35', items: [
     'WhatsNew-Modal: einleitender Erklärsatz über den Changelog-Einträgen',
     'README aktualisiert: neue Feature-Beschreibung mit Urlaubs-Prorating, PDF-Kopfzeile und Seitennummerierung',
