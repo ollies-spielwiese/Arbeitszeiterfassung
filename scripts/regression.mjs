@@ -491,6 +491,74 @@ async function runVacationRemainingUnits(page) {
   assertTrue('W2: Modal bleibt hidden wenn Version bereits gesehen', w2 === true);
 }
 
+async function runVacationPlanningUnits(page) {
+  console.log('\n=== 1g) computeYearlyVacationPlanning + buildVacationPlanningHTML Unit-Tests ===');
+
+  // VP1: Genommen (<=today) vs. eingegeben (>today) korrekt pro Monat aufgeteilt;
+  // andere Employer, andere Jahre und Typ='sick' werden ignoriert.
+  const vp1 = await page.evaluate(() => {
+    const emp = { id: 'e1' };
+    const entries = [
+      { id: 'a', type: 'vacation', employerId: 'e1', date: '2026-01-10' }, // Jan, genommen
+      { id: 'b', type: 'vacation', employerId: 'e1', date: '2026-03-05' }, // Mär, genommen
+      { id: 'c', type: 'vacation', employerId: 'e1', date: '2026-06-15' }, // Stichtag selbst, genommen
+      { id: 'd', type: 'vacation', employerId: 'e1', date: '2026-08-01' }, // Aug, eingegeben
+      { id: 'e', type: 'vacation', employerId: 'e1', date: '2026-12-24' }, // Dez, eingegeben
+      { id: 'f', type: 'vacation', employerId: 'e2', date: '2026-05-01' }, // anderer Employer
+      { id: 'g', type: 'sick', employerId: 'e1', date: '2026-04-01' },     // Krank
+      { id: 'h', type: 'vacation', employerId: 'e1', date: '2025-12-20' }, // Vorjahr
+      { id: 'i', type: 'vacation', employerId: 'e1', date: '2027-01-05' }, // Folgejahr
+    ];
+    return computeYearlyVacationPlanning(emp, '2026', entries, '2026-06-15');
+  });
+  assertEq('VP1: totalTaken=3', vp1.totalTaken, 3);
+  assertEq('VP1: totalUpcoming=2', vp1.totalUpcoming, 2);
+  assertEq('VP1: totalYear=5', vp1.totalYear, 5);
+  assertEq('VP1: Januar (Monat 1) genommen=1', vp1.months[0].taken, 1);
+  assertEq('VP1: März (Monat 3) genommen=1', vp1.months[2].taken, 1);
+  assertEq('VP1: Juni (Monat 6) — Stichtag selbst zählt als genommen', vp1.months[5].taken, 1);
+  assertEq('VP1: August (Monat 8) eingegeben=1', vp1.months[7].upcoming, 1);
+  assertEq('VP1: Dezember (Monat 12) eingegeben=1', vp1.months[11].upcoming, 1);
+  assertEq('VP1: Februar (Monat 2) unberührt=0', vp1.months[1].taken + vp1.months[1].upcoming, 0);
+  assertEq('VP1: year als String "2026"', vp1.year, '2026');
+
+  // VP2: Ohne Arbeitgeber (emp=null) liefert die Funktion durchgehend Nullen statt zu crashen.
+  const vp2 = await page.evaluate(() => {
+    const entries = [{ id: 'a', type: 'vacation', employerId: 'e1', date: '2026-01-10' }];
+    return computeYearlyVacationPlanning(null, '2026', entries, '2026-06-15');
+  });
+  assertEq('VP2: totalYear=0 ohne Arbeitgeber', vp2.totalYear, 0);
+  assertEq('VP2: 12 Monate im Ergebnis-Array', vp2.months.length, 12);
+
+  // VP3: Leere Eintrags-Liste liefert 12 leere Monate, keine Exceptions.
+  const vp3 = await page.evaluate(() => computeYearlyVacationPlanning({ id: 'e1' }, '2026', [], '2026-06-15'));
+  assertTrue('VP3: alle Monate 0/0 bei leerer Eintragsliste', vp3.months.every(m => m.taken === 0 && m.upcoming === 0), JSON.stringify(vp3.months));
+
+  // VP4: buildVacationPlanningHTML rendert Summary-Karte + Monatstabelle mit Gesamt-Zeile.
+  const vp4Html = await page.evaluate(() => {
+    const vp = { year: '2026', months: [
+      { month: 1, taken: 1, upcoming: 0 },
+      { month: 2, taken: 0, upcoming: 0 },
+      { month: 8, taken: 0, upcoming: 2 },
+    ].concat(Array.from({ length: 9 }, (_, i) => ({ month: i + 4, taken: 0, upcoming: 0 }))).sort((a, b) => a.month - b.month),
+      totalTaken: 1, totalUpcoming: 2, totalYear: 3 };
+    const vr = { annual: 30, carryOver: 5, taken: 3, remaining: 32, prorated: false, hiredMonth: null };
+    const emp = { id: 'e1', name: 'Test-Arbeitgeber' };
+    const escapeHtml = (s) => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    return buildVacationPlanningHTML(vp, vr, emp, { escapeHtml, renderSummaryHTML, monthLabels: MONTH_LABELS_LONG });
+  });
+  assertContains('VP4: Arbeitgeber-Name im Header', vp4Html, 'Test-Arbeitgeber');
+  assertContains('VP4: Jahr im Untertitel', vp4Html, 'Jahr 2026');
+  assertContains('VP4: Jahresanspruch 35 Tage (30+5) in Summary-Karte', vp4Html, '35 Tage');
+  assertContains('VP4: Bereits genommen 1 Tage in Summary-Karte', vp4Html, 'Bereits genommen');
+  assertContains('VP4: Eingegeben (Zukunft) 2 Tage in Summary-Karte', vp4Html, 'Eingegeben (Zukunft)');
+  assertContains('VP4: Noch nicht erfasst (vr.remaining=32) in Summary-Karte', vp4Html, 'Noch nicht erfasst');
+  assertContains('VP4: Monatsname Januar in Tabelle', vp4Html, 'Januar');
+  assertContains('VP4: Monatsname August in Tabelle', vp4Html, 'August');
+  assertContains('VP4: Gesamt-Zeile mit Summe 3', vp4Html, 'Gesamt');
+  assertContains('VP4: leerer Monat erhält muted-row Klasse', vp4Html, 'muted-row');
+}
+
 async function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -642,6 +710,17 @@ async function runEmployee(page) {
   const overview = await checkView(page, 'overview');
   assertTrue('employee overview: Ist gesamt sichtbar', /Ist/i.test(overview));
 
+  await page.evaluate(async ym => {
+    const inp = document.getElementById('vacation-planning-year');
+    if (inp) inp.value = ym.slice(0, 4);
+  }, await currentYm());
+  const vacationPlanning = await checkView(page, 'vacation-planning');
+  assertTrue('employee vacation-planning: Header sichtbar', /Urlaubsplanung/i.test(vacationPlanning));
+  assertTrue('employee vacation-planning: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(vacationPlanning));
+  assertTrue('employee vacation-planning: Jahresanspruch sichtbar', /Jahresanspruch/i.test(vacationPlanning));
+  assertTrue('employee vacation-planning: Monatsname Dezember in Tabelle', /Dezember/i.test(vacationPlanning));
+  assertTrue('employee vacation-planning: Gesamt-Zeile sichtbar', /Gesamt/i.test(vacationPlanning));
+
   const emPdf = await checkBlob(page, 'employee', 'pdf');
   if (emPdf) {
     const t = await extractPdfText(emPdf);
@@ -687,6 +766,7 @@ async function runEmployee(page) {
     await runSelectorUnits(page);
     await runMigrationUnits(page);
     await runVacationRemainingUnits(page);
+    await runVacationPlanningUnits(page);
     await runRangeEntryUnits(page);
     await runRangeVacationStatsUnits(page);
     await runFreelance(page);

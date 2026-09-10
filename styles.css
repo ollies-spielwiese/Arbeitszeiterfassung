@@ -396,7 +396,8 @@ textarea { resize: vertical; min-height: 3rem; }
 
 /* Overview: Monatsauswertung über alle Arbeitgeber */
 .report-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.overview-table .totals-row td {
+.overview-table .totals-row td,
+.vacation-planning-table .totals-row td {
   background: var(--surface-alt, #f1f5f9);
   border-top: 2px solid var(--border);
   border-bottom: none;
@@ -404,6 +405,7 @@ textarea { resize: vertical; min-height: 3rem; }
 }
 .report-table td .pos, .report-table td.pos { color: #059669; }
 .report-table td .neg, .report-table td.neg { color: #dc2626; }
+.vacation-planning-table .muted-row td { color: var(--text-muted); }
 
 /* Karten-Ansicht auf schmalen Displays (iPhone) */
 @media (max-width: 700px) {

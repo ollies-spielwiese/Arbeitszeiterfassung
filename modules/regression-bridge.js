@@ -39,6 +39,7 @@ export function exportBridge(target, refs) {
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
+    computeYearlyVacationPlanning, MONTH_LABELS_LONG, buildVacationPlanningHTML,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
   } = refs;
 
@@ -105,6 +106,9 @@ export function exportBridge(target, refs) {
   if (typeof computeMonthReport === 'function') target.computeMonthReport = computeMonthReport;
   if (typeof computeMonthOverview === 'function') target.computeMonthOverview = computeMonthOverview;
   if (typeof computeVacationRemaining === 'function') target.computeVacationRemaining = computeVacationRemaining;
+  if (typeof computeYearlyVacationPlanning === 'function') target.computeYearlyVacationPlanning = computeYearlyVacationPlanning;
+  if (typeof MONTH_LABELS_LONG !== 'undefined') target.MONTH_LABELS_LONG = MONTH_LABELS_LONG;
+  if (typeof buildVacationPlanningHTML === 'function') target.buildVacationPlanningHTML = buildVacationPlanningHTML;
   if (typeof generatePdfBlob === 'function') target.generatePdfBlob = generatePdfBlob;
   if (typeof generateOverviewPdfBlob === 'function') target.generateOverviewPdfBlob = generateOverviewPdfBlob;
   if (typeof generateWordBlob === 'function') target.generateWordBlob = generateWordBlob;

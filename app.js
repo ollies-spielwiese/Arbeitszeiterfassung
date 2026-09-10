@@ -96,7 +96,10 @@ import {
   computeMonthReport as _computeMonthReportRaw,
   computeMonthOverview as _computeMonthOverviewRaw,
   computeVacationRemaining,
+  computeYearlyVacationPlanning,
+  MONTH_LABELS_LONG,
 } from './modules/compute.js';
+import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './modules/render/vacation-planning.js';
 import {
   getEmployer as _getEmployerRaw,
   getCurrentReport as _getCurrentReportRaw,
@@ -505,6 +508,7 @@ function switchView(name) {
   if (name === 'week') renderWeek();
   if (name === 'report') renderReport();
   if (name === 'overview') renderOverview();
+  if (name === 'vacation-planning') renderVacationPlanning();
   if (name === 'employers') renderEmployers();
   if (name === 'archive') renderArchive();
   if (name === 'settings') renderSettings();
@@ -1249,6 +1253,29 @@ function renderOverview() {
   });
 }
 
+function renderVacationPlanning() {
+  const yearInput = document.getElementById('vacation-planning-year');
+  if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
+  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
+  const container = document.getElementById('vacation-planning-content');
+
+  ensureActiveEmployer();
+  const emp = getEmployer(state.activeEmployerId);
+  if (!emp) {
+    container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
+    return;
+  }
+
+  const vp = computeYearlyVacationPlanning(emp, year, state.entries, todayISO());
+  const vr = computeVacationRemaining(emp, `${year}-12`, state.entries);
+
+  container.innerHTML = _buildVacationPlanningHTMLRaw(vp, vr, emp, {
+    escapeHtml,
+    renderSummaryHTML,
+    monthLabels: MONTH_LABELS_LONG,
+  });
+}
+
 async function generateOverviewPdfBlob(ov) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
@@ -1628,7 +1655,7 @@ function toast(msg) {
 document.addEventListener('DOMContentLoaded', () => wireEvents({
   state, saveState, storage,
   switchView, renderTracker, renderEntries, renderEmployers, renderReport,
-  renderTemplates, renderWeek, renderOverview, renderHolidayList,
+  renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning,
   startWork, endWork, setMode, updateModeVisibility,
   openEntryModal, saveEntry, deleteEntry,
   updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
@@ -1683,6 +1710,8 @@ if (typeof window !== 'undefined') {
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
+    computeYearlyVacationPlanning, MONTH_LABELS_LONG,
+    buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
   });
 }

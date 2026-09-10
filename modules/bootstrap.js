@@ -29,7 +29,7 @@ export function wireEvents(ctx) {
     state, saveState, storage,
     // Views + Rendering
     switchView, renderTracker, renderEntries, renderEmployers, renderReport,
-    renderTemplates, renderWeek, renderOverview, renderHolidayList,
+    renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning,
     // Tracker/Timer + Mode
     startWork, endWork, setMode, updateModeVisibility,
     // Entry Modal
@@ -233,6 +233,10 @@ export function wireEvents(ctx) {
     // Holiday overrides
     const holidayYear = document.getElementById('holiday-year');
     if (holidayYear) holidayYear.addEventListener('change', renderHolidayList);
+
+    // Vacation-Planning (Jahresübersicht der Urlaubsplanung)
+    const vacationPlanningYear = document.getElementById('vacation-planning-year');
+    if (vacationPlanningYear) vacationPlanningYear.addEventListener('change', renderVacationPlanning);
     const addHolidayBtn = document.getElementById('btn-add-holiday-override');
     if (addHolidayBtn) addHolidayBtn.addEventListener('click', () => openHolidayModal(null));
     const formHoliday = document.getElementById('form-holiday');

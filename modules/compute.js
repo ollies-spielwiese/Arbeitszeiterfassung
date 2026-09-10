@@ -17,6 +17,10 @@ import { getHolidays, getHolidaysInRange } from './holidays.js';
 export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const DAY_LABELS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+export const MONTH_LABELS_LONG = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+];
 
 /* ---------- Reine Arbeitszeit-Berechnung ---------- */
 
@@ -304,6 +308,45 @@ export function computeVacationRemaining(emp, ym, allEntries) {
 
   const remaining = Math.max(0, annual + carryOver - taken);
   return { annual, carryOver, taken, remaining, prorated, hiredMonth };
+}
+
+/**
+ * Jahresübersicht der Urlaubsplanung fuer einen einzelnen Arbeitgeber:
+ * teilt alle Urlaubs-Eintraege eines Kalenderjahres pro Monat in bereits
+ * vergangene ("genommen", date <= today) und noch bevorstehende, aber
+ * bereits im System erfasste ("eingegeben", date > today) Tage auf.
+ *
+ * Kontrakt:
+ *   - Grundlage: alle Eintraege mit type='vacation' und employerId=emp.id,
+ *     deren date im angegebenen Kalenderjahr liegt.
+ *   - Pro Eintrag zaehlt genau 1 Tag im jeweiligen Monat (0-basiert intern,
+ *     im Ergebnis 1-basiert als month:1..12).
+ *   - Vergleich date <= today (ISO-String-Vergleich) entscheidet taken/upcoming.
+ *   - today wird bewusst als Parameter uebergeben (kein Date.now() im Modul),
+ *     damit die Funktion deterministisch und regressionstestbar bleibt.
+ *
+ * @param {any} emp Employer-Objekt (mind. id)
+ * @param {number|string} year Kalenderjahr, z.B. 2026
+ * @param {Array<any>} allEntries Alle Eintraege (state.entries)
+ * @param {string} today Stichtag im ISO-Format YYYY-MM-DD (i.d.R. todayISO())
+ * @returns {{year:string, months:Array<{month:number, taken:number, upcoming:number}>, totalTaken:number, totalUpcoming:number, totalYear:number}}
+ */
+export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
+  const yearStr = String(year);
+  const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, taken: 0, upcoming: 0 }));
+  if (emp) {
+    (allEntries || []).forEach((e) => {
+      if (!e || e.type !== 'vacation' || e.employerId !== emp.id) return;
+      if (!e.date || !e.date.startsWith(yearStr)) return;
+      const monthIdx = parseInt(e.date.slice(5, 7), 10) - 1;
+      if (monthIdx < 0 || monthIdx > 11) return;
+      if (today && e.date <= today) months[monthIdx].taken++;
+      else months[monthIdx].upcoming++;
+    });
+  }
+  const totalTaken = months.reduce((s, m) => s + m.taken, 0);
+  const totalUpcoming = months.reduce((s, m) => s + m.upcoming, 0);
+  return { year: yearStr, months, totalTaken, totalUpcoming, totalYear: totalTaken + totalUpcoming };
 }
 
 export function computeMonthReport(employerId, ym, ctx) {

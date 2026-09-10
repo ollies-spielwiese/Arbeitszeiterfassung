@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.37';
+export const APP_VERSION = '3.9.38';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.38', items: [
+    'Neu: "Urlaubsplanung" — eigener Tab in der Hauptnavigation mit Jahresübersicht des aktuellen Arbeitgebers',
+    'Monatstabelle (Januar–Dezember) zeigt pro Monat bereits genommene und bereits eingegebene (zukünftige) Urlaubstage plus Gesamt-Zeile',
+    'Summary-Karte oben: Jahresanspruch (inkl. Resturlaub Vorjahr), bereits genommen, eingegeben (Zukunft) und noch nicht erfasst — Jahr frei wählbar',
+    'Regression: 28 neue Assertions für computeYearlyVacationPlanning, buildVacationPlanningHTML und die neue Ansicht (132/132 Checks OK)',
+  ]},
   { version: '3.9.37', items: [
     'Button "Zeitraum erfassen" heißt jetzt "Urlaubszeitraum erfassen" (klarere Beschriftung)',
     'Neu: Im Zeitraum-Modal wird bei Typ "Urlaub" das Urlaubskonto angezeigt — bereits genommene Tage, geplanter Jahresurlaub (inkl. Resturlaub Vorjahr) und noch nicht erfasste Tage, live aktualisiert bei Auswahl von Arbeitgeber/Typ/Von-Datum',

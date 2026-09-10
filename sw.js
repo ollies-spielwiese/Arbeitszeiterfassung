@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-37';
+const CACHE_NAME = 'arbeitszeit-v3-9-38';
 const ASSETS = [
   './',
   './index.html',
