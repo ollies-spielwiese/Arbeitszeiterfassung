@@ -293,6 +293,60 @@ async function runRangeEntryUnits(page) {
   assertEq('R6: computeMonthReport zählt 5 Urlaubstage', r6.vacationDays, 5);
 }
 
+async function runRangeVacationStatsUnits(page) {
+  console.log('\n=== 1f) Urlaubskonto-Anzeige im Zeitraum-Modal ===');
+
+  // RV1: Typ=Urlaub + Arbeitgeber gewählt -> Box sichtbar mit korrekten Zahlen
+  // (genommen=2 aus zwei Urlaubseinträgen im selben Jahr, geplant=30+5=35, offen=35-2=33).
+  const rv1 = await page.evaluate(async () => {
+    const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const emp = { id: '__rvtest__', annualVacation: 30, vacationCarryOver: 5, hiredSince: '' };
+    const entries = [
+      { id: 'x1', type: 'vacation', employerId: '__rvtest__', date: '2026-03-10' },
+      { id: 'x2', type: 'vacation', employerId: '__rvtest__', date: '2026-11-20' },
+      { id: 'x3', type: 'sick', employerId: '__rvtest__', date: '2026-04-01' },
+    ];
+    const empSel = document.getElementById('range-employer');
+    empSel.innerHTML = `<option value="${emp.id}">Test</option>`;
+    empSel.value = emp.id;
+    document.getElementById('range-type').value = 'vacation';
+    document.getElementById('range-start').value = '2026-06-08';
+    const ctx = { getState: () => ({ employers: [emp], entries }) };
+    updateRangeVacationStats(ctx);
+    const box = document.getElementById('range-vacation-stats');
+    return { hidden: box.hidden, html: box.innerHTML };
+  });
+  assertTrue('RV1: Stats-Box sichtbar bei Typ=Urlaub + Arbeitgeber', rv1.hidden === false, `hidden=${rv1.hidden}`);
+  assertContains('RV1: bereits genommene Urlaubstage = 2', rv1.html, 'Bereits genommen: <strong>2</strong>');
+  assertContains('RV1: geplanter Jahresurlaub = 35 (30 Jahresanspruch + 5 Vorjahr)', rv1.html, 'Geplant: <strong>35</strong>');
+  assertContains('RV1: noch nicht erfasste Urlaubstage = 33 (35-2)', rv1.html, 'Noch nicht erfasst: <strong>33</strong>');
+  assertContains('RV1: Jahr im Hinweistext (aus Von-Datum abgeleitet)', rv1.html, 'Urlaubsjahr 2026');
+  assertContains('RV1: Resturlaub Vorjahr im Hinweistext genannt', rv1.html, 'davon 5 Tage Resturlaub Vorjahr');
+
+  // RV2: Box wird bei Typ=Krankheit ausgeblendet (kein Urlaubskonto relevant).
+  const rv2Hidden = await page.evaluate(async () => {
+    const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    const emp = { id: '__rvtest__', annualVacation: 30, vacationCarryOver: 5, hiredSince: '' };
+    document.getElementById('range-type').value = 'sick';
+    const ctx = { getState: () => ({ employers: [emp], entries: [] }) };
+    updateRangeVacationStats(ctx);
+    return document.getElementById('range-vacation-stats').hidden;
+  });
+  assertTrue('RV2: Stats-Box ausgeblendet bei Typ=Krankheit', rv2Hidden === true, `hidden=${rv2Hidden}`);
+
+  // RV3: Box wird ausgeblendet, wenn kein Arbeitgeber gewählt ist.
+  const rv3Hidden = await page.evaluate(async () => {
+    const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    document.getElementById('range-type').value = 'vacation';
+    document.getElementById('range-employer').innerHTML = '';
+    const ctx = { getState: () => ({ employers: [], entries: [] }) };
+    updateRangeVacationStats(ctx);
+    return document.getElementById('range-vacation-stats').hidden;
+  });
+  assertTrue('RV3: Stats-Box ausgeblendet ohne gewählten Arbeitgeber', rv3Hidden === true, `hidden=${rv3Hidden}`);
+}
+
 // ---------- Helpers für E2E ----------
 
 /*
@@ -634,6 +688,7 @@ async function runEmployee(page) {
     await runMigrationUnits(page);
     await runVacationRemainingUnits(page);
     await runRangeEntryUnits(page);
+    await runRangeVacationStatsUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

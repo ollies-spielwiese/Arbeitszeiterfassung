@@ -148,6 +148,7 @@ import {
 import {
   openRangeEntryModal as _openRangeEntryModalRaw,
   saveRangeEntry as _saveRangeEntryRaw,
+  updateRangeVacationStats as _updateRangeVacationStatsRaw,
 } from './modules/ui/range-entry-modal.js';
 import { buildRangeEntries, formatRangeEntrySummary } from './modules/range-entry.js';
 import {
@@ -837,6 +838,10 @@ function openRangeEntryModal() {
 
 function saveRangeEntry(e) {
   return _saveRangeEntryRaw(e, _rangeEntryCtx());
+}
+
+function updateRangeVacationStats() {
+  return _updateRangeVacationStatsRaw(_rangeEntryCtx());
 }
 
 /* ---------- Home-Office Mode & Modal ---------- */
@@ -1628,7 +1633,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   openEntryModal, saveEntry, deleteEntry,
   updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
   applyScheduleToEntry,
-  openRangeEntryModal, saveRangeEntry,
+  openRangeEntryModal, saveRangeEntry, updateRangeVacationStats,
   openHomeofficeModal, saveHomeoffice, deleteHomeoffice,
   addHomeofficeSegment, updateHomeofficeContext,
   removeHomeofficeSegment, updateHomeofficeLiveTotal,

@@ -37,7 +37,7 @@ export function wireEvents(ctx) {
     updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
     applyScheduleToEntry,
     // Range-Entry Modal (Zeitraum erfassen, Option B)
-    openRangeEntryModal, saveRangeEntry,
+    openRangeEntryModal, saveRangeEntry, updateRangeVacationStats,
     // Homeoffice Modal
     openHomeofficeModal, saveHomeoffice, deleteHomeoffice,
     addHomeofficeSegment, updateHomeofficeContext,
@@ -82,6 +82,12 @@ export function wireEvents(ctx) {
     if (btnAddRange) btnAddRange.addEventListener('click', () => openRangeEntryModal());
     const formRange = document.getElementById('form-range-entry');
     if (formRange) formRange.addEventListener('submit', saveRangeEntry);
+    const rangeEmpSel = document.getElementById('range-employer');
+    const rangeTypeSel = document.getElementById('range-type');
+    const rangeStartInput = document.getElementById('range-start');
+    if (rangeEmpSel) rangeEmpSel.addEventListener('change', () => updateRangeVacationStats());
+    if (rangeTypeSel) rangeTypeSel.addEventListener('change', () => updateRangeVacationStats());
+    if (rangeStartInput) rangeStartInput.addEventListener('change', () => updateRangeVacationStats());
 
     // Mode-Toggle (Präsenz / Home-Office)
     const modeP = document.getElementById('mode-praesenz');

@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.36';
+export const APP_VERSION = '3.9.37';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.37', items: [
+    'Button "Zeitraum erfassen" heißt jetzt "Urlaubszeitraum erfassen" (klarere Beschriftung)',
+    'Neu: Im Zeitraum-Modal wird bei Typ "Urlaub" das Urlaubskonto angezeigt — bereits genommene Tage, geplanter Jahresurlaub (inkl. Resturlaub Vorjahr) und noch nicht erfasste Tage, live aktualisiert bei Auswahl von Arbeitgeber/Typ/Von-Datum',
+    'Regression: 7 neue Assertions für die Urlaubskonto-Anzeige im Zeitraum-Modal',
+  ]},
   { version: '3.9.36', items: [
     'Neu: "Zeitraum erfassen" — Urlaub/Krankheit lassen sich jetzt als "von … bis …" für einen ganzen Zeitraum auf einmal anlegen, statt Tag für Tag',
     'Wochenenden und Feiertage werden dabei automatisch ausgelassen (abschaltbar), bereits belegte Tage werden nicht überschrieben',

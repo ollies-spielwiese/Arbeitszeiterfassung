@@ -1145,6 +1145,24 @@ textarea { resize: vertical; min-height: 3rem; }
   margin-top: 2px;
 }
 
+.range-vacation-stats {
+  margin: -0.35rem 0 0.85rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(1, 105, 111, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.range-vacation-stats-line {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.range-vacation-stats-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
 .btn-small {
   padding: 5px 10px;
   font-size: 0.85rem;

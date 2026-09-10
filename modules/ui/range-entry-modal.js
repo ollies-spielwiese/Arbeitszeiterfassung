@@ -18,6 +18,7 @@
 // }
 
 import { buildRangeEntries, formatRangeEntrySummary } from '../range-entry.js';
+import { computeVacationRemaining } from '../compute.js';
 
 export function openRangeEntryModal(ctx) {
   const { getState, escapeHtml } = ctx;
@@ -38,6 +39,54 @@ export function openRangeEntryModal(ctx) {
   document.getElementById('range-note').value = '';
 
   modal.classList.remove('hidden');
+  updateRangeVacationStats(ctx);
+}
+
+/**
+ * Aktualisiert das Urlaubskonto-Info-Feld im Zeitraum-Modal: bereits genommene
+ * Urlaubstage, geplanter Jahresanspruch (Jahresurlaub + Resturlaub Vorjahr) und
+ * daraus resultierend noch nicht erfasste Urlaubstage. Nur relevant für
+ * Typ=Urlaub — bei Krankheit oder fehlendem Arbeitgeber bleibt das Feld leer.
+ * Jahr wird aus dem Von-Datum abgeleitet (Fallback: aktuelles Kalenderjahr),
+ * Stichtag ist bewusst der 31.12., damit auch bereits erfasste künftige
+ * Urlaubstage im selben Jahr mitgezählt werden (nicht nur Tage bis heute).
+ */
+export function updateRangeVacationStats(ctx) {
+  const box = document.getElementById('range-vacation-stats');
+  if (!box) return;
+  const empSel = document.getElementById('range-employer');
+  const typeSel = document.getElementById('range-type');
+  const startInput = document.getElementById('range-start');
+  const employerId = empSel && empSel.value;
+  const type = typeSel && typeSel.value;
+
+  if (type !== 'vacation' || !employerId) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+
+  const state = ctx.getState();
+  const emp = (state.employers || []).find((e) => e.id === employerId);
+  if (!emp) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+
+  const startVal = startInput && startInput.value;
+  const year = (startVal && startVal.length >= 4) ? startVal.slice(0, 4) : String(new Date().getFullYear());
+  const vr = computeVacationRemaining(emp, `${year}-12`, state.entries || []);
+  const planned = vr.annual + vr.carryOver;
+
+  box.hidden = false;
+  box.innerHTML =
+    `<div class="range-vacation-stats-line">Bereits genommen: <strong>${vr.taken}</strong> Tage · ` +
+    `Geplant: <strong>${planned}</strong> Tage · ` +
+    `Noch nicht erfasst: <strong>${vr.remaining}</strong> Tage</div>` +
+    `<div class="range-vacation-stats-hint">Urlaubsjahr ${year}` +
+    `${vr.prorated ? ' · anteilig ab Eintritt' : ''}` +
+    `${vr.carryOver ? ` · davon ${vr.carryOver} Tage Resturlaub Vorjahr` : ''}</div>`;
 }
 
 export function saveRangeEntry(e, ctx) {
