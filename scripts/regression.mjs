@@ -20,7 +20,13 @@
 
 import { chromium } from 'playwright';
 import { createRequire } from 'module';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '..');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8765';
 const HEADLESS = process.env.HEADLESS !== '0';
@@ -756,11 +762,101 @@ async function runEmployee(page) {
   }
 }
 
+// ---------- SW1: Offline-Precache-Vollständigkeit ----------
+// Verhindert die Regressionsklasse aus v3.9.38/39: ein neues Modul wird per
+// import in app.js/modules/*.js referenziert, aber vergessen in sw.js' ASSETS
+// aufzunehmen. Folge: fehlt der Netzwerkzugriff (offline / frischer SW vor
+// erstem Online-Laden), bricht der komplette app.js-Modul-Import ab — die
+// ganze App (inkl. Navigation) bleibt tot, ohne Konsolenfehler im Normalfall.
+function runServiceWorkerPrecacheCheck() {
+  const swPath = path.join(REPO_ROOT, 'sw.js');
+  const swSrc = fs.readFileSync(swPath, 'utf8');
+  const assetsMatch = swSrc.match(/const ASSETS = \[([\s\S]*?)\];/);
+  assertTrue('SW1: ASSETS-Array in sw.js gefunden', !!assetsMatch, swPath);
+  if (!assetsMatch) return;
+  const assets = new Set(
+    Array.from(assetsMatch[1].matchAll(/'([^']+)'/g)).map((m) => m[1])
+  );
+
+  // Alle lokalen .js-Dateien einsammeln, die per import referenziert werden könnten
+  // (app.js selbst + alles unter modules/, rekursiv).
+  const jsFiles = ['app.js'];
+  function walk(dir) {
+    for (const entry of fs.readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(rel);
+      else if (entry.name.endsWith('.js')) jsFiles.push(rel);
+    }
+  }
+  walk('modules');
+
+  const missing = [];
+  for (const file of jsFiles) {
+    const rawSrc = fs.readFileSync(path.join(REPO_ROOT, file), 'utf8');
+    // Block- und Zeilenkommentare entfernen, damit JSDoc-Beispielpfade (die
+    // oft root-relativ statt relativ zur eigenen Datei angegeben sind) nicht
+    // faelschlich als echte Imports gewertet werden. Import-Statements selbst
+    // koennen sich ueber mehrere Zeilen erstrecken, daher komplettes File
+    // bereinigen statt zeilenweise zu pruefen.
+    const src = rawSrc
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const fileDir = path.dirname(file);
+    for (const m of src.matchAll(/\b(?:import|export)\b[\s\S]*?from\s+['"](\.[^'"]+)['"]/g)) {
+      const importPath = m[1];
+      const resolved = path.normalize(path.join(fileDir, importPath)).split(path.sep).join('/');
+      const asAsset = './' + resolved;
+      if (!assets.has(asAsset)) missing.push(`${file} -> ${importPath} (erwartet '${asAsset}' in sw.js ASSETS)`);
+    }
+  }
+  assertTrue(
+    'SW1: alle lokalen ES-Module-Imports sind in sw.js ASSETS precached',
+    missing.length === 0,
+    missing.join(' | ')
+  );
+}
+
+// ---------- SW2: Versions-Badge in index.html synchron mit APP_VERSION ----------
+// index.html enthaelt den Badge-Text "v<version>" statisch (kein Runtime-Update
+// aus constants.js) — muss bei jedem Version-Bump manuell mitgepflegt werden.
+// Diese Pruefung verhindert, dass das kuenftig vergessen wird (wie bei v3.9.39
+// zunaechst passiert).
+function runVersionBadgeSyncCheck() {
+  const constantsSrc = fs.readFileSync(path.join(REPO_ROOT, 'modules/constants.js'), 'utf8');
+  const versionMatch = constantsSrc.match(/export const APP_VERSION = '([^']+)'/);
+  assertTrue('SW2: APP_VERSION in constants.js gefunden', !!versionMatch, 'modules/constants.js');
+  if (!versionMatch) return;
+  const appVersion = versionMatch[1];
+
+  const indexSrc = fs.readFileSync(path.join(REPO_ROOT, 'index.html'), 'utf8');
+  const badgeMatch = indexSrc.match(/id="app-version-badge"[^>]*>v([^<]+)</);
+  assertTrue('SW2: app-version-badge in index.html gefunden', !!badgeMatch, 'index.html');
+  if (!badgeMatch) return;
+  assertEq('SW2: Versions-Badge in index.html stimmt mit APP_VERSION ueberein', badgeMatch[1], appVersion);
+
+  const swSrc = fs.readFileSync(path.join(REPO_ROOT, 'sw.js'), 'utf8');
+  const cacheMatch = swSrc.match(/CACHE_NAME = 'arbeitszeit-v([^']+)'/);
+  assertTrue('SW2: CACHE_NAME in sw.js gefunden', !!cacheMatch, 'sw.js');
+  if (cacheMatch) {
+    assertEq(
+      'SW2: CACHE_NAME in sw.js stimmt mit APP_VERSION ueberein',
+      cacheMatch[1].replace(/-/g, '.'),
+      appVersion
+    );
+  }
+
+  const pkgSrc = fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8');
+  const pkgVersion = JSON.parse(pkgSrc).version;
+  assertEq('SW2: version in package.json stimmt mit APP_VERSION ueberein', pkgVersion, appVersion);
+}
+
 // ---------- Runner ----------
 
 (async () => {
   console.log(`Regression-Sweep gegen ${BASE_URL}`);
   const t0 = Date.now();
+  runServiceWorkerPrecacheCheck();
+  runVersionBadgeSyncCheck();
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);

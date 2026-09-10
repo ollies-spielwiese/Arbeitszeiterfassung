@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.38';
+export const APP_VERSION = '3.9.39';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.39', items: [
+    'Fix: Offline-Cache-Liste (sw.js) enthielt die neue Datei modules/render/vacation-planning.js nicht — konnte bei erstem Start ohne Netzwerk zu einem kompletten Ladefehler der App inkl. Navigation führen',
+    'Regression: neue Prüfung SW1 vergleicht automatisch alle lokalen Modul-Imports gegen die Offline-Cache-Liste, damit sowas künftig sofort auffällt',
+  ]},
   { version: '3.9.38', items: [
     'Neu: "Urlaubsplanung" — eigener Tab in der Hauptnavigation mit Jahresübersicht des aktuellen Arbeitgebers',
     'Monatstabelle (Januar–Dezember) zeigt pro Monat bereits genommene und bereits eingegebene (zukünftige) Urlaubstage plus Gesamt-Zeile',
