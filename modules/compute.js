@@ -195,26 +195,7 @@ export function computeWeekTargetMinutes(employer, weekDates, ctx) {
   }));
 
   if (employer.hoursMode === 'week') {
-    const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-    const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
-    const perDayMin = {};
-    if (activeDays.length) {
-      for (const k of DAY_KEYS) {
-        const s = schedule[k];
-        if (!s?.enabled) { perDayMin[k] = 0; continue; }
-        if (s.start && s.end) {
-          let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
-          if (gross < 0) gross += 24 * 60;
-          perDayMin[k] = gross - (s.break || 0);
-        } else {
-          perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
-        }
-      }
-    } else {
-      const perDay = Math.round(((employer.weeklyHours || 0) * 60) / 5);
-      ['mon','tue','wed','thu','fri'].forEach(k => perDayMin[k] = perDay);
-      ['sat','sun'].forEach(k => perDayMin[k] = 0);
-    }
+    const perDayMin = weekModePerDayMinutesMap(employer);
     let total = 0;
     for (const d of weekDates) {
       if (holidays.has(d)) continue;
@@ -229,6 +210,73 @@ export function computeWeekTargetMinutes(employer, weekDates, ctx) {
   const holidayCount = weekDates.filter(d => holidays.has(d) && dayOfWeekISO(d) < 5).length;
   const perDay = weeklyMin / 5;
   return Math.max(0, Math.round(weeklyMin - holidayCount * perDay));
+}
+
+/**
+ * Baut die Minuten-je-Wochentag-Karte fuer einen hoursMode='week'-Arbeitgeber aus
+ * dessen individuellem Wochenschema (employer.schedule) bzw. defaultSchedule als
+ * Fallback. Single Source of Truth fuer computeWeekTargetMinutes UND
+ * computeDayTargetMinutes, damit beide bei unregelmaessigen Zeitplaenen exakt
+ * dieselben Tageswerte liefern.
+ * @param {AZEmployer} employer
+ * @returns {Record<string, number>}
+ */
+function weekModePerDayMinutesMap(employer) {
+  const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
+  const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
+  /** @type {Record<string, number>} */
+  const perDayMin = {};
+  if (activeDays.length) {
+    for (const k of DAY_KEYS) {
+      const s = schedule[k];
+      if (!s?.enabled) { perDayMin[k] = 0; continue; }
+      if (s.start && s.end) {
+        let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
+        if (gross < 0) gross += 24 * 60;
+        perDayMin[k] = gross - (s.break || 0);
+      } else {
+        perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
+      }
+    }
+  } else {
+    const perDay = Math.round(((employer.weeklyHours || 0) * 60) / 5);
+    ['mon','tue','wed','thu','fri'].forEach(k => perDayMin[k] = perDay);
+    ['sat','sun'].forEach(k => perDayMin[k] = 0);
+  }
+  return perDayMin;
+}
+
+/**
+ * Tagesgenaues Soll (in Minuten) fuer EINEN Kalendertag eines Arbeitgebers.
+ *
+ * Hintergrund: Die Urlaub/Krank/Ueberstundenabbau-Gutschrift rechnete bislang
+ * pauschal mit einem Wochen- bzw. Monatsdurchschnitt (weeklyHours/5 bzw.
+ * monthlyHours/Werktage). Bei einem GLEICHMAESSIGEN Wochenschema (jeder
+ * Werktag gleich viele Stunden) ist das identisch zum tatsaechlichen
+ * Tages-Soll. Bei einem UNREGELMAESSIGEN Wochenschema (z.B. Mo 8h, Mi 4h,
+ * Fr 6h) weicht der Durchschnitt vom echten Tages-Soll ab, was zu einem
+ * falsch wirkenden Saldo an Abwesenheitstagen fuehrt.
+ *
+ * Diese Funktion liefert stattdessen das ECHTE, tagesgenaue Soll aus dem
+ * individuellen Wochenschema (employer.schedule bzw. defaultSchedule als
+ * Fallback) — nur fuer hoursMode='week'. Feiertage liefern 0. Fuer
+ * hoursMode='month' gibt es kein individuelles Tagesschema; Aufrufer bleiben
+ * dort bei ihrer bisherigen (unveraenderten) Durchschnittsformel.
+ *
+ * @param {AZEmployer} employer
+ * @param {string} dateISO
+ * @param {AZComputeCtx} [ctx]
+ * @returns {number}
+ */
+export function computeDayTargetMinutes(employer, dateISO, ctx) {
+  const stateCode = (ctx && ctx.stateCode) || 'HE';
+  const overrides = ctx && ctx.holidayOverrides;
+  const year = Number(dateISO.slice(0, 4));
+  const isHol = getHolidays(year, stateCode, overrides).some(h => h.date === dateISO);
+  if (isHol) return 0;
+  const perDayMin = weekModePerDayMinutesMap(employer);
+  const key = DAY_KEYS[dayOfWeekISO(dateISO)];
+  return perDayMin[key] || 0;
 }
 
 /**
@@ -374,46 +422,58 @@ export function computeMonthReport(employerId, ym, ctx) {
   const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
   const targetMin = computeMonthTargetMinutes(emp, ym, innerCtx);
   const workdays = countWorkdaysInMonth(ym, emp, innerCtx);
-  // Berechnungsregel Urlaub/Krank — Durchschnittsprinzip.
+  // Berechnungsregel Urlaub/Krank/Überstundenabbau.
   //
-  // Formel:
-  //   hoursMode='week' (Default): perWorkdayMin = weeklyHours × 60 / 5
+  // Formel (seit v3.9.45 tagesgenau bei hoursMode='week'):
+  //   hoursMode='week' (Default): Gutschrift = echtes Tages-Soll aus dem individuellen
+  //     Wochenschema (employer.schedule bzw. defaultSchedule) für den jeweiligen Wochentag
+  //     des Abwesenheitseintrags — siehe computeDayTargetMinutes().
   //   hoursMode='month':          perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat
+  //     (unverändert — es gibt im Monatsmodus kein individuelles Tagesschema).
   //   Gutschrift an Sa/So/Feiertag = 0
   //
   // Rechtlicher Kontext (§ 3 EntgFG, Grundsatz "Krank wie gearbeitet"):
-  //   - Fall 1 (feste Zeiten Mo–Fr gleichmäßig): ABGEDECKT — Durchschnitt = Tages-Soll.
-  //   - Fall 2 (Schichtdienst mit Tagesplan):     NICHT ABGEDECKT — kein Tages-Schedule.
-  //   - Fall 3 (unregelmäßig / Gleitzeit):        ABGEDECKT — entspricht Durchschnittsprinzip.
-  //   - Konzentrierte Teilzeit (z.B. 60 % auf Di/Mi/Do): NICHT ABGEDECKT.
-  //     App vergibt für Krank/Urlaub am Mo/Fr Gutschrift, obwohl vertraglich 0 richtig wäre.
-  //     User muss in diesem Fall manuell korrigieren (Überstunden-Eintrag negativ).
+  //   - Fall 1 (feste Zeiten Mo–Fr gleichmäßig): ABGEDECKT.
+  //   - Fall 2 (Schichtdienst mit Tagesplan):     ABGEDECKT bei hoursMode='week' mit individuellem
+  //     Wochenschema (jeder Wochentag bekommt sein eigenes, echtes Tages-Soll gutgeschrieben).
+  //   - Fall 3 (unregelmäßig / Gleitzeit):        ABGEDECKT — tagesgenau statt Durchschnitt.
+  //   - Konzentrierte Teilzeit (z.B. nur Di/Mi/Do aktiv): ABGEDECKT bei hoursMode='week',
+  //     sofern die inaktiven Tage im Wochenschema als nicht aktiviert hinterlegt sind
+  //     (dann liefert computeDayTargetMinutes für Mo/Fr korrekt 0).
+  //   - hoursMode='month' ohne Wochenschema: weiterhin NICHT tagesgenau (Durchschnitt).
   //
   // Details: docs/ARCHITECTURE.md → "Berechnungsregel Urlaub/Krank".
   const monthHolidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
   const monthWorkdayDates = monthDates(ym).filter(d => dayOfWeekISO(d) < 5 && !monthHolidays.has(d));
+  const isWeekModeCredit = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
   const perWorkdayMin = (() => {
-    if (emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours)) {
+    if (isWeekModeCredit) {
       return Math.round(((Number(emp.weeklyHours) || 0) * 60) / 5);
     }
     // hoursMode='month'
     if (monthWorkdayDates.length === 0) return 0;
     return Math.round(((Number(emp.monthlyHours) || 0) * 60) / monthWorkdayDates.length);
   })();
-  const dailyTargetMin = perWorkdayMin; // für Rückwärtskompatibilität im Report
-  const countCreditableAbsence = (arr) => arr.filter(e => {
-    const dow = dayOfWeekISO(e.date);
+  const dailyTargetMin = perWorkdayMin; // für Rückwärtskompatibilität im Report (Durchschnitt, siehe oben)
+  const isCreditableAbsenceDate = (dateISO) => {
+    const dow = dayOfWeekISO(dateISO);
     if (dow > 4) return false; // Sa/So
-    if (monthHolidays.has(e.date)) return false; // Feiertag
+    if (monthHolidays.has(dateISO)) return false; // Feiertag
     return true;
-  }).length;
-  const creditableVacationDays = countCreditableAbsence(vacationEntries);
-  const creditableSickDays = countCreditableAbsence(sickEntries);
+  };
+  // Tagesgenaue Summe für hoursMode='week' (via computeDayTargetMinutes), sonst weiterhin
+  // der bisherige Durchschnitt (perWorkdayMin) pro kreditierbarem Tag.
+  const sumCreditedAbsenceMin = (arr) => arr.reduce((sum, e) => {
+    if (!isCreditableAbsenceDate(e.date)) return sum;
+    if (isWeekModeCredit) return sum + computeDayTargetMinutes(emp, e.date, innerCtx);
+    return sum + perWorkdayMin;
+  }, 0);
   // Gleitzeit-Überstundenabbau: ganzer freier Tag, wird wie Urlaub/Krank als Arbeitstag angerechnet
   // (kein Soll-Ist-Defizit), zählt aber bewusst NICHT in computeVacationRemaining/computeYearlyVacationPlanning,
   // da es kein Urlaubstag ist und den Urlaubsanspruch nicht mindert.
-  const creditableOvertimeReductionDays = countCreditableAbsence(overtimeReductionEntries);
-  const creditedAbsenceMin = (creditableVacationDays + creditableSickDays + creditableOvertimeReductionDays) * perWorkdayMin;
+  const creditedAbsenceMin = sumCreditedAbsenceMin(vacationEntries)
+    + sumCreditedAbsenceMin(sickEntries)
+    + sumCreditedAbsenceMin(overtimeReductionEntries);
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);

@@ -350,11 +350,19 @@ async function runOvertimeReductionUnits(page) {
       '2026-06', state.entries,
     );
     const dailyTargetMin = report.dailyTargetMin;
+    // Seit v3.9.45 rechnet computeMonthReport bei hoursMode='week' tagesgenau
+    // (computeDayTargetMinutes je Abwesenheitstag), nicht mehr mit dem pauschalen
+    // Durchschnitt dailyTargetMin. Für den Vergleich holen wir uns den echten
+    // Schedule-Wert für die beiden betroffenen Tage separat.
+    const ot34emp = { id: empId, hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 };
+    const dayExact1 = computeDayTargetMinutes(ot34emp, '2026-06-08');
+    const dayExact2 = computeDayTargetMinutes(ot34emp, '2026-06-09');
     const result = {
       created: res.created,
       overtimeReductionDays: report.overtimeReductionEntries.length,
       creditedAbsenceMin: report.creditedAbsenceMin,
       dailyTargetMin,
+      dayExactSum: dayExact1 + dayExact2,
       vacationRemaining: vacRemaining.remaining,
       vacationTaken: vacRemaining.taken,
     };
@@ -364,8 +372,8 @@ async function runOvertimeReductionUnits(page) {
   });
   assertEq('OT3: 2 angelegte Überstundenabbau-Tage', ot34.created, 2);
   assertEq('OT3: computeMonthReport zählt 2 Überstundenabbau-Tage', ot34.overtimeReductionDays, 2);
-  assertEq('OT3: creditedAbsenceMin = 2 × Tagessoll (volle Anrechnung)',
-    ot34.creditedAbsenceMin, 2 * ot34.dailyTargetMin);
+  assertEq('OT3: creditedAbsenceMin = tagesgenaue Summe (Mo+Di, Schedule-Soll je Tag)',
+    ot34.creditedAbsenceMin, ot34.dayExactSum);
   assertEq('OT4: Urlaubsanspruch bleibt bei 30 (Überstundenabbau mindert ihn NICHT)',
     ot34.vacationRemaining, 30);
   assertEq('OT4: computeVacationRemaining zählt 0 genommene Urlaubstage', ot34.vacationTaken, 0);
@@ -532,6 +540,102 @@ async function runAbsenceDuplicateGuardUnits(page) {
     state.employers = state.employers.filter(e => e.id !== empId);
     state.entries = state.entries.filter(e => e.employerId !== empId);
     document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+  });
+}
+
+// ---------- 1e-4) Tagesgenaue Gutschrift bei unregelmäßigen Wochenschemata (v3.9.45) ----------
+
+async function runDayExactCreditUnits(page) {
+  console.log('\n=== 1e-4) Tagesgenaue Gutschrift (unregelmäßige Wochenschemata) ===');
+
+  // Irregulärer Wochenplan: Mo 8h (480min), Di aus, Mi 4h (240min), Do aus, Fr 6h (360min).
+  // SCHED1-3: computeDayTargetMinutes liefert das echte Tages-Soll je Wochentag,
+  // nicht den Durchschnitt (18h × 60 / 5 = 216min).
+  const sched123 = await page.evaluate(() => {
+    const empId = '__sched-check-e1__';
+    state.employers.push({
+      id: empId, name: 'Sched-Check', hoursMode: 'week', weeklyHours: 18, breakMode: 'none', annualVacation: 30,
+      schedule: {
+        mon: { enabled: true, start: '09:00', end: '17:00', break: 0 }, // 480 min
+        tue: { enabled: false, start: '', end: '', break: 0 },
+        wed: { enabled: true, start: '09:00', end: '13:00', break: 0 }, // 240 min
+        thu: { enabled: false, start: '', end: '', break: 0 },
+        fri: { enabled: true, start: '09:00', end: '15:00', break: 0 }, // 360 min
+        sat: { enabled: false, start: '', end: '', break: 0 },
+        sun: { enabled: false, start: '', end: '', break: 0 },
+      },
+    });
+    const emp = state.employers.find(e => e.id === empId);
+    return {
+      mon: computeDayTargetMinutes(emp, '2026-06-08'), // Montag, langer Tag
+      tue: computeDayTargetMinutes(emp, '2026-06-09'), // Dienstag, deaktiviert
+      wed: computeDayTargetMinutes(emp, '2026-06-10'), // Mittwoch, kurzer Tag
+    };
+  });
+  assertEq('SCHED1: Montag (8h-Tag) liefert 480 Minuten Tages-Soll', sched123.mon, 480);
+  assertEq('SCHED2: Dienstag (deaktiviert) liefert 0 Minuten', sched123.tue, 0);
+  assertEq('SCHED3: Mittwoch (4h-Tag) liefert 240 Minuten Tages-Soll (nicht 216 = Durchschnitt)', sched123.wed, 240);
+
+  // SCHED4: computeMonthReport rechnet Krank (Montag, langer Tag) + Urlaub (Mittwoch,
+  // kurzer Tag) tagesgenau an: 480 + 240 = 720min, NICHT 2 × 216 = 432min (alter Durchschnitt).
+  const sched4 = await page.evaluate(() => {
+    const empId = '__sched-check-e1__';
+    state.entries.push(
+      { id: 'sc-1', employerId: empId, date: '2026-06-08', type: 'sick', note: '' },
+      { id: 'sc-2', employerId: empId, date: '2026-06-10', type: 'vacation', note: '' },
+    );
+    const report = computeMonthReport(empId, '2026-06');
+    return { creditedAbsenceMin: report.creditedAbsenceMin, dailyTargetMin: report.dailyTargetMin };
+  });
+  assertEq('SCHED4: Monat — tagesgenaue Gutschrift 480+240=720min (statt 2×216 Durchschnitt)',
+    sched4.creditedAbsenceMin, 720);
+
+  // SCHED5: Woche-Ansicht (renderWeek) rechnet mit derselben tagesgenauen Logik.
+  // Woche 2026-W24 (Mo 08.06.–So 14.06.): nur der Urlaubstag Mittwoch (kurzer Tag, 240min)
+  // liegt in dieser Woche; Wochen-Soll = 480(Mo)+240(Mi)+360(Fr) = 1080min; Ist = 0.
+  // Erwarteter Saldo = 0 + 240 − 1080 = −840min = −14:00.
+  const weekHtml = await page.evaluate(() => {
+    const empId = '__sched-check-e1__';
+    state.activeEmployerId = empId;
+    state.entries = state.entries.filter(e => !(e.employerId === empId && e.date === '2026-06-08')); // nur Mi-Urlaub behalten
+    document.getElementById('week-employer').innerHTML = '';
+    document.getElementById('week-employer').value = '';
+    document.getElementById('week-input').value = '2026-W24';
+    renderWeek();
+    return document.getElementById('week-content').innerText;
+  });
+  const saldoMatch = /Saldo\s*\n?\s*(-?\d{1,3}:\d{2})/.exec(weekHtml);
+  assertTrue('SCHED5: Woche zeigt Saldo −14:00 (tagesgenaue Gutschrift für Mittwoch-Urlaub)',
+    !!saldoMatch && saldoMatch[1] === '-14:00', `weekHtml-Ausschnitt=${weekHtml.slice(0, 300)}`);
+
+  // SCHED6: Regressionsschutz — Arbeitgeber OHNE individuelles Wochenschema (defaultSchedule,
+  // gleichmäßig) bleibt intern konsistent: die Gutschrift entspricht weiterhin exakt der Summe
+  // der Tages-Solls aus computeDayTargetMinutes (hier: 40h/Woche → defaultSchedule mit Pause,
+  // also 450min/Tag statt der alten pausenfreien Durchschnittsformel 480min/Tag — das ist die
+  // in OT3 dokumentierte, bewusst korrigierte Inkonsistenz, siehe dortigen Kommentar).
+  const sched6 = await page.evaluate(() => {
+    const empId = '__sched-check-e2__';
+    state.employers.push({ id: empId, name: 'Sched-Default', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.entries.push(
+      { id: 'sc-3', employerId: empId, date: '2026-06-08', type: 'vacation', note: '' },
+      { id: 'sc-4', employerId: empId, date: '2026-06-09', type: 'sick', note: '' },
+    );
+    const emp = state.employers.find(e => e.id === empId);
+    const expected = computeDayTargetMinutes(emp, '2026-06-08') + computeDayTargetMinutes(emp, '2026-06-09');
+    const report = computeMonthReport(empId, '2026-06');
+    const result = { creditedAbsenceMin: report.creditedAbsenceMin, expected };
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return result;
+  });
+  assertEq('SCHED6: Arbeitgeber ohne eigenes Wochenschema — Gutschrift = Summe der Tages-Solls (konsistent, Pause berücksichtigt)',
+    sched6.creditedAbsenceMin, sched6.expected);
+
+  // Aufräumen
+  await page.evaluate(() => {
+    const empId = '__sched-check-e1__';
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
   });
 }
 
@@ -1126,6 +1230,7 @@ function runActiveUpdateCheckOnLoadCheck() {
     await runRangeEntryUnits(page);
     await runOvertimeReductionUnits(page);
     await runAbsenceDuplicateGuardUnits(page);
+    await runDayExactCreditUnits(page);
     await runRangeVacationStatsUnits(page);
     await runFreelance(page);
     await runEmployee(page);

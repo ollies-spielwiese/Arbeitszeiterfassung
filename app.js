@@ -92,6 +92,7 @@ import {
   defaultSchedule as _defaultScheduleRaw,
   computeMonthTargetMinutes as _computeMonthTargetMinutesRaw,
   computeWeekTargetMinutes as _computeWeekTargetMinutesRaw,
+  computeDayTargetMinutes as _computeDayTargetMinutesRaw,
   countWorkdaysInMonth as _countWorkdaysInMonthRaw,
   computeMonthReport as _computeMonthReportRaw,
   computeMonthOverview as _computeMonthOverviewRaw,
@@ -475,6 +476,10 @@ function computeWeekTargetMinutes(employer, weekDates) {
   return _computeWeekTargetMinutesRaw(employer, weekDates, _computeCtxHoliday());
 }
 
+function computeDayTargetMinutes(employer, dateISO) {
+  return _computeDayTargetMinutesRaw(employer, dateISO, _computeCtxHoliday());
+}
+
 function defaultSchedule(weeklyHours = 40) {
   return _defaultScheduleRaw(weeklyHours);
 }
@@ -597,8 +602,14 @@ function renderTodaySummary() {
   const sickDays = entries.filter(e => e.type === 'sick').length;
   const overtimeReductionDays = entries.filter(e => e.type === 'overtime_reduction').length;
   const targetMin = computeMonthTargetMinutes(emp, ym);
-  const dailyTargetMin = targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0;
-  const creditedAbsenceMin = Math.round((vacationDays + sickDays + overtimeReductionDays) * dailyTargetMin);
+  // Seit v3.9.45 bei hoursMode='week' tagesgenau (siehe computeDayTargetMinutes) statt
+  // pauschalem Monatsdurchschnitt — analog zu Woche/Monat-Ansicht.
+  const isWeekModeCreditToday = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
+  const creditedAbsenceMin = isWeekModeCreditToday
+    ? entries
+        .filter(e => e.type === 'vacation' || e.type === 'sick' || e.type === 'overtime_reduction')
+        .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0)
+    : Math.round((vacationDays + sickDays + overtimeReductionDays) * (targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0));
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const summaryFields = getSummaryFields({
@@ -1089,12 +1100,15 @@ function renderWeek() {
   const targetMin = computeWeekTargetMinutes(emp, dates);
   const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
 
-  // Urlaubs-/Krank-Gutschrift analog zum Monatsbericht:
-  // pro creditable day = weeklyHours ÷ 5 (bzw. monthlyHours ÷ durchschnittliche Werktage/Monat)
-  // Urlaub an Sa/So oder Feiertag bringt 0.
+  // Urlaubs-/Krank-/Überstundenabbau-Gutschrift analog zum Monatsbericht:
+  // seit v3.9.45 bei hoursMode='week' TAGESGENAU (echtes Tages-Soll aus dem individuellen
+  // Wochenschema statt Durchschnitt weeklyHours ÷ 5) — siehe computeDayTargetMinutes().
+  // hoursMode='month' bleibt unverändert beim Durchschnitt (kein Tagesschema vorhanden).
+  // Urlaub an Sa/So oder Feiertag bringt weiterhin 0.
   const holidaySetWeek = new Set(holidaysInWeek.map(h => h.date));
+  const isWeekModeCreditWeek = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
   const perWorkdayMinWeek = (() => {
-    if (emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours)) {
+    if (isWeekModeCreditWeek) {
       return Math.round(((Number(emp.weeklyHours) || 0) * 60) / 5);
     }
     // hoursMode='month': gleiche Verteilung über Werktage im Kalendermonat der Wochenmitte
@@ -1118,10 +1132,12 @@ function renderWeek() {
     if (holidaySetWeek.has(dateISO)) return false;
     return true;
   };
-  const weekVacationDays = state.entries.filter(e => e.employerId === empId && e.type === 'vacation' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
-  const weekSickDays = state.entries.filter(e => e.employerId === empId && e.type === 'sick' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
-  const weekOvertimeReductionDays = state.entries.filter(e => e.employerId === empId && e.type === 'overtime_reduction' && dates.includes(e.date) && isCreditableAbsenceDay(e.date)).length;
-  const creditedAbsenceMinWeek = (weekVacationDays + weekSickDays + weekOvertimeReductionDays) * perWorkdayMinWeek;
+  const sumCreditedAbsenceMinWeek = (type) => state.entries
+    .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
+    .reduce((sum, e) => sum + (isWeekModeCreditWeek ? computeDayTargetMinutes(emp, e.date) : perWorkdayMinWeek), 0);
+  const creditedAbsenceMinWeek = sumCreditedAbsenceMinWeek('vacation')
+    + sumCreditedAbsenceMinWeek('sick')
+    + sumCreditedAbsenceMinWeek('overtime_reduction');
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
 
   const weekFields = getSummaryFields({
@@ -1711,11 +1727,11 @@ if (typeof window !== 'undefined') {
     uid, normalizeSegments, normalizeHolidayOverrides,
     getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
     buildRangeEntries, formatRangeEntrySummary,
-    switchView, renderReport, renderTracker, renderEntries, renderEmployers, renderArchive, renderSettings,
+    switchView, renderReport, renderTracker, renderWeek, renderEntries, renderEmployers, renderArchive, renderSettings,
     DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
-    computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
+    computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, MONTH_LABELS_LONG,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,

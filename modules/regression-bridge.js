@@ -32,12 +32,12 @@ export function exportBridge(target, refs) {
     // Range-Entry (Option B — Bulk-Erfassung Zeitraum)
     buildRangeEntries, formatRangeEntrySummary,
     // Rendering + Views
-    switchView, renderReport, renderTracker, renderEntries, renderEmployers, renderArchive, renderSettings,
+    switchView, renderReport, renderTracker, renderWeek, renderEntries, renderEmployers, renderArchive, renderSettings,
     // Compute + Export
     DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
-    computeMonthTargetMinutes, computeWeekTargetMinutes, countWorkdaysInMonth,
+    computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, MONTH_LABELS_LONG, buildVacationPlanningHTML,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
@@ -85,6 +85,7 @@ export function exportBridge(target, refs) {
   if (typeof switchView === 'function') target.switchView = switchView;
   if (typeof renderReport === 'function') target.renderReport = renderReport;
   if (typeof renderTracker === 'function') target.renderTracker = renderTracker;
+  if (typeof renderWeek === 'function') target.renderWeek = renderWeek;
   if (typeof renderEntries === 'function') target.renderEntries = renderEntries;
   if (typeof renderEmployers === 'function') target.renderEmployers = renderEmployers;
   if (typeof renderArchive === 'function') target.renderArchive = renderArchive;
@@ -102,6 +103,7 @@ export function exportBridge(target, refs) {
   if (typeof defaultSchedule === 'function') target.defaultSchedule = defaultSchedule;
   if (typeof computeMonthTargetMinutes === 'function') target.computeMonthTargetMinutes = computeMonthTargetMinutes;
   if (typeof computeWeekTargetMinutes === 'function') target.computeWeekTargetMinutes = computeWeekTargetMinutes;
+  if (typeof computeDayTargetMinutes === 'function') target.computeDayTargetMinutes = computeDayTargetMinutes;
   if (typeof countWorkdaysInMonth === 'function') target.countWorkdaysInMonth = countWorkdaysInMonth;
   if (typeof computeMonthReport === 'function') target.computeMonthReport = computeMonthReport;
   if (typeof computeMonthOverview === 'function') target.computeMonthOverview = computeMonthOverview;

@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.44';
+export const APP_VERSION = '3.9.45';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.45', items: [
+    'Neu: Tagesgenaue Gutschrift für Urlaub/Krank/Überstundenabbau bei Arbeitgebern mit Stunden-Modus "Woche" — die angerechneten Minuten je Abwesenheitstag entsprechen jetzt dem tatsächlichen Tages-Soll dieses Wochentags (inkl. individueller "Feste Wochenarbeitszeiten" und ggf. Pausenabzug) statt eines pauschalen Durchschnitts (Wochenstunden / 5)',
+    'Betroffen sind "Woche", "Monat" und die Tagesübersicht im Tracker; unverändert bleiben Arbeitgeber mit Stunden-Modus "Monat" (dort gibt es kein Tagesschema)',
+    'Für Arbeitgeber OHNE eigene "Feste Wochenarbeitszeiten" (gleichmäßiges Standardschema) ändert sich der angerechnete Wert nur dann, wenn die Wochenarbeitszeit pro Tag über 6 Stunden liegt und dadurch automatisch eine Pause im Soll berücksichtigt wird — das macht die Anrechnung konsistent mit der ohnehin bereits so berechneten Soll-Zeit',
+    'Regression: 6 neue Assertions (SCHED1-SCHED6) für unregelmäßige Wochenschemata (unterschiedliche Tages-Solls), inkl. eines echten Woche-Ansicht-Tests mit erwartetem Saldo',
+  ]},
   { version: '3.9.44', items: [
     'Fehler behoben: Ein neuer Urlaubs-/Krank-/Überstundenabbau-Eintrag ("+ Urlaub / Krankheit" und "Urlaubszeitraum erfassen") konnte unbemerkt neben einem bereits bestehenden Eintrag am selben Datum gespeichert werden, wenn zuvor schon ein Eintrag mit anderem Typ (z.B. "Krank") für dieses Datum existierte',
     'Dadurch wurde in "Einträge" nur der ältere Eintrag angezeigt bzw. priorisiert und die Saldoberechnung in "Woche" zählte beide Einträge gleichzeitig an (Doppelanrechnung, falscher Saldo)',
