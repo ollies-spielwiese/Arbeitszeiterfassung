@@ -15,6 +15,12 @@
 //    zurueckkommt.
 // 4. Wenn beim Zurueckkommen aus dem Hintergrund ein neuer waiting-SW
 //    installiert wird, zeigen wir den Banner — nicht mehr, nicht weniger.
+// 5. Fix v3.9.40: direkt nach der Registrierung wird zusaetzlich einmal aktiv
+//    reg.update() aufgerufen. Auf iOS/iPadOS ("Zum Home-Bildschirm"-Apps)
+//    bleibt eine App oft die ganze Sitzung im Vordergrund — dann feuert
+//    visibilitychange nie, und ohne diesen expliziten Check wird ein neuer
+//    Server-Stand nie erkannt ("keine neuen Daten abgerufen"). Der Aufruf
+//    selbst loest weiterhin keinen Reload aus — nur Punkt 3 tut das.
 
 let __swWaitingRegistration = null;
 let __swUserRequestedActivation = false;
@@ -63,6 +69,11 @@ function registerServiceWorkerWithUpdatePrompt() {
       __swWaitingRegistration = reg;
       showUpdateBanner();
     }
+    // Aktiver Update-Check direkt bei jedem App-Start (siehe Punkt 5 oben).
+    // Ohne dies wird auf iOS eine neu deployte Version u.U. nie erkannt, weil
+    // visibilitychange in einer durchgehend im Vordergrund laufenden
+    // Home-Bildschirm-App nie feuert.
+    reg.update().catch(() => {});
     // A new worker starts installing (kann auch nach visibilitychange->reg.update() passieren)
     reg.addEventListener('updatefound', () => {
       const installing = reg.installing;

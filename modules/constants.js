@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.39';
+export const APP_VERSION = '3.9.40';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.40', items: [
+    'Fix: App aktualisierte sich auf iPad/iPhone (zum Home-Bildschirm hinzugefügt) teils gar nicht mehr — es wurde nie aktiv auf eine neue Version geprüft, wenn die App durchgehend im Vordergrund blieb',
+    'Beim Start wird jetzt zusätzlich sofort ein Update-Check ausgelöst (nicht mehr nur beim Zurückkehren aus dem Hintergrund)',
+    'Regression: neue Prüfung SW3 stellt sicher, dass dieser aktive Check nicht versehentlich wieder entfällt',
+  ]},
   { version: '3.9.39', items: [
     'Fix: Offline-Cache-Liste (sw.js) enthielt die neue Datei modules/render/vacation-planning.js nicht — konnte bei erstem Start ohne Netzwerk zu einem kompletten Ladefehler der App inkl. Navigation führen',
     'Regression: neue Prüfung SW1 vergleicht automatisch alle lokalen Modul-Imports gegen die Offline-Cache-Liste, damit sowas künftig sofort auffällt',

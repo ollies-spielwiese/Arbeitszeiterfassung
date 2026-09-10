@@ -850,6 +850,29 @@ function runVersionBadgeSyncCheck() {
   assertEq('SW2: version in package.json stimmt mit APP_VERSION ueberein', pkgVersion, appVersion);
 }
 
+// ---------- SW3: Aktiver Update-Check bei jedem App-Start (iOS-Fix v3.9.40) ----------
+// Auf iOS/iPadOS feuert visibilitychange in einer durchgehend im Vordergrund
+// laufenden Home-Bildschirm-App nie — ohne einen expliziten reg.update()
+// direkt nach der Registrierung wird eine neu deployte Version dort nie
+// erkannt. Diese Pruefung stellt sicher, dass der Aufruf nicht versehentlich
+// wieder entfernt wird (z.B. bei einem Refactor von sw-update.js).
+function runActiveUpdateCheckOnLoadCheck() {
+  const src = fs.readFileSync(path.join(REPO_ROOT, 'modules/sw-update.js'), 'utf8');
+  const registerFnMatch = src.match(/function registerServiceWorkerWithUpdatePrompt\(\)\s*{([\s\S]*?)\n}\n/);
+  assertTrue('SW3: registerServiceWorkerWithUpdatePrompt gefunden', !!registerFnMatch, 'modules/sw-update.js');
+  if (!registerFnMatch) return;
+  const body = registerFnMatch[1];
+  // Muss ausserhalb des visibilitychange-Listeners liegen, also vor dessen
+  // addEventListener-Aufruf im Funktionskoerper stehen.
+  const updateCallIdx = body.indexOf('reg.update()');
+  const visibilityIdx = body.indexOf("addEventListener('visibilitychange'");
+  assertTrue(
+    'SW3: reg.update() wird direkt beim Registrieren aufgerufen (nicht nur bei visibilitychange)',
+    updateCallIdx !== -1 && (visibilityIdx === -1 || updateCallIdx < visibilityIdx),
+    `updateCallIdx=${updateCallIdx} visibilityIdx=${visibilityIdx}`
+  );
+}
+
 // ---------- Runner ----------
 
 (async () => {
@@ -857,6 +880,7 @@ function runVersionBadgeSyncCheck() {
   const t0 = Date.now();
   runServiceWorkerPrecacheCheck();
   runVersionBadgeSyncCheck();
+  runActiveUpdateCheckOnLoadCheck();
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);
