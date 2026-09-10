@@ -19,6 +19,7 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Word-Export einzelner Monatsberichte
 - Feiertage für alle Bundesländer, inklusive nachträglicher Anpassung (deaktivieren, umbenennen, ergänzen)
 - Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = Wochen-Soll ÷ 5 pro Werktag, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
+- Zeitraum-Erfassung „von … bis …“ für Urlaub/Krankheit: legt alle Tage im gewählten Zeitraum in einem Schritt an, lässt Wochenenden und Feiertage automatisch aus (abschaltbar) und überschreibt nie bereits erfasste Tage
 - Vorlagen für häufige Überstundengründe
 - Datensicherung als JSON-Export mit Wiederherstellung
 - Läuft komplett offline. Keine Datenübertragung an Server. Alle Daten bleiben auf dem Gerät.
@@ -108,7 +109,7 @@ Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 ```bash
 npm ci
 npm run serve &          # lokaler HTTP-Server auf Port 8765
-npm run qa               # 51 Checks, ~3 s
+npm run qa               # 96 Checks, ~3 s
 ```
 
 Umgebungsvariablen:

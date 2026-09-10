@@ -285,12 +285,15 @@ Neue Migration hinzufügen:
 
 `scripts/regression.mjs` ist das Sicherheitsnetz. CI läuft ihn bei jedem Push. Grün ist Voraussetzung für jeden Version-Bump und für den Pages-Deploy.
 
-**Aktueller Umfang: 51 Checks in vier Sektionen.**
+**Aktueller Umfang: 96 Checks in sieben Sektionen.**
 
 1. **Selektor-Unit-Tests** (8) — `getSummaryFields` in 5 Konfigurationen. Erwartet: richtige Felder pro Modus, richtige `rawAmount` und `rawMinutes`.
-2. **Migrations-Unit-Tests** (8) — Legacy → migriert; Idempotenz; keine ungewollten Mutationen; Home-Office-Konsolidierung.
-3. **E2E Freelance** (17) — Seed mit „Kunde Alpha" 09:00–16:00 @ 85 €/h → Tracker, Week, Report, Overview zeigen 595,00 €. PDF/Word/OverviewPDF werden generiert und **inhaltlich** gegen die Werte gecheckt.
-4. **E2E Employee** (18) — Analog mit Ist/Soll/Saldo. PDF/Word/OverviewPDF-Textextraktion (via `pdf-parse` und `mammoth`) prüft, dass die Labels und die 7:00 Ist tatsächlich im Blob stehen.
+2. **Migrations-Unit-Tests** (9) — Legacy → migriert; Idempotenz; keine ungewollten Mutationen; Home-Office-Konsolidierung.
+3. **computeVacationRemaining Unit-Tests** (12) — Prorating im Anstellungsjahr, Carry-Over aus dem Vorjahr, bereits genommene Tage, Deckelung bei Überbezug.
+4. **WhatsNew-Intro-Rendering** (5) — Modal erscheint bei neuer Version mit Intro-Text und Changelog-Eintrag, bleibt beim zweiten Aufruf verborgen.
+5. **buildRangeEntries Unit-Tests** (18) — Zeitraum-Erfassung: Wochenend-/Feiertagsfilter, Schutz bestehender Einträge, Filter-Deaktivierung, Summary-Text, Monatsbericht-Integration.
+6. **E2E Freelance** (14) — Seed mit „Kunde Alpha" 09:00–16:00 @ 85 €/h → Tracker, Week, Report, Overview zeigen 595,00 €. PDF/Word/OverviewPDF werden generiert und **inhaltlich** gegen die Werte gecheckt.
+7. **E2E Employee** (30) — Analog mit Ist/Soll/Saldo. PDF/Word/OverviewPDF-Textextraktion (via `pdf-parse` und `mammoth`) prüft, dass die Labels und die 7:00 Ist tatsächlich im Blob stehen.
 
 **Regeln:**
 - Rot = kein Merge, kein Bump, kein Deploy.
@@ -375,7 +378,7 @@ Der Version-Bump-Ablauf lebt in `CONTRIBUTING.md`.
 ## Referenzen
 
 - `types.js` — alle Typ-Signaturen
-- `scripts/regression.mjs` — 51 Checks
+- `scripts/regression.mjs` — 96 Checks
 - `.github/workflows/regression.yml` — CI-Sweep
 - `.github/workflows/pages.yml` — CI-gated Deploy
 - `docs/ROADMAP.md` — Phasen und Reihenfolge

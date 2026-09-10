@@ -50,7 +50,7 @@ Live-Reload gibt es nicht. Nach Änderungen an `app.js` einmal Hard-Reload (Cmd/
 npm run qa
 ```
 
-Erwartete Ausgabe: `51/51 Checks OK — X.Xs`. Alles darunter ist rot.
+Erwartete Ausgabe: `96/96 Checks OK — X.Xs`. Alles darunter ist rot.
 
 Headed-Modus für Debugging (Chromium öffnet sichtbar):
 ```

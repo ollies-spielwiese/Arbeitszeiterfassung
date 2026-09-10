@@ -1,8 +1,10 @@
 # Arbeitszeit-App — Roadmap v3.9 → v4.0
 
+**Status (Stand v3.9.36, 10.09.2026): Phasen 1–4 sind vollständig umgesetzt.** Geprüft direkt im Code: `@ts-check` in allen State-/Compute-Modulen plus `tsc --noEmit` (0 echte Fehler), `SCHEMA_VERSION` + Migrations-Array in `modules/migrations.js`, PDF/Word-Inhaltsprüfung in `scripts/regression.mjs` (96 Checks), CI-Workflows `regression.yml` + `pages.yml` (Deploy ist CI-gated), `docs/ARCHITECTURE.md` + `CONTRIBUTING.md` vorhanden, `app.js` von 4118 auf 1683 Zeilen reduziert und in `modules/state.js`, `holidays.js`, `compute.js`, `render/*`, `export/*`, `ui/*`, `bootstrap.js`, `selectors.js` aufgeteilt. Diese Datei bleibt als historische Referenz erhalten; neue Vorhaben stehen unter „Phase 5" am Ende.
+
 Reihenfolge nach v3.8.1. Prinzip: erst Sicherheitsnetze, dann Umbauten; erst Verstehen, dann Verändern; niedriger Aufwand mit hohem Hebel zuerst.
 
-## Phase 1 — Sicherheitsnetz
+## Phase 1 — Sicherheitsnetz ✅ Erledigt
 
 Ziel: keine strukturelle Änderung mehr ohne automatische Absicherung.
 
@@ -33,7 +35,7 @@ Ziel: keine strukturelle Änderung mehr ohne automatische Absicherung.
 - **Nutzen:** Rot-Pushes werden mit Badge und Mail sichtbar; unmöglich zu übersehen
 - **Fertig wenn:** Grüner Badge in README, ein absichtlich rotgemachter PR wird von Actions gefangen
 
-## Phase 2 — Verstehen
+## Phase 2 — Verstehen ✅ Erledigt
 
 Ziel: nach drei Monaten Pause in fünf Minuten wieder drin sein.
 
@@ -52,9 +54,9 @@ Ziel: nach drei Monaten Pause in fünf Minuten wieder drin sein.
 - **Aufwand:** 1h
 - **Nutzen:** Cache-Bump-Regel dokumentiert; keine vergessenen `sw.js`-Bumps mehr
 
-## Phase 3 — Modul-Split
+## Phase 3 — Modul-Split ✅ Erledigt
 
-Ziel: `app.js` (4118 Zeilen) in isolierte Bereiche zerlegen, ohne Build-Pipeline.
+Ziel: `app.js` (4118 Zeilen) in isolierte Bereiche zerlegen, ohne Build-Pipeline. **Ergebnis:** `app.js` ist auf 1683 Zeilen (Entry-Point, Wiring, Ctx-Builder) geschrumpft; alle unten genannten Module existieren real (`modules/state.js`, `holidays.js`, `compute.js`, `render/*`, `export/pdf.js`+`word.js`, `ui/*`).
 
 ### 7. `app.js` in ES-Module aufteilen
 - **Reihenfolge (ein Modul pro Commit, nach jedem Commit `npm run qa`):**
@@ -70,9 +72,9 @@ Ziel: `app.js` (4118 Zeilen) in isolierte Bereiche zerlegen, ohne Build-Pipeline
 - **Nutzen:** Änderungen in `export/pdf.js` können nichts in `render/views.js` brechen
 - **Wichtig:** `<script type="module">` in `index.html`, Cache-Version im `sw.js` bumpen, alle Module in `sw.js` cachen
 
-## Phase 4 — Sauberkeit
+## Phase 4 — Sauberkeit ✅ Erledigt
 
-Ziel: strukturell unmöglich machen, dass sich Summary-Varianten wieder auseinander entwickeln.
+Ziel: strukturell unmöglich machen, dass sich Summary-Varianten wieder auseinander entwickeln. **Ergebnis:** `modules/selectors.js` zieht das Selector-Prinzip über Compute/Render/Export; `npm run typecheck` läuft in beiden CI-Workflows mit.
 
 ### 8. Compute/Render/Export-Trennung durchziehen
 - **Muster:** Selector-Prinzip (`getSummaryFields`) auf alle datenerzeugenden Bereiche ausrollen
@@ -87,6 +89,15 @@ Ziel: strukturell unmöglich machen, dass sich Summary-Varianten wieder auseinan
 - **Wie:** `npm run typecheck` als Script; in `.github/workflows/qa.yml` mit ausführen
 - **Aufwand:** 2 Tage (Setup + Type-Fehler beheben)
 - **Nutzen:** ~40% künftiger Bugs werden beim Tippen abgefangen, nicht im Browser
+
+## Phase 5 — Nach v4.0: Feature-Ideen (offen, nicht committet)
+
+Die strukturelle Roadmap ist abgeschlossen. Folgende Erweiterungen liegen als Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHITECTURE.md#erweiterungs-rezepte) bereit, sind aber noch nicht beauftragt:
+
+- **Weitere Bulk-Erfassungs-Typen** — das mit v3.9.36 eingeführte Muster (`modules/range-entry.js`) auf einen eigenen Eintrags-Typ wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
+- **CSV-Export** — analog zu PDF/Word, Rezept „Neuer Export-Format“ ist bereits dokumentiert.
+- **Undo für Zeitraum-Erfassung** — ein Rückgängig-Button direkt nach dem Anlegen mehrerer Tage, bevor der Nutzer manuell jeden Tag einzeln löschen muss.
+- **Weitere Bundesland-Feiertage pflegen**, sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“).
 
 ## Nicht-Ziele (bewusst nicht auf der Roadmap)
 
