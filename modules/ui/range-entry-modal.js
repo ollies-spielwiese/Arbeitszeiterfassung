@@ -82,7 +82,7 @@ export function updateRangeVacationStats(ctx) {
   box.hidden = false;
   box.innerHTML =
     `<div class="range-vacation-stats-line">Bereits genommen: <strong>${vr.taken}</strong> Tage · ` +
-    `Geplant: <strong>${planned}</strong> Tage · ` +
+    `Urlaubsanspruch: <strong>${planned}</strong> Tage · ` +
     `Noch nicht erfasst: <strong>${vr.remaining}</strong> Tage</div>` +
     `<div class="range-vacation-stats-hint">Urlaubsjahr ${year}` +
     `${vr.prorated ? ' · anteilig ab Eintritt' : ''}` +

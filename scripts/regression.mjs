@@ -325,7 +325,7 @@ async function runRangeVacationStatsUnits(page) {
   });
   assertTrue('RV1: Stats-Box sichtbar bei Typ=Urlaub + Arbeitgeber', rv1.hidden === false, `hidden=${rv1.hidden}`);
   assertContains('RV1: bereits genommene Urlaubstage = 2', rv1.html, 'Bereits genommen: <strong>2</strong>');
-  assertContains('RV1: geplanter Jahresurlaub = 35 (30 Jahresanspruch + 5 Vorjahr)', rv1.html, 'Geplant: <strong>35</strong>');
+  assertContains('RV1: geplanter Jahresurlaub = 35 (30 Jahresanspruch + 5 Vorjahr)', rv1.html, 'Urlaubsanspruch: <strong>35</strong>');
   assertContains('RV1: noch nicht erfasste Urlaubstage = 33 (35-2)', rv1.html, 'Noch nicht erfasst: <strong>33</strong>');
   assertContains('RV1: Jahr im Hinweistext (aus Von-Datum abgeleitet)', rv1.html, 'Urlaubsjahr 2026');
   assertContains('RV1: Resturlaub Vorjahr im Hinweistext genannt', rv1.html, 'davon 5 Tage Resturlaub Vorjahr');

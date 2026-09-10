@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.40';
+export const APP_VERSION = '3.9.41';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.41', items: [
+    'Zeitraum erfassen: Beschriftung im Urlaubskonto-Hinweis von "Geplant" zu "Urlaubsanspruch" geändert (klarer, da es sich um den Jahresanspruch inkl. Resturlaub Vorjahr handelt)',
+  ]},
   { version: '3.9.40', items: [
     'Fix: App aktualisierte sich auf iPad/iPhone (zum Home-Bildschirm hinzugefügt) teils gar nicht mehr — es wurde nie aktiv auf eine neue Version geprüft, wenn die App durchgehend im Vordergrund blieb',
     'Beim Start wird jetzt zusätzlich sofort ein Update-Check ausgelöst (nicht mehr nur beim Zurückkehren aus dem Hintergrund)',
