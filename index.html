@@ -298,7 +298,8 @@
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
               <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen.</li>
               <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
-              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen kompletten Tag (oder mehrere Tage) als Abwesenheit ein. Im Auswahlfeld „Art“ steht neben Urlaub und Krankheit auch <strong>Gleitzeit-Überstundenabbau</strong> zur Verfügung — für ganze freie Tage zum Abbau von Überstunden, die wie ein Arbeitstag angerechnet werden, aber den Urlaubsanspruch nicht mindern.</li>
+              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein. Im Auswahlfeld „Art“ steht neben Urlaub und Krankheit auch <strong>Gleitzeit-Überstundenabbau</strong> zur Verfügung — für ganze freie Tage zum Abbau von Überstunden, die wie ein Arbeitstag angerechnet werden, aber den Urlaubsanspruch nicht mindern.</li>
+              <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Krankheit oder Gleitzeit-Überstundenabbau), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -331,6 +332,7 @@
             <ul>
               <li>Über die zwei Filter oben wählst du <strong>Arbeitgeber</strong> und <strong>Monat</strong>.</li>
               <li>Jeder Eintrag wird als Karte angezeigt: Datum, Uhrzeit, Pause, Dauer und ggf. Notiz.</li>
+              <li>Abwesenheitstage (Urlaub, Krankheit, Gleitzeit-Überstundenabbau) zeigen statt Uhrzeit/Dauer eine farbige Beschriftung als Badge.</li>
               <li>Ein Tipp auf einen Eintrag öffnet ihn zum Bearbeiten oder Löschen.</li>
             </ul>
           </div>
@@ -372,11 +374,24 @@
             <p>Wenn du mehrere Arbeitgeber hast, zeigt dir dieser Reiter, wie viel du im gewählten Monat bei welchem Arbeitgeber gearbeitet hast.</p>
             <ol>
               <li>Monat oben auswählen.</li>
-              <li>Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs- und Krankheitstagen auf.</li>
+              <li>Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs-, Krankheits- und <strong>Abbau</strong>-Tagen (Gleitzeit-Überstundenabbau) auf.</li>
               <li>Am Ende steht eine Gesamt-Zeile mit den Summen über alle Arbeitgeber.</li>
               <li>Mit <strong>📕 PDF</strong> erstellst du einen kombinierten Nachweis als Download, mit <strong>📤 Teilen</strong> versendest du ihn per E‑Mail.</li>
             </ol>
             <p>Der PDF-Export enthält den gleichen Kopf wie der Monats-Nachweis und eine kompakte Tabelle mit einer Zeile pro Arbeitgeber sowie einer Summenzeile.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>6a. Reiter „Urlaubsplanung“ – Jahresüberblick für den Urlaub</summary>
+          <div class="guide-body">
+            <p>Dieser Reiter zeigt eine Jahresübersicht des Urlaubs für den aktuell ausgewählten Arbeitgeber (dieselbe Auswahl wie oben im Reiter Erfassen).</p>
+            <ol>
+              <li>Jahr oben eingeben oder ändern.</li>
+              <li>Oben siehst du vier Kennzahlen: <strong>Jahresanspruch</strong> (ggf. mit Hinweis „anteilig“ bei unterjährigem Eintritt), <strong>bereits genommene</strong> Urlaubstage, <strong>eingegebene</strong> Urlaubstage in der Zukunft und <strong>noch nicht erfasster</strong> Resturlaub.</li>
+              <li>Darunter listet eine Tabelle jeden Monat des Jahres mit den Spalten Genommen, Eingegeben und Summe auf, plus einer Gesamtzeile am Ende.</li>
+            </ol>
+            <p>So siehst du auf einen Blick, wie viel Urlaub im Jahresverlauf bereits verplant ist und wie viel noch offen ist.</p>
           </div>
         </details>
 
@@ -487,7 +502,7 @@
               <li>Lege pro Kunde einen Eintrag im Kunden-Reiter an. Im Kunden-Formular erscheint zusätzlich der Bereich <strong>Abrechnung</strong> mit optionalem <strong>Stundensatz</strong> und <strong>Währung</strong>.</li>
               <li>Erfasse Zeiten wie gewohnt – pro Kunde können mehrere Projekte über das Notizfeld oder Vorlagen unterschieden werden.</li>
               <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
-              <li>Feiertags- und Urlaubsfunktionen sind im Freiberufler-Modus ausgeblendet. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben aber erhalten und werden bei Rückwechsel wieder angezeigt.</li>
+              <li>Der Bundesland-/Feiertage-Block in den Einstellungen, das Urlaubsanspruch-Feld im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
             </ol>
             <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
           </div>
