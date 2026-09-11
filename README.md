@@ -18,8 +18,13 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - PDF-Nachweise mit strukturierter Kopfzeile (Arbeitgeber, Zeitraum, Anstellungsdatum), farbcodiertem Saldo und Seitennummerierung „Seite N von M“ auf jeder Seite
 - Word-Export einzelner Monatsberichte
 - Feiertage für alle Bundesländer, inklusive nachträglicher Anpassung (deaktivieren, umbenennen, ergänzen)
-- Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = Wochen-Soll ÷ 5 pro Werktag, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
-- Zeitraum-Erfassung „von … bis …“ für Urlaub/Krankheit: legt alle Tage im gewählten Zeitraum in einem Schritt an, lässt Wochenenden und Feiertage automatisch aus (abschaltbar) und überschreibt nie bereits erfasste Tage
+- Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = tagesgenaues Tages-Soll bei `hoursMode='week'`, sonst Wochen-Soll ÷ Werktage als Durchschnittsprinzip, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
+- Freier Tag als eigener Eintragstyp: Tage ohne Vertrags-Soll (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell) werden vom Tages-/Monats-Soll ausgeschlossen, ohne wie Urlaub/Krank gutgeschrieben zu werden
+- Zeitraum-Erfassung „von … bis …“ für Urlaub/Krankheit: legt alle Tage im gewählten Zeitraum in einem Schritt an, lässt Wochenenden und Feiertage automatisch aus (abschaltbar), überschreibt nie bereits erfasste Tage und lässt sich per Toast-Aktion „Rückgängig“ sofort wieder entfernen
+- Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo über einen wählbaren Zeitraum (6/12/24 Monate), Monat für Monat mit laufendem Saldo
+- Änderungsprotokoll: jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel in den Einstellungen protokolliert (letzte 500 Änderungen, davon die letzten 50 sichtbar)
+- Backup-Erinnerung: Banner in den Einstellungen, wenn noch nie oder seit mehr als 14 Tagen kein Backup erstellt wurde, mit Möglichkeit zum Zurückstellen (Snooze)
+- CSV-Export eines Monatsberichts (Excel-kompatibel, UTF-8 mit BOM) zusätzlich zu PDF und Word
 - Vorlagen für häufige Überstundengründe
 - Datensicherung als JSON-Export mit Wiederherstellung
 - Läuft komplett offline. Keine Datenübertragung an Server. Alle Daten bleiben auf dem Gerät.

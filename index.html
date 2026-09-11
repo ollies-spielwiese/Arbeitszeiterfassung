@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.46</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.47</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -118,6 +118,7 @@
       <button class="tab" data-view="report" role="tab">Monat</button>
       <button class="tab" data-view="overview" role="tab">Übersicht</button>
       <button class="tab" data-view="vacation-planning" role="tab">Urlaubsplanung</button>
+      <button class="tab" data-view="gleitzeitkonto" role="tab">Gleitzeitkonto</button>
       <button class="tab" data-view="employers" role="tab">Arbeitgeber</button>
       <button class="tab" data-view="archive" role="tab">Archiv</button>
       <button class="tab" data-view="guide" role="tab">Anleitung</button>
@@ -213,6 +214,9 @@
         <button id="btn-export-pdf" class="btn-primary" data-testid="button-export-pdf">
           📕 PDF
         </button>
+        <button id="btn-export-csv" class="btn-primary" data-testid="button-export-csv">
+          📊 CSV
+        </button>
         <button id="btn-share" class="btn-primary" data-testid="button-share">
           📤 Teilen
         </button>
@@ -247,6 +251,25 @@
         </label>
       </div>
       <div id="vacation-planning-content" class="report-content"></div>
+    </section>
+
+    <!-- Gleitzeitkonto View: kumulierter Überstundenverlauf über mehrere Monate -->
+    <section id="view-gleitzeitkonto" class="view">
+      <div class="filter-row">
+        <label>
+          Bis Monat
+          <input type="month" id="gleitzeitkonto-end-month" data-testid="input-gleitzeitkonto-end-month" />
+        </label>
+        <label>
+          Zeitraum
+          <select id="gleitzeitkonto-months" data-testid="select-gleitzeitkonto-months">
+            <option value="6">6 Monate</option>
+            <option value="12" selected>12 Monate</option>
+            <option value="24">24 Monate</option>
+          </select>
+        </label>
+      </div>
+      <div id="gleitzeitkonto-content" class="report-content"></div>
     </section>
 
     <!-- Employers View -->
@@ -527,6 +550,14 @@
     <section id="view-settings" class="view">
       <h2>Einstellungen</h2>
 
+      <div id="backup-reminder-banner" class="backup-reminder-banner hidden" data-testid="banner-backup-reminder">
+        <span id="backup-reminder-text"></span>
+        <div class="backup-reminder-actions">
+          <button type="button" id="btn-backup-reminder-export" class="btn-primary btn-small" data-testid="button-backup-reminder-export">Jetzt exportieren</button>
+          <button type="button" id="btn-backup-reminder-snooze" class="btn-secondary btn-small" data-testid="button-backup-reminder-snooze">Später erinnern</button>
+        </div>
+      </div>
+
       <div class="settings-block">
         <h3>Modus</h3>
         <p class="hint">Wähle, wie du die App nutzen möchtest. Der Modus lässt sich jederzeit umschalten. Deine Daten bleiben in beiden Modi erhalten.</p>
@@ -619,6 +650,12 @@
           <input type="file" id="input-backup-file" accept="application/json" hidden />
         </div>
       </div>
+
+      <div class="settings-block">
+        <h3>Änderungsprotokoll</h3>
+        <p class="hint">Die letzten Änderungen an Einträgen (angelegt, geändert, gelöscht) — rein lokal, wird ins Backup übernommen.</p>
+        <div id="audit-log-list" class="audit-log-list" data-testid="list-audit-log"></div>
+      </div>
     </section>
   </main>
 
@@ -647,6 +684,7 @@
             <option value="vacation">Urlaub</option>
             <option value="sick">Krankheit</option>
             <option value="overtime_reduction">Gleitzeit-Überstundenabbau</option>
+            <option value="off_day">Freier Tag (kein Arbeitstag)</option>
           </select>
         </div>
         <div id="work-fields">
@@ -716,6 +754,7 @@
             <option value="vacation">Urlaub</option>
             <option value="sick">Krankheit</option>
             <option value="overtime_reduction">Gleitzeit-Überstundenabbau</option>
+            <option value="off_day">Freier Tag (kein Arbeitstag)</option>
           </select>
         </div>
         <div id="range-vacation-stats" class="range-vacation-stats" hidden aria-live="polite"></div>

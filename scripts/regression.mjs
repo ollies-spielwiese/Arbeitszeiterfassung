@@ -720,6 +720,359 @@ async function runRangeVacationStatsUnits(page) {
   assertTrue('RV3: Stats-Box ausgeblendet ohne gewählten Arbeitgeber', rv3Hidden === true, `hidden=${rv3Hidden}`);
 }
 
+// ---------- 1g) Freier-Tag / off_day Unit-Tests (v3.9.47) ----------
+
+async function runOffDayUnits(page) {
+  console.log('\n=== 1g) Freier-Tag (off_day) Unit-Tests ===');
+
+  // OD1+OD2: computeDayTargetMinutes liefert für einen normalen Montag ein Soll > 0,
+  // sinkt aber auf 0, sobald für denselben Tag/Employer ein 'off_day'-Eintrag existiert.
+  const od12 = await page.evaluate(() => {
+    const emp = { id: '__od12__', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' };
+    const before = computeDayTargetMinutes(emp, '2026-06-08'); // Montag
+    state.entries.push({ id: 'od12-e', employerId: emp.id, date: '2026-06-08', type: 'off_day' });
+    const after = computeDayTargetMinutes(emp, '2026-06-08');
+    state.entries = state.entries.filter((e) => e.id !== 'od12-e');
+    return { before, after };
+  });
+  assertTrue('OD1: normaler Montag hat Tages-Soll > 0', od12.before > 0, `${od12.before}`);
+  assertEq('OD2: Freier Tag liefert 0 Minuten Tages-Soll (Soll-Ausschluss)', od12.after, 0);
+
+  // OD3+OD4: computeMonthReport zählt den Freien Tag, senkt das Monats-Soll exakt um den
+  // Tageswert und lässt die Ist-Stunden unverändert.
+  const od34 = await page.evaluate(() => {
+    const empId = '__od-report__';
+    state.employers.push({ id: empId, name: 'OD-Report', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.entries.push({ id: 'od-work', employerId: empId, date: '2026-06-09', type: 'work', start: '09:00', end: '17:00', breakMinutes: 0 });
+    const before = computeMonthReport(empId, '2026-06');
+    state.entries.push({ id: 'od-off', employerId: empId, date: '2026-06-08', type: 'off_day' });
+    const after = computeMonthReport(empId, '2026-06');
+    const result = {
+      offDayCount: after.offDayEntries.length,
+      targetDelta: before.targetMin - after.targetMin,
+      workedSame: before.workedMin === after.workedMin,
+    };
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    return result;
+  });
+  assertEq('OD3: computeMonthReport zählt 1 Freier-Tag-Eintrag', od34.offDayCount, 1);
+  assertTrue('OD4: Monats-Soll sinkt durch den Freien Tag', od34.targetDelta > 0, `delta=${od34.targetDelta}`);
+  assertTrue('OD4b: Ist-Stunden bleiben durch den Freien Tag unverändert', od34.workedSame, '');
+
+  // OD5: computeMonthOverview zählt offDayDays sowohl je Arbeitgeber-Zeile als auch in den Totals.
+  const od5 = await page.evaluate(() => {
+    const empId = '__od-ov__';
+    state.employers.push({ id: empId, name: 'OD-Overview', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.entries.push({ id: 'od-off2', employerId: empId, date: '2026-06-08', type: 'off_day' });
+    const ov = computeMonthOverview('2026-06');
+    const row = ov.rows.find((r) => r.employer.id === empId);
+    const result = { rowOffDays: row ? row.offDayDays : -1, totalsOffDays: ov.totals.offDayDays };
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    return result;
+  });
+  assertEq('OD5: Übersicht-Zeile zählt 1 Freien Tag', od5.rowOffDays, 1);
+  assertAtLeast('OD5: Übersicht-Totals zählen mind. 1 Freien Tag', od5.totalsOffDays, 1);
+
+  // OD6: computeEntryRows liefert für 'off_day' den korrekten Badge- und rightKind-Typ
+  // (Grundlage für die Anzeige in der Eintragsliste).
+  const od6 = await page.evaluate(() => {
+    const entry = { id: 'od-badge', employerId: '__od-badge__', date: '2026-06-08', type: 'off_day' };
+    const rows = computeEntryRows([entry], {
+      getEmployer, computeWorkMinutes, computeHomeofficeMinutes, computeMonthTargetMinutes, countWorkdaysInMonth,
+    });
+    return rows[0];
+  });
+  assertEq('OD6: badgeType = off_day', od6.badgeType, 'off_day');
+  assertEq('OD6: rightKind = absence-off_day', od6.rightKind, 'absence-off_day');
+}
+
+// ---------- 1h) Änderungsprotokoll (Audit-Log) Unit-Tests (v3.9.47) ----------
+
+async function runAuditLogUnits(page) {
+  console.log('\n=== 1h) Änderungsprotokoll (Audit-Log) Unit-Tests ===');
+
+  // AL1: pushAuditLog erzeugt einen Log-Eintrag mit den erwarteten Feldern.
+  const al1 = await page.evaluate(() => {
+    const s = { auditLog: [] };
+    const entry = { id: 'e1', employerId: 'emp1', date: '2026-06-08', type: 'vacation' };
+    const log = pushAuditLog(s, { action: 'create', entry, summary: 'Testeintrag', uid: () => 'log-1' });
+    return { log, auditLogLength: s.auditLog.length };
+  });
+  assertEq('AL1: action=create korrekt übernommen', al1.log.action, 'create');
+  assertEq('AL1: entryId korrekt übernommen', al1.log.entryId, 'e1');
+  assertEq('AL1: employerId korrekt übernommen', al1.log.employerId, 'emp1');
+  assertEq('AL1: entryType korrekt übernommen', al1.log.entryType, 'vacation');
+  assertEq('AL1: state.auditLog hat genau 1 Eintrag', al1.auditLogLength, 1);
+
+  // AL2: state.auditLog wird additiv angelegt, falls das Feld (Altbestand) noch fehlt.
+  const al2HasArray = await page.evaluate(() => {
+    const s = {};
+    pushAuditLog(s, { action: 'update', entry: { id: 'e2' }, uid: () => 'log-2' });
+    return Array.isArray(s.auditLog);
+  });
+  assertTrue('AL2: state.auditLog wird additiv angelegt (kein Migrations-Eintrag nötig)', al2HasArray, '');
+
+  // AL3: Obergrenze AUDIT_LOG_MAX=500 wird per FIFO eingehalten.
+  const al3 = await page.evaluate(() => {
+    const s = { auditLog: [] };
+    for (let i = 0; i < 505; i++) {
+      pushAuditLog(s, { action: 'create', entry: { id: `e${i}` }, uid: () => `log-${i}` });
+    }
+    return { length: s.auditLog.length, first: s.auditLog[0].entryId, last: s.auditLog[s.auditLog.length - 1].entryId };
+  });
+  assertEq('AL3: Obergrenze bei 500 Einträgen eingehalten', al3.length, 500);
+  assertEq('AL3: älteste Einträge werden entfernt (FIFO)', al3.first, 'e5');
+  assertEq('AL3: neuester Eintrag bleibt erhalten', al3.last, 'e504');
+
+  // AL4: formatAuditLogLine liefert lesbaren Text mit Aktion, Typ, Datum, Arbeitgeber, Zusammenfassung.
+  const al4 = await page.evaluate(() => {
+    const log = { action: 'delete', entryType: 'sick', date: '2026-06-08', summary: 'Testlöschung', employerId: 'emp1' };
+    return formatAuditLogLine(log, { getEmployer: () => ({ name: 'Arbeitgeber A' }), formatDateLong: (d) => d });
+  });
+  assertContains('AL4: Aktion "Gelöscht" enthalten', al4, 'Gelöscht');
+  assertContains('AL4: Typ "Krankheit" enthalten', al4, 'Krankheit');
+  assertContains('AL4: Arbeitgeber-Name enthalten', al4, 'Arbeitgeber A');
+  assertContains('AL4: Zusammenfassung in Klammern enthalten', al4, '(Testlöschung)');
+
+  // AL5: buildAuditLogHTML zeigt höchstens 50 sichtbare Zeilen (MAX_VISIBLE), neueste zuerst.
+  const al5 = await page.evaluate(() => {
+    const log = [];
+    for (let i = 0; i < 60; i++) {
+      log.push({ id: `l${i}`, at: new Date(2026, 5, 1, 0, i).toISOString(), action: 'create', entryId: `e${i}`, entryType: 'work', date: '2026-06-01' });
+    }
+    return buildAuditLogHTML(log, {});
+  });
+  const al5RowCount = (al5.match(/audit-log-row/g) || []).length;
+  assertEq('AL5: höchstens 50 sichtbare Zeilen (MAX_VISIBLE)', al5RowCount, 50);
+
+  // AL6: leeres Audit-Log zeigt einen Empty-State statt einer kaputten Liste.
+  const al6 = await page.evaluate(() => buildAuditLogHTML([], {}));
+  assertContains('AL6: Empty-State bei leerem Audit-Log', al6, 'Noch keine Änderungen protokolliert');
+}
+
+// ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
+
+async function runUndoUnits(page) {
+  console.log('\n=== 1i) Undo (Zeitraum-Erfassung) Tests ===');
+
+  // UN1: removeEntriesByIds (reine Logik) entfernt genau die angegebenen IDs.
+  const un1 = await page.evaluate(() => {
+    const entries = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+    return removeEntriesByIds(entries, ['b']).map((e) => e.id);
+  });
+  assertEq('UN1: removeEntriesByIds entfernt genau die angegebene ID', un1.length, 2);
+  assertTrue('UN1: verbleibende IDs sind a und c', un1.join(',') === 'a,c', un1.join(','));
+
+  // UN2: Integration — echte Zeitraum-Erfassung über das Formular, Klick auf "Rückgängig"
+  // im Toast entfernt die soeben angelegten Einträge wieder und protokolliert beides im Audit-Log.
+  const un2 = await page.evaluate(async () => {
+    const empId = '__undo-test__';
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.employers.push({ id: empId, name: 'Undo-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.activeEmployerId = empId;
+
+    document.getElementById('range-employer').innerHTML = `<option value="${empId}">Undo-Test</option>`;
+    document.getElementById('range-employer').value = empId;
+    document.getElementById('range-type').value = 'vacation';
+    document.getElementById('range-start').value = '2026-07-06'; // Montag
+    document.getElementById('range-end').value = '2026-07-08';   // Mittwoch
+    document.getElementById('range-skip-weekends-holidays').checked = true;
+    document.getElementById('range-note').value = 'Undo-Test';
+
+    document.getElementById('form-range-entry').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 60));
+
+    const afterCreate = state.entries.filter((e) => e.employerId === empId).length;
+    const auditAfterCreate = state.auditLog.filter((l) => l.employerId === empId && l.action === 'create').length;
+
+    const toastBtn = document.querySelector('#toast .toast-action');
+    const hasUndoButton = !!toastBtn;
+    if (toastBtn) toastBtn.click();
+    await new Promise((r) => setTimeout(r, 60));
+
+    const afterUndo = state.entries.filter((e) => e.employerId === empId).length;
+    const auditAfterUndo = state.auditLog.filter((l) => l.employerId === empId && l.action === 'delete').length;
+
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    state.auditLog = state.auditLog.filter((l) => l.employerId !== empId);
+
+    return { afterCreate, auditAfterCreate, hasUndoButton, afterUndo, auditAfterUndo };
+  });
+  assertEq('UN2: 3 Urlaubstage werden per Zeitraum-Erfassung angelegt', un2.afterCreate, 3);
+  assertEq('UN2: 3 Create-Einträge im Audit-Log', un2.auditAfterCreate, 3);
+  assertTrue('UN2: Toast zeigt "Rückgängig"-Aktion an', un2.hasUndoButton, '');
+  assertEq('UN2: nach Rückgängig sind alle 3 Einträge wieder entfernt', un2.afterUndo, 0);
+  assertEq('UN2: 3 Delete-Einträge im Audit-Log nach Rückgängig', un2.auditAfterUndo, 3);
+}
+
+// ---------- 1j) Backup-Erinnerung Unit-Tests (v3.9.47) ----------
+
+async function runBackupReminderUnits(page) {
+  console.log('\n=== 1j) Backup-Erinnerung Unit-Tests ===');
+
+  // BR1: Ohne vorhandene Einträge bleibt der Banner ausgeblendet.
+  const br1 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [];
+    state.settings.lastBackupAt = null;
+    state.settings.backupReminderSnoozeUntil = null;
+    updateBackupReminderBanner();
+    const hidden = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return hidden;
+  });
+  assertTrue('BR1: Banner ausgeblendet ohne vorhandene Einträge', br1, '');
+
+  // BR2: Daten vorhanden, noch nie ein Backup gemacht -> Banner sichtbar mit Hinweistext.
+  const br2 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e1', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = null;
+    state.settings.backupReminderSnoozeUntil = null;
+    updateBackupReminderBanner();
+    const banner = document.getElementById('backup-reminder-banner');
+    const result = { hidden: banner.classList.contains('hidden'), text: document.getElementById('backup-reminder-text').textContent };
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return result;
+  });
+  assertTrue('BR2: Banner sichtbar ohne bisheriges Backup', !br2.hidden, '');
+  assertContains('BR2: Hinweistext nennt "noch kein Backup"', br2.text, 'noch kein Backup');
+
+  // BR3: Letztes Backup vor 20 Tagen (> 14 Tage Schwelle) -> Banner sichtbar mit Tagesangabe.
+  const br3 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e2', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString();
+    state.settings.backupReminderSnoozeUntil = null;
+    updateBackupReminderBanner();
+    const result = { hidden: document.getElementById('backup-reminder-banner').classList.contains('hidden'), text: document.getElementById('backup-reminder-text').textContent };
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return result;
+  });
+  assertTrue('BR3: Banner sichtbar nach 20 Tagen ohne Backup', !br3.hidden, '');
+  assertContains('BR3: Hinweistext nennt Tage seit letztem Backup', br3.text, '20 Tage');
+
+  // BR4: Frisches Backup (heute) -> Banner ausgeblendet.
+  const br4 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e3', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = new Date().toISOString();
+    state.settings.backupReminderSnoozeUntil = null;
+    updateBackupReminderBanner();
+    const hidden = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return hidden;
+  });
+  assertTrue('BR4: Banner ausgeblendet direkt nach frischem Backup', br4, '');
+
+  // BR5: Stummschaltung (Snooze) verdeckt den Banner unabhängig vom Backup-Alter.
+  const br5 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e4', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = null; // würde ohne Snooze den Banner zeigen
+    state.settings.backupReminderSnoozeUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+    updateBackupReminderBanner();
+    const hidden = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return hidden;
+  });
+  assertTrue('BR5: Banner bleibt bei aktiver Stummschaltung ausgeblendet', br5, '');
+
+  // BR6: exportBackup() schreibt lastBackupAt (Integration mit dem Export-Pfad, ohne echten Download).
+  const br6 = await page.evaluate(async () => {
+    const { exportBackup } = await import('/modules/backup.js');
+    const savedSettings = { ...state.settings };
+    state.settings.lastBackupAt = null;
+    exportBackup({ getState: () => state, saveState: () => {}, downloadBlob: () => {}, todayISO: () => '2026-06-01', toast: () => {} });
+    const written = !!state.settings.lastBackupAt;
+    Object.assign(state.settings, savedSettings);
+    return written;
+  });
+  assertTrue('BR6: exportBackup() setzt lastBackupAt', br6, '');
+}
+
+// ---------- 1k) Gleitzeitkonto Unit-Tests (v3.9.47) ----------
+
+async function runGleitzeitkontoUnits(page) {
+  console.log('\n=== 1k) Gleitzeitkonto Unit-Tests ===');
+
+  // GK1: buildGleitzeitkontoHTML berechnet den laufenden (kumulierten) Saldo korrekt
+  // und zeigt Titel, Summary und je eine Tabellenzeile pro Monat.
+  const gk1 = await page.evaluate(() => {
+    const minutesToHM = (m) => {
+      const sign = m < 0 ? '-' : '';
+      const abs = Math.abs(m);
+      return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
+    };
+    const rows = [
+      { ym: '2026-04', workedMin: 9000, targetMin: 9600, balance: -600, cumulativeBalance: -600 },
+      { ym: '2026-05', workedMin: 10200, targetMin: 9600, balance: 600, cumulativeBalance: 0 },
+      { ym: '2026-06', workedMin: 10800, targetMin: 9600, balance: 1200, cumulativeBalance: 1200 },
+    ];
+    return buildGleitzeitkontoHTML(rows, { name: 'GK-Test' }, {
+      escapeHtml: (s) => String(s),
+      minutesToHM,
+      formatMonthYear: (ym) => ym,
+      renderSummaryHTML,
+    });
+  });
+  assertContains('GK1: Titel nennt Gleitzeitkonto + Mitarbeitername', gk1, 'Gleitzeitkonto – GK-Test');
+  assertContains('GK1: aktueller (letzter) kumulierter Saldo 20:00 im Summary', gk1, '20:00');
+  assertContains('GK1: Zeile für April enthalten', gk1, '2026-04');
+  assertContains('GK1: Zeile für Mai enthalten', gk1, '2026-05');
+  assertContains('GK1: Zeile für Juni enthalten', gk1, '2026-06');
+  const gk1RowCount = (gk1.match(/data-label="Monat"/g) || []).length;
+  assertEq('GK1: genau 3 Tabellenzeilen (eine pro Monat)', gk1RowCount, 3);
+
+  // GK2: leere Zeilen-Liste zeigt einen Empty-State statt einer kaputten Tabelle.
+  const gk2 = await page.evaluate(() => buildGleitzeitkontoHTML([], { name: 'X' }, {
+    escapeHtml: (s) => s, minutesToHM: (m) => String(m), formatMonthYear: (ym) => ym, renderSummaryHTML,
+  }));
+  assertContains('GK2: Empty-State bei leerem Zeitraum', gk2, 'Keine Daten für den gewählten Zeitraum');
+
+  // GK3: shiftYearMonth verschiebt Jahr/Monat korrekt, auch über Jahresgrenzen hinweg.
+  const gk3 = await page.evaluate(() => ({
+    back: shiftYearMonth('2026-01', -1),
+    fwd: shiftYearMonth('2026-12', 1),
+    same: shiftYearMonth('2026-06', 0),
+  }));
+  assertEq('GK3: Januar minus 1 Monat = Dezember Vorjahr', gk3.back, '2025-12');
+  assertEq('GK3: Dezember plus 1 Monat = Januar Folgejahr', gk3.fwd, '2027-01');
+  assertEq('GK3: Verschiebung um 0 liefert denselben Monat', gk3.same, '2026-06');
+
+  // GK4: Integration — renderGleitzeitkonto() befüllt die echte Ansicht mit Daten aus
+  // computeMonthReport für den aktiven Arbeitgeber.
+  const gk4 = await page.evaluate(() => {
+    const empId = '__gk-integration__';
+    state.employers.push({ id: empId, name: 'GK-Integration', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.activeEmployerId = empId;
+    state.entries.push({ id: 'gk-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '17:00', breakMinutes: 0 });
+    document.getElementById('gleitzeitkonto-end-month').value = '2026-06';
+    document.getElementById('gleitzeitkonto-months').value = '6';
+    renderGleitzeitkonto();
+    const html = document.getElementById('gleitzeitkonto-content').innerHTML;
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    return html;
+  });
+  assertContains('GK4: Ansicht zeigt Titel mit Arbeitgebername', gk4, 'GK-Integration');
+  assertContains('GK4: Tabelle enthält den Juni 2026 (aktueller Monat)', gk4, 'Juni 2026');
+}
+
+
 // ---------- Helpers für E2E ----------
 
 /*
@@ -956,13 +1309,16 @@ async function checkBlob(page, label, kind) {
       if (!r) return null;
       if (k === 'pdf') blob = await generatePdfBlob(r);
       else if (k === 'word') blob = await generateWordBlob(r);
+      else if (k === 'csv') blob = generateCsvBlob(r);
     }
     if (!blob) return null;
     const buf = await blob.arrayBuffer();
     return { size: blob.size, bytes: Array.from(new Uint8Array(buf)) };
   }, { k: kind });
   const size = result?.size ?? -1;
-  assertAtLeast(`${label} — ${kind} > 500 bytes`, size, 500);
+  // CSV ist reiner Text (kompakt), PDF/Word/Übersicht sind Binärformate mit deutlich mehr Overhead.
+  const minBytes = kind === 'csv' ? 50 : 500;
+  assertAtLeast(`${label} — ${kind} > ${minBytes} bytes`, size, minBytes);
   return result ? Buffer.from(result.bytes) : null;
 }
 
@@ -977,6 +1333,11 @@ async function extractWordText(buf) {
   const mammoth = require('mammoth');
   const { value } = await mammoth.extractRawText({ buffer: buf });
   return value || '';
+}
+
+function extractCsvText(buf) {
+  // UTF-8 mit BOM — BOM entfernen, dann als Text lesen.
+  return buf.toString('utf-8').replace(/^\uFEFF/, '');
 }
 
 // ---------- 2) Freelance E2E ----------
@@ -1127,6 +1488,13 @@ async function runEmployee(page) {
     assertTrue('employee overviewPdf-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
     assertTrue('employee overviewPdf-content: Ist gesamt sichtbar', /\bIst\b/i.test(t), snippet(t));
   }
+  const emCsv = await checkBlob(page, 'employee', 'csv');
+  if (emCsv) {
+    const t = extractCsvText(emCsv);
+    assertTrue('employee csv-content: Header-Zeile korrekt', /^Datum;Typ;Beginn;Ende;Pause \(Min\);Stunden;Grund\/Bemerkung/.test(t), snippet(t));
+    assertTrue('employee csv-content: mindestens eine Arbeitszeile (Typ Arbeit)', /;Arbeit;/.test(t), snippet(t));
+    assertTrue('employee csv-content: 7:00 (Ist-Stunden) enthalten', /7:00/.test(t), snippet(t));
+  }
 }
 
 // ---------- SW1: Offline-Precache-Vollständigkeit ----------
@@ -1259,6 +1627,11 @@ function runActiveUpdateCheckOnLoadCheck() {
     await runAbsenceDuplicateGuardUnits(page);
     await runDayExactCreditUnits(page);
     await runRangeVacationStatsUnits(page);
+    await runOffDayUnits(page);
+    await runAuditLogUnits(page);
+    await runUndoUnits(page);
+    await runBackupReminderUnits(page);
+    await runGleitzeitkontoUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

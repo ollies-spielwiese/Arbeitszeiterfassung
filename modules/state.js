@@ -59,13 +59,21 @@ export const DEFAULT_STATE = {
   employers: [],
   entries: [],
   archives: [],
+  // Änderungsprotokoll pro Eintrag (Audit-Log, seit v3.9.47) — additives Feld, kein
+  // Migrations-Eintrag nötig. Wird von modules/audit-log.js pushAuditLog() befüllt.
+  auditLog: [],
   templates: [
     { id: 'tpl-1', label: 'Projektabschluss', text: 'Zeitkritischer Projektabschluss.', scope: 'both' },
     { id: 'tpl-2', label: 'Krankheitsvertretung', text: 'Vertretung wegen krankheitsbedingter Abwesenheit einer Kollegin / eines Kollegen.', scope: 'employee' },
     { id: 'tpl-3', label: 'Kundentermin', text: 'Kundentermin außerhalb der regulären Arbeitszeit.', scope: 'both' },
     { id: 'tpl-4', label: 'Notfall', text: 'Betrieblich notwendiger Einsatz aufgrund eines Notfalls.', scope: 'both' },
   ],
-  settings: { employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} }, appMode: 'employee', currency: 'EUR' },
+  settings: {
+    employeeName: '', ownEmail: '', state: 'HE', holidayOverrides: { add: [], disable: [], rename: {} }, appMode: 'employee', currency: 'EUR',
+    // Backup-Erinnerung (seit v3.9.47) — additive Settings-Felder, kein Migrations-Eintrag nötig.
+    lastBackupAt: null,
+    backupReminderSnoozeUntil: null,
+  },
   activeEmployerId: null,
   runningTimer: null,
 };

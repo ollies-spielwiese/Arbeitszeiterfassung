@@ -34,7 +34,7 @@ import { isHoliday } from './holidays.js';
  * @param {string} params.startISO 'YYYY-MM-DD'
  * @param {string} params.endISO 'YYYY-MM-DD' (inklusiv, >= startISO)
  * @param {string} params.employerId
- * @param {'vacation'|'sick'|'overtime_reduction'} params.type
+ * @param {'vacation'|'sick'|'overtime_reduction'|'off_day'} params.type
  * @param {string} [params.note]
  * @param {boolean} [params.skipWeekendsHolidays] Default true.
  * @param {string} params.stateCode Bundesland-Code, z. B. 'HE' (für Feiertagsprüfung).
@@ -53,7 +53,7 @@ export function buildRangeEntries(params) {
 
   const result = { toCreate: [], totalDays: 0, created: 0, skippedWeekend: 0, skippedHoliday: 0, skippedExisting: 0 };
 
-  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'sick' || type === 'overtime_reduction')) return result;
+  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'sick' || type === 'overtime_reduction' || type === 'off_day')) return result;
   if (endISO < startISO) return result;
 
   const existingDates = new Set(
@@ -102,7 +102,7 @@ export function buildRangeEntries(params) {
 /**
  * Baut die Zusammenfassungs-Toast-Nachricht aus einem AZRangeEntryResult.
  * @param {AZRangeEntryResult} r
- * @param {'vacation'|'sick'|'overtime_reduction'} type
+ * @param {'vacation'|'sick'|'overtime_reduction'|'off_day'} type
  * @returns {string}
  */
 export function formatRangeEntrySummary(r, type) {
@@ -110,6 +110,7 @@ export function formatRangeEntrySummary(r, type) {
     vacation: ['Urlaubstag', 'Urlaubstage'],
     sick: ['Krankheitstag', 'Krankheitstage'],
     overtime_reduction: ['Überstundenabbau-Tag', 'Überstundenabbau-Tage'],
+    off_day: ['Freier Tag', 'Freie Tage'],
   };
   const [label, labelPlural] = LABELS[type] || LABELS.vacation;
   const n = r.created;
@@ -124,4 +125,19 @@ export function formatRangeEntrySummary(r, type) {
   }
   if (skipParts.length) parts.push(skipParts.join(', '));
   return parts.join(', ');
+}
+
+/**
+ * Entfernt Entries mit den angegebenen ids aus einer Entry-Liste (reine Funktion, mutiert das
+ * Eingabe-Array nicht). Grundlage für die "Rückgängig"-Aktion nach einer Zeitraum-Erfassung
+ * (Option B, Phase 4.9b) — der Aufrufer (UI-Layer) übergibt die ids der zuvor per
+ * buildRangeEntries() erzeugten Entries und schreibt das Ergebnis zurück nach state.entries.
+ * @param {AZEntry[]} entries
+ * @param {string[]} ids
+ * @returns {AZEntry[]}
+ */
+export function removeEntriesByIds(entries, ids) {
+  if (!Array.isArray(entries) || !Array.isArray(ids) || !ids.length) return entries;
+  const idSet = new Set(ids);
+  return entries.filter(e => !idSet.has(e.id));
 }

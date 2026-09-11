@@ -99,6 +99,21 @@ export function formatMonthYear(ym) {
 }
 
 /**
+ * Verschiebt eine 'YYYY-MM'-Angabe um delta Monate (negativ = zurück), seit v3.9.47
+ * für die Gleitzeitkonto-Ansicht (Monatsbereich rund um einen Endmonat).
+ * @param {string} ym 'YYYY-MM'
+ * @param {number} delta
+ * @returns {string} 'YYYY-MM'
+ */
+export function shiftYearMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const total = (y * 12 + (m - 1)) + delta;
+  const newY = Math.floor(total / 12);
+  const newM = (total % 12) + 1;
+  return `${newY}-${pad(newM)}`;
+}
+
+/**
  * Minuten → 'H:MM' (mit Minus bei negativ).
  * @param {number} mins
  * @returns {string}

@@ -11,11 +11,20 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.46';
+export const APP_VERSION = '3.9.47';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.47', items: [
+    'Neu: Eintragstyp "Freier Tag" — für Tage ohne Vertrags-Soll (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell); der Tag wird vom Tages- und Monats-Soll ausgeschlossen, aber (anders als Urlaub/Krank) nicht wie ein Arbeitstag gutgeschrieben',
+    'Neu: Änderungsprotokoll in den Einstellungen — jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel protokolliert (die letzten 500, davon die letzten 50 sichtbar)',
+    'Neu: Backup-Erinnerung — Banner in den Einstellungen, wenn noch nie oder seit mehr als 14 Tagen kein Backup erstellt wurde, mit Möglichkeit zum Zurückstellen (Snooze)',
+    'Neu: Gleitzeitkonto-Ansicht — kumulierter Überstunden-/Gleitzeitsaldo über einen wählbaren Zeitraum (6/12/24 Monate) mit laufendem Saldo pro Monat',
+    'Neu: CSV-Export eines Monatsberichts (Excel-kompatibel, UTF-8 mit BOM) zusätzlich zu PDF und Word',
+    'Neu: Zeitraum-Erfassung lässt sich per Toast-Aktion "Rückgängig" sofort wieder entfernen, ohne jeden angelegten Tag einzeln löschen zu müssen',
+    'Regression: 51 neue Checks für alle sechs Features (Freier Tag, Änderungsprotokoll, Undo, Backup-Erinnerung, Gleitzeitkonto, CSV bereits zuvor abgedeckt)',
+  ]},
   { version: '3.9.46', items: [
     'Verhaltensänderung: Überstundenabbau ("Gleittag") wird nicht mehr wie Urlaub/Krank gutgeschrieben — ein voller Abbau-Tag senkt jetzt tatsächlich den Saldo um das Tages-Soll dieses Wochentags, statt neutral (Soll=Ist) verbucht zu werden',
     'Hintergrund: § 3 EntgFG ("Krank wie gearbeitet") ist eine gesetzliche Schutzregel für Urlaub/Krankheit und gilt nicht für den freiwilligen Abbau von Gleitzeit-Guthaben, dessen Zweck gerade der Verbrauch des Zeitkontos ist',

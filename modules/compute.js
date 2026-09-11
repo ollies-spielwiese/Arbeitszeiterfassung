@@ -122,7 +122,25 @@ export function defaultSchedule(weeklyHours = 40) {
  * @property {string} [stateCode] Bundesland (z.B. 'HE')
  * @property {any}    [holidayOverrides] normalizeHolidayOverrides-kompatibles Objekt
  * @property {object} [state] voller State fuer Aggregat-Funktionen (Monatsbericht/Overview)
+ * @property {Set<string>|string[]} [offDayDates] Daten (YYYY-MM-DD) mit type='off_day' fuer
+ *   diesen Employer — werden wie Feiertage vom Soll ausgenommen (seit v3.9.47, "Freier Tag").
  */
+
+/**
+ * Mischt ctx.offDayDates in ein bestehendes Feiertags-Set, damit 'off_day'-Tage ueberall dort,
+ * wo bereits gegen Feiertage geprueft wird (holidays.has(d)), automatisch ebenfalls als Soll=0
+ * behandelt werden — ohne jede Aufrufstelle einzeln anzupassen.
+ * @param {Set<string>} holidays
+ * @param {AZComputeCtx} [ctx]
+ * @returns {Set<string>}
+ */
+function mergeOffDayDates(holidays, ctx) {
+  const offDayDates = ctx && ctx.offDayDates;
+  if (offDayDates) {
+    for (const d of offDayDates) holidays.add(d);
+  }
+  return holidays;
+}
 
 /**
  * Soll-Minuten fuer einen Monat.
@@ -136,7 +154,7 @@ export function defaultSchedule(weeklyHours = 40) {
 export function computeMonthTargetMinutes(employer, ym, ctx) {
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
-  const holidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
+  const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
   const dates = monthDates(ym);
 
   if (employer.hoursMode === 'month' || !employer.hoursMode) {
@@ -189,10 +207,10 @@ export function computeMonthTargetMinutes(employer, ym, ctx) {
 export function computeWeekTargetMinutes(employer, weekDates, ctx) {
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
-  const holidays = new Set(weekDates.flatMap(d => {
+  const holidays = mergeOffDayDates(new Set(weekDates.flatMap(d => {
     const y = Number(d.slice(0, 4));
     return getHolidays(y, stateCode, overrides).map(h => h.date);
-  }));
+  })), ctx);
 
   if (employer.hoursMode === 'week') {
     const perDayMin = weekModePerDayMinutesMap(employer);
@@ -273,7 +291,9 @@ export function computeDayTargetMinutes(employer, dateISO, ctx) {
   const overrides = ctx && ctx.holidayOverrides;
   const year = Number(dateISO.slice(0, 4));
   const isHol = getHolidays(year, stateCode, overrides).some(h => h.date === dateISO);
-  if (isHol) return 0;
+  const offDayDates = ctx && ctx.offDayDates;
+  const isOffDay = !!offDayDates && (offDayDates instanceof Set ? offDayDates.has(dateISO) : offDayDates.includes(dateISO));
+  if (isHol || isOffDay) return 0;
   const perDayMin = weekModePerDayMinutesMap(employer);
   const key = DAY_KEYS[dayOfWeekISO(dateISO)];
   return perDayMin[key] || 0;
@@ -289,7 +309,7 @@ export function computeDayTargetMinutes(employer, dateISO, ctx) {
 export function countWorkdaysInMonth(ym, employer, ctx) {
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
-  const holidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
+  const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
   const dates = monthDates(ym);
   if (employer && employer.hoursMode === 'week') {
     const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
@@ -405,7 +425,6 @@ export function computeMonthReport(employerId, ym, ctx) {
 
   const stateCode = state.settings?.state || 'HE';
   const overrides = state.settings?.holidayOverrides;
-  const innerCtx = { stateCode, holidayOverrides: overrides };
 
   const entries = state.entries
     .filter(e => e.employerId === employerId && e.date.startsWith(ym))
@@ -416,6 +435,13 @@ export function computeMonthReport(employerId, ym, ctx) {
   const vacationEntries = entries.filter(e => e.type === 'vacation');
   const sickEntries = entries.filter(e => e.type === 'sick');
   const overtimeReductionEntries = entries.filter(e => e.type === 'overtime_reduction');
+  // 'off_day' ("Kein Arbeitstag", seit v3.9.47): kein Urlaub/Krank/Abbau, sondern ein Tag, der
+  // laut Vertrag/Schema ohnehin nicht gearbeitet wird (z.B. bei unregelmaessigen Wochenmodellen).
+  // Wird komplett aus dem Soll herausgenommen (siehe mergeOffDayDates in computeMonthTargetMinutes
+  // / computeDayTargetMinutes / countWorkdaysInMonth) statt wie Urlaub/Krank gutgeschrieben zu werden.
+  const offDayEntries = entries.filter(e => e.type === 'off_day');
+  const offDayDates = new Set(offDayEntries.map(e => e.date));
+  const innerCtx = { stateCode, holidayOverrides: overrides, offDayDates };
 
   const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
     + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
@@ -485,7 +511,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   const vacationRemaining = computeVacationRemaining(emp, ym, state.entries);
 
   return {
-    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeReductionEntries, overtimeEntries,
+    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
     vacationRemaining,
   };
@@ -499,7 +525,7 @@ export function computeMonthReport(employerId, ym, ctx) {
  */
 export function computeMonthOverview(ym, ctx) {
   const state = ctx && ctx.state;
-  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, workEntriesCount: 0 } };
+  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
 
   const rows = state.employers.map(emp => {
     const r = computeMonthReport(emp.id, ym, ctx);
@@ -512,6 +538,7 @@ export function computeMonthOverview(ym, ctx) {
       vacationDays: r.vacationEntries.length,
       sickDays: r.sickEntries.length,
       overtimeReductionDays: r.overtimeReductionEntries.length,
+      offDayDays: r.offDayEntries.length,
       workEntriesCount: r.workEntries.length,
     };
   }).filter(Boolean);
@@ -523,8 +550,9 @@ export function computeMonthOverview(ym, ctx) {
     vacationDays: acc.vacationDays + row.vacationDays,
     sickDays: acc.sickDays + row.sickDays,
     overtimeReductionDays: acc.overtimeReductionDays + row.overtimeReductionDays,
+    offDayDays: acc.offDayDays + row.offDayDays,
     workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
-  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, workEntriesCount: 0 });
+  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
 
   return { ym, rows, totals };
 }

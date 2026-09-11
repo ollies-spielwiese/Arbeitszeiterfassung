@@ -17,8 +17,9 @@
 //   uid,
 // }
 
-import { buildRangeEntries, formatRangeEntrySummary } from '../range-entry.js';
+import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from '../range-entry.js';
 import { computeVacationRemaining } from '../compute.js';
+import { pushAuditLog } from '../audit-log.js';
 
 export function openRangeEntryModal(ctx) {
   const { getState, escapeHtml } = ctx;
@@ -114,14 +115,41 @@ export function saveRangeEntry(e, ctx) {
     uid,
   });
 
+  const summary = formatRangeEntrySummary(result, type);
+
   if (result.toCreate.length) {
+    const createdIds = result.toCreate.map((en) => en.id);
     state.entries.push(...result.toCreate);
+    result.toCreate.forEach((en) => pushAuditLog(state, { action: 'create', entry: en, summary: 'Zeitraum-Erfassung', uid }));
     saveState();
+
+    closeModals();
+    renderTracker();
+    renderEntries();
+    if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+
+    // Undo (Option B, Phase 4.9b): entfernt genau die soeben angelegten Entries wieder,
+    // ohne dass der Nutzer jeden Tag einzeln löschen muss. Reine Logik in removeEntriesByIds().
+    toast(summary, {
+      actionLabel: 'Rückgängig',
+      onAction: () => {
+        const s = getState();
+        const toRemove = s.entries.filter((en) => createdIds.includes(en.id));
+        s.entries = removeEntriesByIds(s.entries, createdIds);
+        toRemove.forEach((en) => pushAuditLog(s, { action: 'delete', entry: en, summary: 'Rückgängig (Zeitraum-Erfassung)', uid }));
+        saveState();
+        renderTracker();
+        renderEntries();
+        if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+        toast('Rückgängig gemacht');
+      },
+    });
+    return;
   }
 
   closeModals();
   renderTracker();
   renderEntries();
   if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
-  toast(formatRangeEntrySummary(result, type));
+  toast(summary);
 }

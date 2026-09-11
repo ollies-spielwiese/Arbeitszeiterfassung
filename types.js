@@ -72,11 +72,19 @@
  *   - 'sick'               : nur date + type
  *   - 'overtime_reduction' : nur date + type (Gleitzeit-Überstundenabbau: ganzer freier Tag,
  *                            wird wie ein Arbeitstag gutgeschrieben, zählt aber NICHT gegen den Urlaubsanspruch)
+ *   - 'off_day'            : nur date + type (seit v3.9.47 — "Kein Arbeitstag (planmäßig frei)":
+ *                            markiert einen Kalendertag, der laut Vertrag/Schicht ohnehin kein
+ *                            Arbeitstag ist, z.B. bei unregelmäßigen Wochenmodellen. Senkt das
+ *                            Tages-/Wochen-/Monats-Soll dieses Tages auf 0, wird NICHT gutgeschrieben
+ *                            (es gibt ja nichts abzudecken) und mindert NICHT den Urlaubsanspruch.
+ *                            Unterschied zu Urlaub/Krank: keine Gutschrift nötig, weil kein Soll anfällt.
+ *                            Unterschied zu Überstundenabbau: senkt den Saldo NICHT, weil der Tag nie
+ *                            zum Soll zählte)
  * @typedef {Object} AZEntry
  * @property {string} id
  * @property {string} employerId
  * @property {string} date 'YYYY-MM-DD'
- * @property {'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction'} type
+ * @property {'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction'|'off_day'} type
  * @property {string} [start] 'HH:MM' (work)
  * @property {string} [end] 'HH:MM' (work)
  * @property {number} [breakMinutes] (work)
@@ -122,6 +130,8 @@
  * @property {string} [currency] Global default 'EUR'
  * @property {string} [employeeName] Name des Angestellten (Report-Header)
  * @property {import('./modules/holidays.js').AZHolidayOverrides|undefined} [holidayOverrides] Feiertags-Overrides (add/disable/rename)
+ * @property {string|null} [lastBackupAt] ISO-Timestamp des letzten Backup-Exports (seit v3.9.47)
+ * @property {string|null} [backupReminderSnoozeUntil] ISO-Timestamp, bis zu dem die Backup-Erinnerung stummgeschaltet ist (seit v3.9.47)
  */
 
 /**
@@ -135,6 +145,7 @@
  * @property {AZSettings} settings
  * @property {string} [activeEmployerId]
  * @property {AZRunningTimer|null} runningTimer
+ * @property {import('./modules/audit-log.js').AZAuditLogEntry[]} [auditLog] Änderungsprotokoll (seit v3.9.47)
  */
 
 /* --- Summary Selector Types ------------------------------------------- */
@@ -214,6 +225,7 @@
  * @property {number} vacationDays
  * @property {number} sickDays
  * @property {number} overtimeReductionDays
+ * @property {number} offDayDays Anzahl "Freier Tag"-Einträge (seit v3.9.47)
  * @property {number} workEntriesCount
  */
 
@@ -226,6 +238,7 @@
  * @property {number} vacationDays
  * @property {number} sickDays
  * @property {number} overtimeReductionDays
+ * @property {number} offDayDays Anzahl "Freier Tag"-Einträge (seit v3.9.47)
  * @property {number} workEntriesCount
  */
 

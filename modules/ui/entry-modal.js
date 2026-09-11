@@ -1,5 +1,6 @@
 // modules/ui/entry-modal.js
 // Entry-Modal (Zeit erfassen/bearbeiten).
+// Nutzt pushAuditLog() aus modules/audit-log.js fuer das Änderungsprotokoll (seit v3.9.47).
 // Reine Funktionen mit ctx-DI - kein Modul-State, keine globalen Referenzen.
 // Phase 4.8 — openEntryModal nutzt computeFormFields aus selectors.js;
 // die Modal-Funktion ist reiner Renderer der Feld-Definitionen.
@@ -22,6 +23,8 @@
 //   closeModals,
 //   uid,
 // }
+
+import { pushAuditLog } from '../audit-log.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
@@ -153,10 +156,10 @@ export function saveEntry(e, ctx) {
   // ein neuer Eintrag darf ein bereits belegtes Datum nicht duplizieren, sonst entstehen
   // widersprüchliche Karten in "Einträge" und die Woche/Monat-Anrechnung zählt den Tag doppelt.
   // Analog zu buildRangeEntries() in modules/range-entry.js (dort: skippedExisting).
-  if (type === 'vacation' || type === 'sick' || type === 'overtime_reduction') {
+  if (type === 'vacation' || type === 'sick' || type === 'overtime_reduction' || type === 'off_day') {
     const conflict = state.entries.find(x => x.employerId === employerId && x.date === date && x.id !== id);
     if (conflict) {
-      const CONFLICT_LABELS = { work: 'Arbeitszeit', homeoffice: 'Home-Office', vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Überstundenabbau' };
+      const CONFLICT_LABELS = { work: 'Arbeitszeit', homeoffice: 'Home-Office', vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Überstundenabbau', off_day: 'Freier Tag' };
       const label = CONFLICT_LABELS[conflict.type] || conflict.type;
       toast(`Für dieses Datum existiert bereits ein Eintrag (${label}). Bitte zuerst löschen oder bearbeiten.`);
       return;
@@ -184,7 +187,7 @@ export function saveEntry(e, ctx) {
       segments,
       note,
     };
-  } else { // vacation / sick
+  } else { // vacation / sick / overtime_reduction / off_day
     entryData = { employerId, date, type, note };
   }
 
@@ -197,9 +200,15 @@ export function saveEntry(e, ctx) {
         ? { ...prev, ...entryData }
         : { id: prev.id, createdAt: prev.createdAt, ...entryData };
       state.entries[idx] = cleaned;
+      const changeParts = [];
+      if (prev.type !== cleaned.type) changeParts.push(`Typ ${prev.type} → ${cleaned.type}`);
+      if (prev.date !== cleaned.date) changeParts.push(`Datum ${prev.date} → ${cleaned.date}`);
+      pushAuditLog(state, { action: 'update', entry: cleaned, summary: changeParts.join(', '), uid });
     }
   } else {
-    state.entries.push({ id: uid(), createdAt: new Date().toISOString(), ...entryData });
+    const created = { id: uid(), createdAt: new Date().toISOString(), ...entryData };
+    state.entries.push(created);
+    pushAuditLog(state, { action: 'create', entry: created, uid });
   }
   saveState();
   closeModals();
@@ -215,7 +224,9 @@ export function deleteEntry(ctx) {
   const id = document.getElementById('entry-id').value;
   if (!id) return;
   if (!confirm('Diesen Eintrag wirklich löschen?')) return;
+  const deleted = state.entries.find(e => e.id === id);
   state.entries = state.entries.filter(e => e.id !== id);
+  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: ctx.uid });
   saveState();
   closeModals();
   renderTracker();

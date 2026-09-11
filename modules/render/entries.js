@@ -15,6 +15,7 @@ const BADGE_LABELS = {
   vacation: 'Urlaub',
   sick: 'Krank',
   overtime_reduction: 'Überstundenabbau',
+  off_day: 'Freier Tag',
 };
 
 function renderRight(row, ctx) {
@@ -31,6 +32,9 @@ function renderRight(row, ctx) {
   }
   if (row.rightKind === 'absence-overtime_reduction') {
     return `<span class="entry-hours absence">Überstundenabbau</span>`;
+  }
+  if (row.rightKind === 'absence-off_day') {
+    return `<span class="entry-hours absence">Freier Tag</span>`;
   }
   return '';
 }

@@ -1,4 +1,5 @@
 // modules/ui/homeoffice-modal.js
+// Nutzt pushAuditLog() aus modules/audit-log.js fuer das Änderungsprotokoll (seit v3.9.47).
 // Home-Office-Modal (Multi-Segment-Erfassung).
 // Reine Funktionen mit ctx-DI - kein Modul-State, keine globalen Referenzen.
 //
@@ -23,6 +24,8 @@
 //   toast,
 //   uid,
 // }
+
+import { pushAuditLog } from '../audit-log.js';
 
 export function openHomeofficeModal(entry, opts, ctx) {
   opts = opts || {};
@@ -210,6 +213,7 @@ export function saveHomeoffice(e, ctx) {
       note,
       start: undefined, end: undefined, breakMinutes: undefined, overtimeReason: undefined,
     };
+    pushAuditLog(state, { action: 'update', entry: state.entries[editingIdx], uid });
   } else if (targetIdx >= 0) {
     const target = state.entries[targetIdx];
     const existingSegs = Array.isArray(target.segments) ? target.segments
@@ -224,13 +228,15 @@ export function saveHomeoffice(e, ctx) {
       state.entries.splice(editingIdx, 1);
     }
   } else {
-    state.entries.push({
+    const created = {
       id: uid(),
       employerId, date, type: 'homeoffice',
       segments: normalizeSegments(segments),
       note,
       createdAt: new Date().toISOString(),
-    });
+    };
+    state.entries.push(created);
+    pushAuditLog(state, { action: 'create', entry: created, uid });
   }
   saveState();
   closeModals();
@@ -255,7 +261,9 @@ export function deleteHomeoffice(ctx) {
   const id = document.getElementById('ho-id').value;
   if (!id) return;
   if (!confirm('Diesen Home-Office-Tag wirklich löschen?')) return;
+  const deleted = state.entries.find(e => e.id === id);
   state.entries = state.entries.filter(e => e.id !== id);
+  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: ctx.uid });
   saveState();
   closeModals();
   if (typeof refreshAll === 'function') {

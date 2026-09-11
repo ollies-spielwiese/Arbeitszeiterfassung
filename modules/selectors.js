@@ -357,6 +357,18 @@ export function computeEntryRows(list, ctx) {
         detailsParts: emp ? [emp.name] : [],
         badgeType: 'sick',
       };
+    } else if (e.type === 'off_day') {
+      // 'off_day' ("Kein Arbeitstag", seit v3.9.47) — Tag ohne Vertrags-Soll (z.B. planmäßig
+      // freier Tag bei unregelmäßigem Wochenmodell). Anders als Überstundenabbau: keine
+      // Gutschrift, weil für diesen Tag ohnehin nichts geschuldet wird.
+      row = {
+        type: 'off_day',
+        rightKind: 'absence-off_day',
+        rightValueMin: 0,
+        isOvertime: false,
+        detailsParts: emp ? [emp.name] : [],
+        badgeType: 'off_day',
+      };
     } else {
       // 'overtime_reduction' (Gleitzeit-Überstundenabbau) — ganzer freier Tag,
       // wird wie Urlaub/Krank angerechnet, mindert aber nicht den Urlaubsanspruch.

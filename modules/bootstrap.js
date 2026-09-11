@@ -29,7 +29,7 @@ export function wireEvents(ctx) {
     state, saveState, storage,
     // Views + Rendering
     switchView, renderTracker, renderEntries, renderEmployers, renderReport,
-    renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning,
+    renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
     // Tracker/Timer + Mode
     startWork, endWork, setMode, updateModeVisibility,
     // Entry Modal
@@ -50,10 +50,10 @@ export function wireEvents(ctx) {
     // Holiday Modal
     openHolidayModal, saveHoliday,
     // Export
-    exportWord, exportPdf, exportOverviewPdf,
+    exportWord, exportPdf, exportCsv, exportOverviewPdf,
     openShareModal, shareOverviewPdf, archiveCurrentMonth,
     // Backup
-    exportBackup, importBackup,
+    exportBackup, importBackup, updateBackupReminderBanner,
     // UI-Utilities
     toast, closeModals, escapeHtml,
     // Compute-Helpers (für Entry-Form-Live-Berechnung)
@@ -193,6 +193,8 @@ export function wireEvents(ctx) {
     // Report actions
     document.getElementById('btn-export-word').addEventListener('click', exportWord);
     document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    if (btnExportCsv) btnExportCsv.addEventListener('click', exportCsv);
     document.getElementById('btn-share').addEventListener('click', openShareModal);
     document.getElementById('btn-archive-month').addEventListener('click', archiveCurrentMonth);
 
@@ -237,6 +239,10 @@ export function wireEvents(ctx) {
     // Vacation-Planning (Jahresübersicht der Urlaubsplanung)
     const vacationPlanningYear = document.getElementById('vacation-planning-year');
     if (vacationPlanningYear) vacationPlanningYear.addEventListener('change', renderVacationPlanning);
+    const gleitzeitkontoEndMonth = document.getElementById('gleitzeitkonto-end-month');
+    if (gleitzeitkontoEndMonth) gleitzeitkontoEndMonth.addEventListener('change', renderGleitzeitkonto);
+    const gleitzeitkontoMonths = document.getElementById('gleitzeitkonto-months');
+    if (gleitzeitkontoMonths) gleitzeitkontoMonths.addEventListener('change', renderGleitzeitkonto);
     const addHolidayBtn = document.getElementById('btn-add-holiday-override');
     if (addHolidayBtn) addHolidayBtn.addEventListener('click', () => openHolidayModal(null));
     const formHoliday = document.getElementById('form-holiday');
@@ -248,6 +254,18 @@ export function wireEvents(ctx) {
     document.getElementById('input-backup-file').addEventListener('change', (e) => {
       if (e.target.files[0]) importBackup(e.target.files[0]);
       e.target.value = '';
+    });
+
+    // Backup-Erinnerung (seit v3.9.47)
+    const btnBackupReminderExport = document.getElementById('btn-backup-reminder-export');
+    if (btnBackupReminderExport) btnBackupReminderExport.addEventListener('click', exportBackup);
+    const btnBackupReminderSnooze = document.getElementById('btn-backup-reminder-snooze');
+    if (btnBackupReminderSnooze) btnBackupReminderSnooze.addEventListener('click', () => {
+      const snoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      state.settings.backupReminderSnoozeUntil = snoozeUntil;
+      saveState();
+      if (typeof updateBackupReminderBanner === 'function') updateBackupReminderBanner();
+      toast('Erinnerung für 7 Tage verschoben');
     });
 
     // Close modal
@@ -267,7 +285,7 @@ export function wireEvents(ctx) {
 
     // PWA-Shortcut-Support: ?view=<tab> springt beim Start direkt in die Zielansicht.
     // Erlaubte Views entsprechen data-view-Werten der Top-Level-Tabs.
-    const allowedViews = ['tracker', 'entries', 'week', 'report', 'overview', 'employers', 'archive', 'guide', 'settings'];
+    const allowedViews = ['tracker', 'entries', 'week', 'report', 'overview', 'vacation-planning', 'gleitzeitkonto', 'employers', 'archive', 'guide', 'settings'];
     let initialView = 'tracker';
     try {
       const params = new URLSearchParams(window.location.search);

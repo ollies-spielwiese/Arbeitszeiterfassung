@@ -70,6 +70,7 @@ import {
   addDays,
   daysInMonth,
   monthDates,
+  shiftYearMonth,
 } from './modules/util-time.js';
 import { escapeHtml, formatMoney as _formatMoneyRaw } from './modules/util-format.js';
 import {
@@ -101,6 +102,8 @@ import {
   MONTH_LABELS_LONG,
 } from './modules/compute.js';
 import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './modules/render/vacation-planning.js';
+import { buildAuditLogHTML as _buildAuditLogHTMLRaw } from './modules/render/audit-log.js';
+import { buildGleitzeitkontoHTML as _buildGleitzeitkontoHTMLRaw } from './modules/render/gleitzeitkonto.js';
 import {
   getEmployer as _getEmployerRaw,
   getCurrentReport as _getCurrentReportRaw,
@@ -127,6 +130,7 @@ import {
   buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
 } from './modules/render/tracker.js';
 import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.js';
+import { generateCsvBlob as _generateCsvBlobRaw } from './modules/export/csv.js';
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
 import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
@@ -154,7 +158,8 @@ import {
   saveRangeEntry as _saveRangeEntryRaw,
   updateRangeVacationStats as _updateRangeVacationStatsRaw,
 } from './modules/ui/range-entry-modal.js';
-import { buildRangeEntries, formatRangeEntrySummary } from './modules/range-entry.js';
+import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from './modules/range-entry.js';
+import { pushAuditLog, formatAuditLogLine } from './modules/audit-log.js';
 import {
   openHomeofficeModal as _openHomeofficeModalRaw,
   updateHomeofficeContext as _updateHomeofficeContextRaw,
@@ -461,23 +466,35 @@ function isHoliday(iso, stateCode) {
  * Wrapper reichen stateCode + holidayOverrides automatisch aus state rein.
  */
 
-function _computeCtxHoliday() {
-  return {
+/**
+ * @param {string} [employerId] Wenn gesetzt, werden 'off_day'-Daten dieses Employers aus
+ *   state.entries als ctx.offDayDates mitgegeben (seit v3.9.47, "Freier Tag") — dadurch greift
+ *   der Soll-Ausschluss automatisch fuer alle Aufrufer, ohne dass jede Aufrufstelle einzeln
+ *   angepasst werden muss (siehe modules/compute.js mergeOffDayDates()).
+ */
+function _computeCtxHoliday(employerId) {
+  const ctx = {
     stateCode: (state && state.settings && state.settings.state) || 'HE',
     holidayOverrides: _currentHolidayOverrides(),
   };
+  if (employerId) {
+    ctx.offDayDates = new Set(
+      state.entries.filter(e => e.employerId === employerId && e.type === 'off_day').map(e => e.date)
+    );
+  }
+  return ctx;
 }
 
 function computeMonthTargetMinutes(employer, ym) {
-  return _computeMonthTargetMinutesRaw(employer, ym, _computeCtxHoliday());
+  return _computeMonthTargetMinutesRaw(employer, ym, _computeCtxHoliday(employer && employer.id));
 }
 
 function computeWeekTargetMinutes(employer, weekDates) {
-  return _computeWeekTargetMinutesRaw(employer, weekDates, _computeCtxHoliday());
+  return _computeWeekTargetMinutesRaw(employer, weekDates, _computeCtxHoliday(employer && employer.id));
 }
 
 function computeDayTargetMinutes(employer, dateISO) {
-  return _computeDayTargetMinutesRaw(employer, dateISO, _computeCtxHoliday());
+  return _computeDayTargetMinutesRaw(employer, dateISO, _computeCtxHoliday(employer && employer.id));
 }
 
 function defaultSchedule(weeklyHours = 40) {
@@ -514,6 +531,7 @@ function switchView(name) {
   if (name === 'report') renderReport();
   if (name === 'overview') renderOverview();
   if (name === 'vacation-planning') renderVacationPlanning();
+  if (name === 'gleitzeitkonto') renderGleitzeitkonto();
   if (name === 'employers') renderEmployers();
   if (name === 'archive') renderArchive();
   if (name === 'settings') renderSettings();
@@ -632,7 +650,7 @@ function renderTodaySummary() {
 }
 
 function countWorkdaysInMonth(ym, employer) {
-  return _countWorkdaysInMonthRaw(ym, employer, _computeCtxHoliday());
+  return _countWorkdaysInMonthRaw(ym, employer, _computeCtxHoliday(employer && employer.id));
 }
 
 /* ---------- Start / End ---------- */
@@ -1277,6 +1295,53 @@ function renderOverview() {
   });
 }
 
+function renderAuditLog() {
+  const container = document.getElementById('audit-log-list');
+  if (!container) return;
+  container.innerHTML = _buildAuditLogHTMLRaw(state.auditLog, {
+    escapeHtml,
+    getEmployer,
+    formatDateLong,
+  });
+}
+
+// Backup-Erinnerung (seit v3.9.47): zeigt einen Hinweis-Banner in den Einstellungen,
+// wenn seit BACKUP_REMINDER_DAYS Tagen kein Backup exportiert wurde (oder noch nie eines).
+const BACKUP_REMINDER_DAYS = 14;
+
+function updateBackupReminderBanner() {
+  const banner = document.getElementById('backup-reminder-banner');
+  const textEl = document.getElementById('backup-reminder-text');
+  if (!banner || !textEl) return;
+  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const now = Date.now();
+
+  if (settings.backupReminderSnoozeUntil && new Date(settings.backupReminderSnoozeUntil).getTime() > now) {
+    banner.classList.add('hidden');
+    return;
+  }
+  const hasData = Array.isArray(state.entries) && state.entries.length > 0;
+  if (!hasData) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  let show = false;
+  let msg = '';
+  if (!settings.lastBackupAt) {
+    show = true;
+    msg = 'Du hast noch kein Backup erstellt. Sichere deine Daten regelmäßig, damit nichts verloren geht.';
+  } else {
+    const days = Math.floor((now - new Date(settings.lastBackupAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (days >= BACKUP_REMINDER_DAYS) {
+      show = true;
+      msg = `Dein letztes Backup ist ${days} Tage her. Jetzt sichern?`;
+    }
+  }
+  banner.classList.toggle('hidden', !show);
+  if (show) textEl.textContent = msg;
+}
+
 function renderVacationPlanning() {
   const yearInput = document.getElementById('vacation-planning-year');
   if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
@@ -1297,6 +1362,44 @@ function renderVacationPlanning() {
     escapeHtml,
     renderSummaryHTML,
     monthLabels: MONTH_LABELS_LONG,
+  });
+}
+
+function renderGleitzeitkonto() {
+  const endInput = document.getElementById('gleitzeitkonto-end-month');
+  const monthsSelect = document.getElementById('gleitzeitkonto-months');
+  if (!endInput.value) endInput.value = currentYearMonth();
+  const endYm = endInput.value;
+  const monthCount = Math.max(1, Math.min(60, parseInt(monthsSelect.value, 10) || 12));
+  const container = document.getElementById('gleitzeitkonto-content');
+
+  ensureActiveEmployer();
+  const emp = getEmployer(state.activeEmployerId);
+  if (!emp) {
+    container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
+    return;
+  }
+
+  // Startmonat rückwärts vom Endmonat (monthCount - 1 Monate zurück), damit
+  // z.B. bei 12 Monaten genau 12 Monate inklusive Endmonat angezeigt werden.
+  const startYm = shiftYearMonth(endYm, -(monthCount - 1));
+  const rows = [];
+  let cumulative = 0;
+  let cursor = startYm;
+  for (let i = 0; i < monthCount; i++) {
+    const r = computeMonthReport(emp.id, cursor);
+    if (r) {
+      cumulative += r.balance;
+      rows.push({ ym: cursor, workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance, cumulativeBalance: cumulative });
+    }
+    cursor = shiftYearMonth(cursor, 1);
+  }
+
+  container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
+    escapeHtml,
+    minutesToHM,
+    formatMonthYear,
+    renderSummaryHTML,
   });
 }
 
@@ -1375,6 +1478,25 @@ async function exportPdf() {
   } catch (err) {
     console.error(err);
     toast('PDF-Export fehlgeschlagen: ' + err.message);
+  }
+}
+
+function generateCsvBlob(report) {
+  return _generateCsvBlobRaw(report, {
+    formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes,
+  });
+}
+
+async function exportCsv() {
+  const r = getCurrentReport();
+  if (!r) return;
+  try {
+    const blob = generateCsvBlob(r);
+    downloadBlob(blob, fileNameForReport(r, 'csv'));
+    toast('CSV-Datei heruntergeladen');
+  } catch (err) {
+    console.error(err);
+    toast('CSV-Export fehlgeschlagen: ' + err.message);
   }
 }
 
@@ -1571,6 +1693,8 @@ function renderSettings() {
   renderHolidayList();
   renderTemplates();
   updateModeVisibility();
+  renderAuditLog();
+  updateBackupReminderBanner();
 }
 
 /**
@@ -1641,10 +1765,12 @@ function deleteTemplate() { return _deleteTemplateRaw(_tplCtx()); }
 function exportBackup() {
   _exportBackupRaw({
     getState: _getState,
+    saveState,
     downloadBlob,
     todayISO,
     toast,
   });
+  updateBackupReminderBanner();
 }
 
 function importBackup(file) {
@@ -1667,12 +1793,37 @@ function importBackup(file) {
 /* escapeHtml: siehe modules/util-format.js */
 
 let toastTimer;
-function toast(msg) {
+/**
+ * @param {string} msg
+ * @param {{actionLabel?: string, onAction?: () => void}} [opts] Optionaler Aktions-Button
+ *   (z.B. "Rückgängig" nach einer Zeitraum-Erfassung, seit v3.9.47) — länger eingeblendet als
+ *   ein reiner Info-Toast, damit genug Zeit zum Klicken bleibt.
+ */
+function toast(msg, opts) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
+  el.innerHTML = '';
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'toast-msg';
+  msgSpan.textContent = msg;
+  el.appendChild(msgSpan);
+
+  if (opts && opts.actionLabel && typeof opts.onAction === 'function') {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = opts.actionLabel;
+    btn.addEventListener('click', () => {
+      clearTimeout(toastTimer);
+      el.classList.add('hidden');
+      opts.onAction();
+    });
+    el.appendChild(btn);
+  }
+
   el.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add('hidden'), 2800);
+  const duration = (opts && opts.actionLabel) ? 6000 : 2800;
+  toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
 }
 
 /* ---------- Event Wiring ---------- */
@@ -1681,7 +1832,7 @@ function toast(msg) {
 document.addEventListener('DOMContentLoaded', () => wireEvents({
   state, saveState, storage,
   switchView, renderTracker, renderEntries, renderEmployers, renderReport,
-  renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning,
+  renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
   startWork, endWork, setMode, updateModeVisibility,
   openEntryModal, saveEntry, deleteEntry,
   updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
@@ -1694,9 +1845,9 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   updateHoursModeVisibility,
   openTemplateModal, saveTemplate, deleteTemplate,
   openHolidayModal, saveHoliday,
-  exportWord, exportPdf, exportOverviewPdf,
+  exportWord, exportPdf, exportCsv, exportOverviewPdf,
   openShareModal, shareOverviewPdf, archiveCurrentMonth,
-  exportBackup, importBackup,
+  exportBackup, importBackup, updateBackupReminderBanner,
   toast, closeModals, escapeHtml,
   getEmployer, computeSuggestedBreak,
   installWeekInputFallback,
@@ -1727,10 +1878,14 @@ if (typeof window !== 'undefined') {
     getSummaryFields, getOverviewSummaryFields,
     renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext,
     getEmployer, getCurrentReport, getCurrentOverview,
-    uid, normalizeSegments, normalizeHolidayOverrides,
+    computeEntryRows: _computeEntryRowsRaw,
+    uid, normalizeSegments, normalizeHolidayOverrides, shiftYearMonth,
     getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
-    buildRangeEntries, formatRangeEntrySummary,
+    buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds,
     switchView, renderReport, renderTracker, renderWeek, renderEntries, renderEmployers, renderArchive, renderSettings,
+    pushAuditLog, formatAuditLogLine, buildAuditLogHTML: _buildAuditLogHTMLRaw, renderAuditLog, updateBackupReminderBanner,
+    generateCsvBlob,
+    buildGleitzeitkontoHTML: _buildGleitzeitkontoHTMLRaw, renderGleitzeitkonto,
     DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,

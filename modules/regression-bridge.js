@@ -25,12 +25,12 @@ export function exportBridge(target, refs) {
     // Selectors + Utilities
     getSummaryFields, getOverviewSummaryFields,
     renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext,
-    getEmployer, getCurrentReport, getCurrentOverview,
-    uid, normalizeSegments, normalizeHolidayOverrides,
+    getEmployer, getCurrentReport, getCurrentOverview, computeEntryRows,
+    uid, normalizeSegments, normalizeHolidayOverrides, shiftYearMonth,
     // Holidays
     getHolidays, getHolidaysInRange, isHoliday, easterSunday, applyHolidayOverrides,
     // Range-Entry (Option B — Bulk-Erfassung Zeitraum)
-    buildRangeEntries, formatRangeEntrySummary,
+    buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds,
     // Rendering + Views
     switchView, renderReport, renderTracker, renderWeek, renderEntries, renderEmployers, renderArchive, renderSettings,
     // Compute + Export
@@ -41,6 +41,12 @@ export function exportBridge(target, refs) {
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, MONTH_LABELS_LONG, buildVacationPlanningHTML,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
+    // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
+    pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
+    // CSV-Export (seit v3.9.47)
+    generateCsvBlob,
+    // Gleitzeitkonto-Ansicht (seit v3.9.47)
+    buildGleitzeitkontoHTML, renderGleitzeitkonto,
   } = refs;
 
   // State + Persistenz
@@ -70,6 +76,8 @@ export function exportBridge(target, refs) {
   if (typeof getEmployer === 'function') target.getEmployer = getEmployer;
   if (typeof getCurrentReport === 'function') target.getCurrentReport = getCurrentReport;
   if (typeof getCurrentOverview === 'function') target.getCurrentOverview = getCurrentOverview;
+  if (typeof computeEntryRows === 'function') target.computeEntryRows = computeEntryRows;
+  if (typeof shiftYearMonth === 'function') target.shiftYearMonth = shiftYearMonth;
   if (typeof uid === 'function') target.uid = uid;
   if (typeof normalizeSegments === 'function') target.normalizeSegments = normalizeSegments;
   if (typeof normalizeHolidayOverrides === 'function') target.normalizeHolidayOverrides = normalizeHolidayOverrides;
@@ -80,6 +88,7 @@ export function exportBridge(target, refs) {
   if (typeof applyHolidayOverrides === 'function') target.applyHolidayOverrides = applyHolidayOverrides;
   if (typeof buildRangeEntries === 'function') target.buildRangeEntries = buildRangeEntries;
   if (typeof formatRangeEntrySummary === 'function') target.formatRangeEntrySummary = formatRangeEntrySummary;
+  if (typeof removeEntriesByIds === 'function') target.removeEntriesByIds = removeEntriesByIds;
 
   // Rendering + Views
   if (typeof switchView === 'function') target.switchView = switchView;
@@ -114,4 +123,18 @@ export function exportBridge(target, refs) {
   if (typeof generatePdfBlob === 'function') target.generatePdfBlob = generatePdfBlob;
   if (typeof generateOverviewPdfBlob === 'function') target.generateOverviewPdfBlob = generateOverviewPdfBlob;
   if (typeof generateWordBlob === 'function') target.generateWordBlob = generateWordBlob;
+
+  // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
+  if (typeof pushAuditLog === 'function') target.pushAuditLog = pushAuditLog;
+  if (typeof formatAuditLogLine === 'function') target.formatAuditLogLine = formatAuditLogLine;
+  if (typeof buildAuditLogHTML === 'function') target.buildAuditLogHTML = buildAuditLogHTML;
+  if (typeof renderAuditLog === 'function') target.renderAuditLog = renderAuditLog;
+  if (typeof updateBackupReminderBanner === 'function') target.updateBackupReminderBanner = updateBackupReminderBanner;
+
+  // CSV-Export (seit v3.9.47)
+  if (typeof generateCsvBlob === 'function') target.generateCsvBlob = generateCsvBlob;
+
+  // Gleitzeitkonto-Ansicht (seit v3.9.47)
+  if (typeof buildGleitzeitkontoHTML === 'function') target.buildGleitzeitkontoHTML = buildGleitzeitkontoHTML;
+  if (typeof renderGleitzeitkonto === 'function') target.renderGleitzeitkonto = renderGleitzeitkonto;
 }
