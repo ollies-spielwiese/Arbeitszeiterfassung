@@ -1053,15 +1053,16 @@ async function runGleitzeitkontoUnits(page) {
   assertEq('GK3: Dezember plus 1 Monat = Januar Folgejahr', gk3.fwd, '2027-01');
   assertEq('GK3: Verschiebung um 0 liefert denselben Monat', gk3.same, '2026-06');
 
-  // GK4: Integration — renderGleitzeitkonto() befüllt die echte Ansicht mit Daten aus
-  // computeMonthReport für den aktiven Arbeitgeber.
+  // GK4: Integration — renderGleitzeitkonto() befüllt die echte (Kalenderjahr-)Ansicht mit
+  // Daten aus computeMonthReport für den aktiven Arbeitgeber. Seit v3.9.48: Jahr-Eingabe statt
+  // "Bis Monat + Zeitraum", da das Konto jetzt Kalenderjahre (Jan–Dez) statt rollierender
+  // Zeiträume zeigt.
   const gk4 = await page.evaluate(() => {
     const empId = '__gk-integration__';
-    state.employers.push({ id: empId, name: 'GK-Integration', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.employers.push({ id: empId, name: 'GK-Integration', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30, hiredSince: '2020-01-01' });
     state.activeEmployerId = empId;
     state.entries.push({ id: 'gk-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '17:00', breakMinutes: 0 });
-    document.getElementById('gleitzeitkonto-end-month').value = '2026-06';
-    document.getElementById('gleitzeitkonto-months').value = '6';
+    document.getElementById('gleitzeitkonto-year').value = '2026';
     renderGleitzeitkonto();
     const html = document.getElementById('gleitzeitkonto-content').innerHTML;
     state.employers = state.employers.filter((e) => e.id !== empId);
@@ -1069,7 +1070,85 @@ async function runGleitzeitkontoUnits(page) {
     return html;
   });
   assertContains('GK4: Ansicht zeigt Titel mit Arbeitgebername', gk4, 'GK-Integration');
-  assertContains('GK4: Tabelle enthält den Juni 2026 (aktueller Monat)', gk4, 'Juni 2026');
+  assertContains('GK4: Tabelle enthält Januar 2026 (Jahresansicht beginnt im Januar)', gk4, 'Januar 2026');
+  assertContains('GK4: Tabelle enthält Dezember 2026 (Jahresansicht endet im Dezember)', gk4, 'Dezember 2026');
+  const gk4RowCount = (gk4.match(/data-label="Monat"/g) || []).length;
+  assertEq('GK4: genau 12 Tabellenzeilen (Jan–Dez, hiredSince liegt lange vor 2026)', gk4RowCount, 12);
+
+  // GK5: computeGleitzeitkontoRows begrenzt die Jahresansicht ab "Angestellt seit", wenn die
+  // Anstellung erst im gewählten Jahr beginnt (Kernfall aus der Nutzeranfrage: Einstellung
+  // 01.08.2026, Jahresansicht 2026 darf nicht schon im Januar ein Soll gegen 0h Ist zeigen).
+  const gk5 = await page.evaluate(() => {
+    const empId = '__gk-hire-midyear__';
+    const emp = { id: empId, name: 'GK-Hire', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2026-08-01' };
+    state.employers.push(emp);
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    return result;
+  });
+  assertEq('GK5: bei Anstellung ab August zeigt das Jahr nur 5 Monate (Aug–Dez)', gk5.rows.length, 5);
+  assertEq('GK5: erste Zeile ist August 2026 (kein Soll für Monate vor Anstellung)', gk5.rows[0].ym, '2026-08');
+  assertEq('GK5: effectiveStartYm = Anstellungsmonat', gk5.effectiveStartYm, '2026-08');
+  assertEq('GK5: hiredAfterYear ist false (Anstellung liegt im gewählten Jahr)', gk5.hiredAfterYear, false);
+
+  // GK6: Liegt "Angestellt seit" komplett nach dem gewählten Jahr, gibt es keine Zeilen und
+  // die Ansicht muss das klar kommunizieren statt eine leere/falsche Tabelle zu zeigen.
+  const gk6 = await page.evaluate(() => {
+    const empId = '__gk-hire-future__';
+    const emp = { id: empId, name: 'GK-Future', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2027-03-01' };
+    state.employers.push(emp);
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    return result;
+  });
+  assertEq('GK6: keine Zeilen, wenn Angestellt-seit nach dem gewählten Jahr liegt', gk6.rows.length, 0);
+  assertEq('GK6: hiredAfterYear = true', gk6.hiredAfterYear, true);
+  const gk6b = await page.evaluate(() => buildGleitzeitkontoHTML([], { name: 'GK-Future' }, {
+    escapeHtml: (s) => s, minutesToHM: (m) => String(m), formatMonthYear: (ym) => ym, renderSummaryHTML,
+  }, { year: 2026, effectiveStartYm: '2027-03', hiredAfterYear: true }));
+  assertContains('GK6b: Hinweistext bei Anstellung nach dem gewählten Jahr', gk6b, 'noch nicht angestellt');
+
+  // GK7: Kumulierter Saldo läuft bewusst über Jahresgrenzen durch (kein Reset zum 1.1., siehe
+  // Nutzerentscheidung "Durchlaufend"). Referenzwert wird aus computeMonthReport pro Monat
+  // hergeleitet, damit der Test unabhängig von Feiertagsdetails bleibt.
+  const gk7 = await page.evaluate(() => {
+    const empId = '__gk-crossyear__';
+    const emp = { id: empId, name: 'GK-Crossyear', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2025-11-01' };
+    state.employers.push(emp);
+    state.entries.push(
+      { id: 'gkx1', employerId: empId, date: '2025-11-03', type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 },
+      { id: 'gkx2', employerId: empId, date: '2025-12-03', type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 },
+      { id: 'gkx3', employerId: empId, date: '2026-01-05', type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 },
+    );
+    const rNov = computeMonthReport(empId, '2025-11');
+    const rDec = computeMonthReport(empId, '2025-12');
+    const rJan = computeMonthReport(empId, '2026-01');
+    const expectedJanCumulative = rNov.balance + rDec.balance + rJan.balance;
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    return { rows: result.rows, effectiveStartYm: result.effectiveStartYm, expectedJanCumulative };
+  });
+  assertEq('GK7: effectiveStartYm = Anstellungsmonat 2025-11 (vor dem gewählten Jahr)', gk7.effectiveStartYm, '2025-11');
+  assertEq('GK7: Jahresansicht 2026 zeigt trotzdem 12 Zeilen (Jan–Dez)', gk7.rows.length, 12);
+  assertEq('GK7: Jan-2026-Zeile ist erste angezeigte Zeile', gk7.rows[0].ym, '2026-01');
+  assertEq('GK7: kumulierter Saldo im Januar 2026 enthält bereits Nov+Dez 2025 (durchlaufender Saldo über die Jahresgrenze)', gk7.rows[0].cumulativeBalance, gk7.expectedJanCumulative);
+
+  // GK8: Ohne hiredSince fällt die Berechnung auf den Monat des frühesten Eintrags dieses
+  // Arbeitgebers zurück (Alt-Arbeitgeber ohne gepflegtes "Angestellt seit"), statt beliebig weit
+  // in die Vergangenheit ein Soll zu erzeugen.
+  const gk8 = await page.evaluate(() => {
+    const empId = '__gk-no-hiredsince__';
+    const emp = { id: empId, name: 'GK-Alt', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' };
+    state.employers.push(emp);
+    state.entries.push({ id: 'gk8-e1', employerId: empId, date: '2025-03-10', type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 });
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== empId);
+    state.entries = state.entries.filter((e) => e.employerId !== empId);
+    return result;
+  });
+  assertEq('GK8: ohne hiredSince wird der Monat des frühesten Eintrags als Startpunkt verwendet', gk8.effectiveStartYm, '2025-03');
+  assertEq('GK8: Jahresansicht 2026 zeigt trotzdem alle 12 Monate (Startpunkt liegt vor 2026)', gk8.rows.length, 12);
 }
 
 

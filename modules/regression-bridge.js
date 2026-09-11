@@ -45,8 +45,8 @@ export function exportBridge(target, refs) {
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
     // CSV-Export (seit v3.9.47)
     generateCsvBlob,
-    // Gleitzeitkonto-Ansicht (seit v3.9.47)
-    buildGleitzeitkontoHTML, renderGleitzeitkonto,
+    // Gleitzeitkonto-Ansicht (seit v3.9.47, Kalenderjahr-Logik seit v3.9.48)
+    buildGleitzeitkontoHTML, renderGleitzeitkonto, computeGleitzeitkontoRows,
   } = refs;
 
   // State + Persistenz
@@ -137,4 +137,5 @@ export function exportBridge(target, refs) {
   // Gleitzeitkonto-Ansicht (seit v3.9.47)
   if (typeof buildGleitzeitkontoHTML === 'function') target.buildGleitzeitkontoHTML = buildGleitzeitkontoHTML;
   if (typeof renderGleitzeitkonto === 'function') target.renderGleitzeitkonto = renderGleitzeitkonto;
+  if (typeof computeGleitzeitkontoRows === 'function') target.computeGleitzeitkontoRows = computeGleitzeitkontoRows;
 }

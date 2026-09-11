@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.47';
+export const APP_VERSION = '3.9.48';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.48', items: [
+    'Geändert: Gleitzeitkonto zeigt jetzt ein Kalenderjahr (Januar–Dezember) statt eines rollierenden Zeitraums ("Bis Monat" + 6/12/24 Monate) — Eingabe ist jetzt eine einzelne Jahresauswahl, analog zur Urlaubsplanung',
+    'Fehlerbehebung: Monate vor "Angestellt seit" (bzw. vor dem frühesten Eintrag, falls nicht gesetzt) flossen bisher mit vollem Monats-Soll gegen 0h Ist in den Saldo ein — das erzeugte bei kürzlich begonnenen Anstellungen einen falschen, stark negativen Saldo; diese Monate werden jetzt weder berechnet noch angezeigt',
+    'Neu: der kumulierte Saldo läuft bewusst über Jahresgrenzen hinweg durch (kein Reset zum 1.1.), startet aber niemals vor "Angestellt seit"; ein Hinweisbanner zeigt an, wenn die Ansicht deswegen erst mitten im Jahr beginnt',
+    'Regression: 5 neue Checks (GK5–GK8, davon GK6 mit Teil b) für Jahresgrenzen-Fälle: Anstellung mitten im Jahr, Anstellung erst nach dem gewählten Jahr, durchlaufender Saldo über den Jahreswechsel, Fallback ohne "Angestellt seit"',
+  ]},
   { version: '3.9.47', items: [
     'Neu: Eintragstyp "Freier Tag" — für Tage ohne Vertrags-Soll (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell); der Tag wird vom Tages- und Monats-Soll ausgeschlossen, aber (anders als Urlaub/Krank) nicht wie ein Arbeitstag gutgeschrieben',
     'Neu: Änderungsprotokoll in den Einstellungen — jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel protokolliert (die letzten 500, davon die letzten 50 sichtbar)',

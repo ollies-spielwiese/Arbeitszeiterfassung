@@ -99,8 +99,9 @@ export function formatMonthYear(ym) {
 }
 
 /**
- * Verschiebt eine 'YYYY-MM'-Angabe um delta Monate (negativ = zurück), seit v3.9.47
- * für die Gleitzeitkonto-Ansicht (Monatsbereich rund um einen Endmonat).
+ * Verschiebt eine 'YYYY-MM'-Angabe um delta Monate (negativ = zurück), seit v3.9.47 fuer die
+ * Gleitzeitkonto-Ansicht (dort seit v3.9.48 genutzt, um innerhalb von computeGleitzeitkontoRows
+ * monatsweise durch das gewählte Kalenderjahr bzw. ab "Angestellt seit" zu iterieren).
  * @param {string} ym 'YYYY-MM'
  * @param {number} delta
  * @returns {string} 'YYYY-MM'

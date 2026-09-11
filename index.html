@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.47</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.48</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -253,20 +253,13 @@
       <div id="vacation-planning-content" class="report-content"></div>
     </section>
 
-    <!-- Gleitzeitkonto View: kumulierter Überstundenverlauf über mehrere Monate -->
+    <!-- Gleitzeitkonto View: kumulierter Überstundenverlauf im gewählten Kalenderjahr, seit
+         v3.9.48 jahresbasiert statt rollierendem Zeitraum (siehe RELEASE.md) -->
     <section id="view-gleitzeitkonto" class="view">
       <div class="filter-row">
         <label>
-          Bis Monat
-          <input type="month" id="gleitzeitkonto-end-month" data-testid="input-gleitzeitkonto-end-month" />
-        </label>
-        <label>
-          Zeitraum
-          <select id="gleitzeitkonto-months" data-testid="select-gleitzeitkonto-months">
-            <option value="6">6 Monate</option>
-            <option value="12" selected>12 Monate</option>
-            <option value="24">24 Monate</option>
-          </select>
+          Jahr
+          <input type="number" id="gleitzeitkonto-year" min="1900" max="2100" step="1" data-testid="input-gleitzeitkonto-year" />
         </label>
       </div>
       <div id="gleitzeitkonto-content" class="report-content"></div>
@@ -426,15 +419,16 @@
         </details>
 
         <details class="guide-section">
-          <summary>6b. Reiter „Gleitzeitkonto“ – kumulierter Verlauf über mehrere Monate</summary>
+          <summary>6b. Reiter „Gleitzeitkonto“ – kumulierter Verlauf im Kalenderjahr</summary>
           <div class="guide-body">
-            <p>Dieser Reiter zeigt, wie sich dein Überstunden-/Gleitzeitsaldo über mehrere Monate hinweg aufbaut — anders als die Monatsauswertung, die jeden Monat nur einzeln betrachtet.</p>
+            <p>Dieser Reiter zeigt, wie sich dein Überstunden-/Gleitzeitsaldo über ein Kalenderjahr hinweg aufbaut — anders als die Monatsauswertung, die jeden Monat nur einzeln betrachtet.</p>
             <ol>
-              <li><strong>Bis Monat:</strong> das letzte Monat, das in der Tabelle auftauchen soll (Standard: aktueller Monat).</li>
-              <li><strong>Zeitraum:</strong> 6, 12 oder 24 Monate rückwirkend ab dem gewählten Endmonat.</li>
+              <li><strong>Jahr:</strong> das Kalenderjahr (Januar–Dezember), für das die Tabelle angezeigt wird (Standard: aktuelles Jahr).</li>
               <li>Die Tabelle listet pro Monat Ist, Soll, den Saldo dieses einzelnen Monats sowie den <strong>kumulierten Saldo</strong> — also die fortlaufende Summe aller Salden bis zu diesem Monat.</li>
+              <li>Der kumulierte Saldo läuft bewusst über Jahresgrenzen hinweg durch (kein Reset zum 1. Januar) — er startet aber niemals vor dem im Arbeitgeber hinterlegten Datum <strong>„Angestellt seit“</strong>. Ist dieses Datum nicht gepflegt, wird stattdessen der Monat des frühesten Eintrags dieses Arbeitgebers verwendet.</li>
+              <li>Beginnt die Anstellung erst mitten in einem Jahr, zeigt die Tabelle nur die Monate ab der Anstellung (mit Hinweisbanner) — Monate davor würden sonst ein Soll gegen 0h Ist zeigen, obwohl du dort noch gar nicht angestellt warst. Liegt die Anstellung komplett nach dem gewählten Jahr, erscheint stattdessen ein entsprechender Hinweis statt einer leeren Tabelle.</li>
             </ol>
-            <p>So erkennst du auf einen Blick, ob sich dein Gleitzeitkonto über die Zeit aufbaut oder abbaut, ohne jeden Monat einzeln addieren zu müssen.</p>
+            <p>So erkennst du auf einen Blick, ob sich dein Gleitzeitkonto über die Zeit aufbaut oder abbaut, ohne jeden Monat einzeln addieren zu müssen — und ohne, dass Monate vor deiner Anstellung den Saldo verfälschen.</p>
           </div>
         </details>
 

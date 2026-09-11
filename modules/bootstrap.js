@@ -239,10 +239,9 @@ export function wireEvents(ctx) {
     // Vacation-Planning (Jahresübersicht der Urlaubsplanung)
     const vacationPlanningYear = document.getElementById('vacation-planning-year');
     if (vacationPlanningYear) vacationPlanningYear.addEventListener('change', renderVacationPlanning);
-    const gleitzeitkontoEndMonth = document.getElementById('gleitzeitkonto-end-month');
-    if (gleitzeitkontoEndMonth) gleitzeitkontoEndMonth.addEventListener('change', renderGleitzeitkonto);
-    const gleitzeitkontoMonths = document.getElementById('gleitzeitkonto-months');
-    if (gleitzeitkontoMonths) gleitzeitkontoMonths.addEventListener('change', renderGleitzeitkonto);
+    // Gleitzeitkonto (Kalenderjahr-Ansicht, seit v3.9.48)
+    const gleitzeitkontoYear = document.getElementById('gleitzeitkonto-year');
+    if (gleitzeitkontoYear) gleitzeitkontoYear.addEventListener('change', renderGleitzeitkonto);
     const addHolidayBtn = document.getElementById('btn-add-holiday-override');
     if (addHolidayBtn) addHolidayBtn.addEventListener('click', () => openHolidayModal(null));
     const formHoliday = document.getElementById('form-holiday');

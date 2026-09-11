@@ -9,7 +9,7 @@
  * @typedef {import('../types.js').AZMonthOverview} AZMonthOverview
  */
 
-import { pad, timeToMinutes, dayOfWeekISO, monthDates } from './util-time.js';
+import { pad, timeToMinutes, dayOfWeekISO, monthDates, shiftYearMonth } from './util-time.js';
 import { getHolidays, getHolidaysInRange } from './holidays.js';
 
 /* ---------- Konstanten (Single Source of Truth) ---------- */
@@ -555,4 +555,58 @@ export function computeMonthOverview(ym, ctx) {
   }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
 
   return { ym, rows, totals };
+}
+
+/**
+ * Baut die Zeilen fuer die Gleitzeitkonto-Ansicht eines Kalenderjahres (Januar-Dezember), seit
+ * v3.9.48. Der kumulierte Saldo laeuft bewusst ueber Jahresgrenzen hinweg durch (kein Reset zum
+ * 1.1.) und startet am fruehesten bekannten Zeitpunkt:
+ *   1. employer.hiredSince (Monat), falls gesetzt — das ist die verlaessliche Quelle.
+ *   2. sonst der Monat des fruehesten Eintrags dieses Arbeitgebers (fuer Alt-Arbeitgeber ohne
+ *      gepflegtes "Angestellt seit").
+ *   3. sonst (kein hiredSince, keine Eintraege) der 1. Januar des gewaehlten Jahres selbst.
+ * Monate vor diesem Startpunkt werden weder berechnet noch als Zeile zurueckgegeben — sie waeren
+ * sonst ein rechnerisches, aber unrealistisches Soll gegen ein Ist von 0 (siehe Diskussion
+ * "Bis Monat sinnvoll?" in RELEASE.md / README.md).
+ * @param {AZEmployer} emp
+ * @param {number} year z.B. 2026
+ * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number}>, effectiveStartYm: string, hiredAfterYear: boolean}}
+ */
+export function computeGleitzeitkontoRows(emp, year, ctx) {
+  const state = ctx && ctx.state;
+  const yearStartYm = `${year}-01`;
+  const yearEndYm = `${year}-12`;
+
+  let boundaryYm = null;
+  if (emp && typeof emp.hiredSince === 'string' && emp.hiredSince.length >= 7) {
+    boundaryYm = emp.hiredSince.slice(0, 7);
+  } else if (emp && state && Array.isArray(state.entries)) {
+    for (const e of state.entries) {
+      if (e.employerId !== emp.id || !e.date) continue;
+      const ym = e.date.slice(0, 7);
+      if (!boundaryYm || ym < boundaryYm) boundaryYm = ym;
+    }
+  }
+  const effectiveStartYm = boundaryYm || yearStartYm;
+
+  if (effectiveStartYm > yearEndYm) {
+    // "Angestellt seit" liegt komplett nach dem gewaehlten Jahr.
+    return { rows: [], effectiveStartYm, hiredAfterYear: true };
+  }
+
+  let cumulative = 0;
+  let cursor = effectiveStartYm;
+  const rows = [];
+  while (cursor <= yearEndYm) {
+    const r = computeMonthReport(emp.id, cursor, ctx);
+    if (r) {
+      cumulative += r.balance;
+      if (cursor >= yearStartYm) {
+        rows.push({ ym: cursor, workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance, cumulativeBalance: cumulative });
+      }
+    }
+    cursor = shiftYearMonth(cursor, 1);
+  }
+  return { rows, effectiveStartYm, hiredAfterYear: false };
 }

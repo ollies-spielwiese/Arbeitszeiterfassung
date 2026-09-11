@@ -21,7 +21,7 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = tagesgenaues Tages-Soll bei `hoursMode='week'`, sonst Wochen-Soll ÷ Werktage als Durchschnittsprinzip, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
 - Freier Tag als eigener Eintragstyp: Tage ohne Vertrags-Soll (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell) werden vom Tages-/Monats-Soll ausgeschlossen, ohne wie Urlaub/Krank gutgeschrieben zu werden
 - Zeitraum-Erfassung „von … bis …“ für Urlaub/Krankheit: legt alle Tage im gewählten Zeitraum in einem Schritt an, lässt Wochenenden und Feiertage automatisch aus (abschaltbar), überschreibt nie bereits erfasste Tage und lässt sich per Toast-Aktion „Rückgängig“ sofort wieder entfernen
-- Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo über einen wählbaren Zeitraum (6/12/24 Monate), Monat für Monat mit laufendem Saldo
+- Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo im gewählten Kalenderjahr (Jan–Dez), Monat für Monat mit laufendem Saldo — startet nie vor „Angestellt seit“, läuft aber über Jahresgrenzen hinweg durch
 - Änderungsprotokoll: jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel in den Einstellungen protokolliert (letzte 500 Änderungen, davon die letzten 50 sichtbar)
 - Backup-Erinnerung: Banner in den Einstellungen, wenn noch nie oder seit mehr als 14 Tagen kein Backup erstellt wurde, mit Möglichkeit zum Zurückstellen (Snooze)
 - CSV-Export eines Monatsberichts (Excel-kompatibel, UTF-8 mit BOM) zusätzlich zu PDF und Word
@@ -114,7 +114,7 @@ Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 ```bash
 npm ci
 npm run serve &          # lokaler HTTP-Server auf Port 8765
-npm run qa               # 232 Checks, ~3 s
+npm run qa               # 247 Checks, ~3 s
 ```
 
 Umgebungsvariablen:

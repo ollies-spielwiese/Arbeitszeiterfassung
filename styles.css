@@ -383,6 +383,20 @@ textarea { resize: vertical; min-height: 3rem; }
 .report-header h3 { margin: 0 0 0.25rem; font-size: 1.1rem; }
 .report-header .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; }
 
+/* Kontext-Hinweis innerhalb einer Report-Ansicht, z.B. Gleitzeitkonto-Truncation ab "Angestellt seit" */
+.hint-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .hint-banner { background: #1e3a5f; border-color: #2563eb; color: #bfdbfe; }
+}
+
 .report-table {
   width: 100%;
   border-collapse: collapse;

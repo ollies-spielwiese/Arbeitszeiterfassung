@@ -55,6 +55,8 @@
  * @property {string} [notes]
  * @property {number} [hourlyRate] Stundensatz (Freelance)
  * @property {string} [currency] 'EUR' | 'CHF' | 'USD'
+ * @property {string} [hiredSince] 'YYYY-MM-DD', Anstellungsbeginn ("Angestellt seit") — grenzt u.a. die
+ *   anteilige Urlaubsberechnung und seit v3.9.48 auch das Gleitzeitkonto nach unten ab
  */
 
 /**

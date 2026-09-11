@@ -99,6 +99,7 @@ import {
   computeMonthOverview as _computeMonthOverviewRaw,
   computeVacationRemaining,
   computeYearlyVacationPlanning,
+  computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
   MONTH_LABELS_LONG,
 } from './modules/compute.js';
 import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './modules/render/vacation-planning.js';
@@ -1366,11 +1367,9 @@ function renderVacationPlanning() {
 }
 
 function renderGleitzeitkonto() {
-  const endInput = document.getElementById('gleitzeitkonto-end-month');
-  const monthsSelect = document.getElementById('gleitzeitkonto-months');
-  if (!endInput.value) endInput.value = currentYearMonth();
-  const endYm = endInput.value;
-  const monthCount = Math.max(1, Math.min(60, parseInt(monthsSelect.value, 10) || 12));
+  const yearInput = document.getElementById('gleitzeitkonto-year');
+  if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
+  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
   const container = document.getElementById('gleitzeitkonto-content');
 
   ensureActiveEmployer();
@@ -1380,27 +1379,16 @@ function renderGleitzeitkonto() {
     return;
   }
 
-  // Startmonat rückwärts vom Endmonat (monthCount - 1 Monate zurück), damit
-  // z.B. bei 12 Monaten genau 12 Monate inklusive Endmonat angezeigt werden.
-  const startYm = shiftYearMonth(endYm, -(monthCount - 1));
-  const rows = [];
-  let cumulative = 0;
-  let cursor = startYm;
-  for (let i = 0; i < monthCount; i++) {
-    const r = computeMonthReport(emp.id, cursor);
-    if (r) {
-      cumulative += r.balance;
-      rows.push({ ym: cursor, workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance, cumulativeBalance: cumulative });
-    }
-    cursor = shiftYearMonth(cursor, 1);
-  }
+  // Kalenderjahr-Ansicht (Jan-Dez), seit v3.9.48: der kumulierte Saldo läuft über
+  // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
+  const { rows, effectiveStartYm, hiredAfterYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
 
   container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
     escapeHtml,
     minutesToHM,
     formatMonthYear,
     renderSummaryHTML,
-  });
+  }, { year, effectiveStartYm, hiredAfterYear });
 }
 
 async function generateOverviewPdfBlob(ov) {
@@ -1892,6 +1880,7 @@ if (typeof window !== 'undefined') {
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, MONTH_LABELS_LONG,
+    computeGleitzeitkontoRows: _computeGleitzeitkontoRowsRaw,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
   });
