@@ -90,14 +90,27 @@ Ziel: strukturell unmöglich machen, dass sich Summary-Varianten wieder auseinan
 - **Aufwand:** 2 Tage (Setup + Type-Fehler beheben)
 - **Nutzen:** ~40% künftiger Bugs werden beim Tippen abgefangen, nicht im Browser
 
-## Phase 5 — Nach v4.0: Feature-Ideen (offen, nicht committet)
+## Phase 5 — Nach v4.0: Feature-Ideen (Status: Stand v3.9.48, 11.09.2026)
 
-Die strukturelle Roadmap ist abgeschlossen. Folgende Erweiterungen liegen als Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHITECTURE.md#erweiterungs-rezepte) bereit, sind aber noch nicht beauftragt:
+Die strukturelle Roadmap ist abgeschlossen. Folgende Erweiterungen lagen als Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHITECTURE.md#erweiterungs-rezepte) bereit:
 
-- **Weitere Bulk-Erfassungs-Typen** — das mit v3.9.36 eingeführte Muster (`modules/range-entry.js`) auf einen eigenen Eintrags-Typ wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
-- **CSV-Export** — analog zu PDF/Word, Rezept „Neuer Export-Format“ ist bereits dokumentiert.
-- **Undo für Zeitraum-Erfassung** — ein Rückgängig-Button direkt nach dem Anlegen mehrerer Tage, bevor der Nutzer manuell jeden Tag einzeln löschen muss.
-- **Weitere Bundesland-Feiertage pflegen**, sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“).
+- **CSV-Export** ✅ Erledigt (v3.9.47) — Export eines Monatsberichts als CSV (Excel-kompatibel, UTF-8 mit BOM), analog zu PDF/Word.
+- **Undo für Zeitraum-Erfassung** ✅ Erledigt (v3.9.47) — Rückgängig-Aktion direkt im Toast nach dem Anlegen mehrerer Tage per Zeitraum-Erfassung.
+- **Weitere Bulk-Erfassungs-Typen** — offen. Das mit v3.9.36 eingeführte Muster (`modules/range-entry.js`) auf einen eigenen Eintrags-Typ wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
+- **Weitere Bundesland-Feiertage pflegen**, sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“) — laufende Pflegeaufgabe, kein einmaliger Punkt.
+
+Zusätzlich seit v3.9.47/v3.9.48 umgesetzt, ohne vorher auf dieser Roadmap gestanden zu haben (Nutzeranfragen während der Entwicklung): Eintragstyp „Freier Tag“, Backup-Erinnerung, Änderungsprotokoll (Audit-Log), sowie die Gleitzeitkonto-Ansicht inkl. Kalenderjahr-Auswahl und Truncation auf „Angestellt seit“ (v3.9.48). Details siehe `CHANGELOG` in `modules/constants.js`.
+
+## Phase 6 — Stabilität, Sicherheit, Weiterentwicklungsfähigkeit (vorgeschlagen, Stand 11.09.2026)
+
+Aus einer gezielten Bestandsaufnahme des aktuellen Codes (v3.9.48) hervorgegangen. Priorisiert nach Notwendigkeit, nicht nach Aufwand — Details inkl. Nutzen-/Aufwandsanalyse siehe Gesprächsprotokoll bzw. Aufgaben-Tracker; diese Zeile dient als Anker fuer zukünftige Sessions:
+
+1. **Backup-Import ohne Migrations-Lauf** (notwendig) — `importBackup()` ruft `runMigrations()` nicht auf; ein auf einem anderen Gerät/einer älteren App-Version exportiertes Backup wird beim Import nicht auf den aktuellen Schema-Stand gehoben.
+2. **Stiller Datenverlust bei defektem localStorage** (notwendig) — `loadState()` fängt kaputtes JSON ab, setzt aber ohne Nutzerhinweis einfach auf `DEFAULT_STATE` zurück.
+3. **Dependabot-Sicherheitsupdates aktivieren** (empfohlen) — aktuell deaktiviert; ein bekannter `xmldom`-Advisory (über `mammoth`, nur Test-Tooling) bliebe sonst dauerhaft offen.
+4. **Subresource Integrity für CDN-Libraries** (empfohlen) — `jsPDF`/`autotable`/`docx` werden zur Laufzeit von `unpkg.com` ohne Integrity-Hash nachgeladen.
+5. **CodeQL/Statische Sicherheitsanalyse in CI** (optional) — aktuell keine Code-Scanning-Analyse hinterlegt.
+6. **Branch Protection auf `main`** (optional) — aktuell ungeschützt; bei Solo-Entwicklung mit Direkt-Push von begrenztem Nutzen.
 
 ## Nicht-Ziele (bewusst nicht auf der Roadmap)
 
