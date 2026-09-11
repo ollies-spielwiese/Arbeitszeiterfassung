@@ -321,8 +321,14 @@
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
               <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen. Hat der Arbeitgeber feste Wochenarbeitszeiten hinterlegt (siehe Reiter Arbeitgeber), schlägt die App die passende Uhrzeit für den gewählten Tag vor — per Tipp übernehmen.</li>
               <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
-              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein. Im Auswahlfeld „Art“ steht neben Urlaub und Krankheit auch <strong>Gleitzeit-Überstundenabbau</strong> zur Verfügung — für ganze freie Tage zum Abbau von Überstunden, die wie ein Arbeitstag angerechnet werden, aber den Urlaubsanspruch nicht mindern.</li>
-              <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Krankheit oder Gleitzeit-Überstundenabbau), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären.</li>
+              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein. Im Auswahlfeld „Art“ stehen zur Verfügung:
+                <ul>
+                  <li><strong>Urlaub / Krankheit:</strong> werden voll gutgeschrieben (Soll = Ist an diesem Tag); der Urlaubsanspruch sinkt nur bei „Urlaub“.</li>
+                  <li><strong>Gleitzeit-Überstundenabbau:</strong> ein ganzer freier Tag zum Abbau von zuvor angesammelten Überstunden. Anders als Urlaub/Krankheit wird dieser Tag <strong>nicht</strong> gutgeschrieben — er senkt den Gleitzeitsaldo tatsächlich um das Tages-Soll dieses Wochentags. Der Urlaubsanspruch bleibt unverändert.</li>
+                  <li><strong>Freier Tag:</strong> für Tage, an denen vertraglich ohnehin kein Soll besteht (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell). Das Tages-Soll entfällt komplett, es gibt aber auch keine Gutschrift und keine Auswirkung auf den Urlaubsanspruch.</li>
+                </ul>
+              </li>
+              <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Krankheit, Gleitzeit-Überstundenabbau oder Freier Tag), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären. Nach dem Anlegen erscheint eine Bestätigung mit der Aktion <strong>Rückgängig</strong>, die alle gerade angelegten Einträge des Zeitraums wieder in einem Schritt entfernt.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -379,10 +385,11 @@
             <ol>
               <li>Arbeitgeber und Monat auswählen.</li>
               <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo.</li>
-              <li>Am Ende der Seite stehen vier Aktionen zur Verfügung:
+              <li>Am Ende der Seite stehen fünf Aktionen zur Verfügung:
                 <ul>
                   <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile. <em>Hinweis:</em> Für das Öffnen und Bearbeiten der .docx-Datei muss auf dem Endgerät Microsoft Word oder eine kompatible Anwendung (Pages, LibreOffice/OpenOffice, Google Docs) installiert sein. Ohne solche Software lässt sich die Datei nur eingeschränkt anzeigen – in dem Fall empfehlen wir stattdessen den PDF‑Export.</li>
                   <li><strong>📕 PDF:</strong> erstellt dieselbe Auswertung als PDF.</li>
+                  <li><strong>📊 CSV:</strong> exportiert dieselben Zeilen als CSV-Datei (Semikolon-getrennt, UTF-8 mit BOM) — lässt sich direkt in Excel oder anderen Tabellenprogrammen weiterverarbeiten.</li>
                   <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 9).</li>
                   <li><strong>🗄 Monat archivieren:</strong> verschiebt den fertigen Monat ins Archiv, damit er nicht mehr aus Versehen geändert wird.</li>
                 </ul>
@@ -415,6 +422,19 @@
               <li>Darunter listet eine Tabelle jeden Monat des Jahres mit den Spalten Genommen, Eingegeben und Summe auf, plus einer Gesamtzeile am Ende.</li>
             </ol>
             <p>So siehst du auf einen Blick, wie viel Urlaub im Jahresverlauf bereits verplant ist und wie viel noch offen ist.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>6b. Reiter „Gleitzeitkonto“ – kumulierter Verlauf über mehrere Monate</summary>
+          <div class="guide-body">
+            <p>Dieser Reiter zeigt, wie sich dein Überstunden-/Gleitzeitsaldo über mehrere Monate hinweg aufbaut — anders als die Monatsauswertung, die jeden Monat nur einzeln betrachtet.</p>
+            <ol>
+              <li><strong>Bis Monat:</strong> das letzte Monat, das in der Tabelle auftauchen soll (Standard: aktueller Monat).</li>
+              <li><strong>Zeitraum:</strong> 6, 12 oder 24 Monate rückwirkend ab dem gewählten Endmonat.</li>
+              <li>Die Tabelle listet pro Monat Ist, Soll, den Saldo dieses einzelnen Monats sowie den <strong>kumulierten Saldo</strong> — also die fortlaufende Summe aller Salden bis zu diesem Monat.</li>
+            </ol>
+            <p>So erkennst du auf einen Blick, ob sich dein Gleitzeitkonto über die Zeit aufbaut oder abbaut, ohne jeden Monat einzeln addieren zu müssen.</p>
           </div>
         </details>
 
@@ -488,6 +508,8 @@
                   <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel.</li>
                 </ul>
               </li>
+              <li><strong>Backup-Erinnerung:</strong> Wurde noch nie oder seit mehr als 14 Tagen kein Backup exportiert, erscheint oben auf diesem Reiter ein Hinweisbanner mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+              <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
             </ul>
           </div>
         </details>

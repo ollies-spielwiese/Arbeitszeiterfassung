@@ -4,12 +4,14 @@ Dieses Dokument beschreibt den vollständigen Release-Workflow für die PWA. Zie
 
 ## Versionierung
 
-- App-Version steht an zwei Stellen und muss synchron bleiben:
-  - `app.js` — Konstante `APP_VERSION` (z. B. `'3.3'`)
-  - `sw.js` — Konstante `CACHE_NAME` (z. B. `'arbeitszeit-v3-3'`)
-- Schema: `MAJOR.MINOR` in `APP_VERSION`, `arbeitszeit-vMAJOR-MINOR` in `CACHE_NAME`.
-- Bei jeder Änderung an ausgelieferten Dateien (app.js, index.html, styles.css, sw.js, manifest.json, Icons) muss `CACHE_NAME` erhöht werden, sonst greift der alte Service-Worker-Cache.
-- Neuen Changelog-Eintrag im `CHANGELOG`-Array in `app.js` (oben, nach `LAST_SEEN_VERSION_KEY`) ergänzen. Neuester Eintrag steht oben. Nutzer sehen ihn beim ersten Start als „Was ist neu"-Modal.
+- App-Version steht an vier Stellen und muss synchron bleiben:
+  - `modules/constants.js` — Konstante `APP_VERSION` (z. B. `'3.9.47'`)
+  - `package.json` — Feld `"version"`
+  - `index.html` — `#app-version-badge`
+  - `sw.js` — Konstante `CACHE_NAME` (z. B. `'arbeitszeit-v3-9-47'`)
+- Schema: `MAJOR.MINOR.PATCH` in `APP_VERSION`/`package.json`, `arbeitszeit-vMAJOR-MINOR-PATCH` in `CACHE_NAME`.
+- Bei jeder Änderung an ausgelieferten Dateien (app.js, module/*, index.html, styles.css, sw.js, manifest.json, Icons) muss `CACHE_NAME` erhöht werden, sonst greift der alte Service-Worker-Cache.
+- Neuen Changelog-Eintrag im `CHANGELOG`-Array in `modules/constants.js` (oben, nach `LAST_SEEN_VERSION_KEY`) ergänzen. Neuester Eintrag steht oben. Nutzer sehen ihn beim ersten Start als „Was ist neu"-Modal.
 
 ## Lokaler Test
 

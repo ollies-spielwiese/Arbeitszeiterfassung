@@ -114,7 +114,7 @@ Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 ```bash
 npm ci
 npm run serve &          # lokaler HTTP-Server auf Port 8765
-npm run qa               # 96 Checks, ~3 s
+npm run qa               # 232 Checks, ~3 s
 ```
 
 Umgebungsvariablen:
