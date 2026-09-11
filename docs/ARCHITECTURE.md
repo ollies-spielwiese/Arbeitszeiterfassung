@@ -219,17 +219,22 @@ Nicht zentralisiert (Phase 4):
 
 ## Berechnungsregel Urlaub/Krank (Absence-Credit)
 
-### Formel
+### Formel (seit v3.9.45: tagesgenau für `hoursMode = 'week'`)
 
 ```
-perWorkdayMin = weeklyHours × 60 / 5                        (hoursMode = 'week', Default)
-perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat  (hoursMode = 'month')
+// hoursMode = 'week' (Default) — TAGESGENAU seit v3.9.45:
+Gutschrift pro Urlaubs-/Kranktag = computeDayTargetMinutes(employer, datum)
+  // = das individuelle Tages-Soll aus employer.schedule (falls hinterlegt),
+  //   sonst defaultSchedule(weeklyHours) mit gleichmäßiger Mo–Fr-Verteilung.
 
+// hoursMode = 'month' — weiterhin Durchschnittsprinzip (kein Tages-Schedule vorhanden):
+perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat
 Gutschrift pro Urlaubs-/Kranktag = perWorkdayMin
-Gutschrift an Sa/So/Feiertag    = 0
+
+Gutschrift an Sa/So/Feiertag = 0 (beide Modi)
 ```
 
-Implementierung: `computeMonthReport()` in `modules/compute.js` (Zeilen 282–305).
+Implementierung: `computeMonthReport()` sowie `computeDayTargetMinutes()`/`weekModePerDayMinutesMap()` in `modules/compute.js`; analog in `app.js` `renderWeek()` und `renderTodaySummary()`.
 
 ### Rechtlicher Kontext
 
@@ -241,20 +246,25 @@ Deutsches Arbeitsrecht (§ 3 EntgFG, Grundsatz „Krank wie gearbeitet“) kennt
 
 ### Was die App abbildet
 
-Die App verwendet **ausschließlich das Durchschnittsprinzip** (Fall 3). Das ist:
+Seit v3.9.45 bildet die App bei `hoursMode = 'week'` **Fall 1 und Fall 2 tagesgenau** ab, sofern der Employer ein individuelles `schedule` (Wochenplan je Wochentag) hinterlegt hat — die Gutschrift entspricht dann exakt dem Tages-Soll des jeweiligen Wochentags statt einem pauschalen Durchschnitt. Ohne hinterlegtes `schedule` greift `defaultSchedule(weeklyHours)` (gleichmäßige Mo–Fr-Verteilung), was rechnerisch Fall 3/Durchschnittsprinzip entspricht. `hoursMode = 'month'` nutzt weiterhin ausschließlich das Durchschnittsprinzip, da kein Tages-Schedule vorgesehen ist.
 
-- **Korrekt für Fall 1** (gleichmäßige Verteilung Mo–Fr): 40h ÷ 5 = 8h pro Tag → identisches Ergebnis.
-- **Korrekt für Fall 3** (unregelmäßig ohne Plan): entspricht dem Rechts-Text.
-- **Nicht abgebildet für Fall 2** (Schichtdienst): App kennt keinen Tages-Schedule.
-- **Nicht abgebildet für konzentrierte Teilzeit** (z. B. 60 % auf 3 Tage Di/Mi/Do): App gibt für Krank am Mo/Fr eine Gutschrift von `weeklyHours/5`, obwohl vertraglich 0 richtig wäre. Der User baut in diesem Fall fälschlich Stunden auf.
+- **Korrekt für Fall 1** (gleichmäßige Verteilung Mo–Fr): 40h ÷ 5 = 8h pro Tag → identisches Ergebnis in beiden Modi.
+- **Korrekt für Fall 2** (Schichtdienst/unregelmäßiges Wochenschema), sofern `hoursMode='week'` und ein individuelles `schedule` hinterlegt ist.
+- **Korrekt für konzentrierte Teilzeit** (z. B. 60 % auf 3 Tage Di/Mi/Do) bei `hoursMode='week'` mit hinterlegtem `schedule`: Krank am Mo/Fr liefert korrekt 0 Minuten Gutschrift statt fälschlich `weeklyHours/5`.
+- **Nicht abgebildet bei `hoursMode='month'`**: hier bleibt weiterhin nur das Durchschnittsprinzip verfügbar (kein Tages-Schedule-Konzept in diesem Modus).
 
-### Warum kein Schedule
+### Sonderfall: Überstundenabbau (`overtime_reduction`) — seit v3.9.46 bewusst ANDERS behandelt
 
-Ein Wochen-Schedule pro Employer (7 Wochentage × Ist-Stunden) würde Fall 2 und konzentrierte Teilzeit korrekt abbilden. Der User hat sich bewusst gegen die Einführung entschieden — die aktuelle Regel bleibt Default, ist rechtlich für die Mehrheit der Fälle korrekt.
+Die obige Gutschrift-Logik gilt **ausschließlich für Urlaub und Krankheit**. `overtime_reduction`-Einträge (Gleittage) werden seit v3.9.46 **nicht mehr** wie Urlaub/Krank gutgeschrieben:
+
+- § 3 EntgFG („Krank wie gearbeitet“) ist eine gesetzliche Schutzvorschrift für Urlaub/Krankheit und lässt sich nicht auf einen freiwilligen Gleitzeit-Ausgleich übertragen — dessen Zweck ist genau das Gegenteil: ein zuvor angesammeltes Zeitguthaben abzubauen.
+- Praktisch bedeutet das: An einem `overtime_reduction`-Tag bleibt `Ist = 0` **ungedeckt** gegen das normale Tages-Soll dieses Wochentags. Dieses Defizit senkt den Saldo automatisch um genau das Tages-Soll — unabhängig davon, ob überhaupt ein `overtime_reduction`-Eintrag angelegt wurde. Der Eintrag selbst dient nur der **Kennzeichnung** (Anzeige/Export als "Überstundenabbau" statt als unerklärte Lücke) und beeinflusst die Saldo-Rechnung nicht zusätzlich.
+- `overtimeReductionEntries` bleiben weiterhin bewusst **ausgeschlossen** von `computeVacationRemaining`/`computeYearlyVacationPlanning`, da sie kein Urlaubstag sind und den Urlaubsanspruch nicht mindern.
+- **Wichtig — rückwirkende Auswirkung:** Da `computeMonthReport()` bei jedem Aufruf live aus den gespeicherten Einträgen neu rechnet (kein Caching alter Salden), zeigen bereits vergangene Monate mit `overtime_reduction`-Einträgen ab v3.9.46 automatisch einen geänderten — typischerweise niedrigeren — Saldo an als zuvor.
 
 ### Empfehlung für abweichende Fälle
 
-User mit Schichtdienst oder konzentrierter Teilzeit müssen Krank/Urlaub-Gutschriften manuell anpassen — entweder über Überstunden-Einträge (positiv/negativ) oder über Anpassung der `weeklyHours` für den betroffenen Monat.
+User mit `hoursMode='month'` und Schichtdienst/konzentrierter Teilzeit müssen Krank/Urlaub-Gutschriften weiterhin manuell anpassen — entweder über Überstunden-Einträge (positiv/negativ) oder über einen Wechsel zu `hoursMode='week'` mit individuellem `schedule`.
 
 ---
 

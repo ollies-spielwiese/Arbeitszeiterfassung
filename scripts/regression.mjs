@@ -328,9 +328,10 @@ async function runOvertimeReductionUnits(page) {
   });
   assertContains('OT2: Summary nennt "Überstundenabbau-Tage"', ot2, 'Überstundenabbau-Tage');
 
-  // OT3+OT4: Integration — computeMonthReport zählt die Tage separat, rechnet sie
-  // wie Urlaub/Krank als volle Tage an (creditedAbsenceMin), mindert aber NICHT
-  // den Urlaubsanspruch aus computeVacationRemaining.
+  // OT3+OT4: Integration — computeMonthReport zählt die Tage separat (overtimeReductionDays),
+  // rechnet sie seit v3.9.46 aber NICHT mehr wie Urlaub/Krank gut (creditedAbsenceMin bleibt 0
+  // für reine Überstundenabbau-Tage) — ein Gleittag soll den Saldo tatsächlich verringern, nicht
+  // neutral bleiben. Der Urlaubsanspruch aus computeVacationRemaining bleibt unberührt.
   const ot34 = await page.evaluate(() => {
     const empId = '__ot-check-e34__';
     state.employers.push({
@@ -349,20 +350,10 @@ async function runOvertimeReductionUnits(page) {
       { id: empId, annualVacation: 30, vacationCarryOver: 0, hiredSince: '' },
       '2026-06', state.entries,
     );
-    const dailyTargetMin = report.dailyTargetMin;
-    // Seit v3.9.45 rechnet computeMonthReport bei hoursMode='week' tagesgenau
-    // (computeDayTargetMinutes je Abwesenheitstag), nicht mehr mit dem pauschalen
-    // Durchschnitt dailyTargetMin. Für den Vergleich holen wir uns den echten
-    // Schedule-Wert für die beiden betroffenen Tage separat.
-    const ot34emp = { id: empId, hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 };
-    const dayExact1 = computeDayTargetMinutes(ot34emp, '2026-06-08');
-    const dayExact2 = computeDayTargetMinutes(ot34emp, '2026-06-09');
     const result = {
       created: res.created,
       overtimeReductionDays: report.overtimeReductionEntries.length,
       creditedAbsenceMin: report.creditedAbsenceMin,
-      dailyTargetMin,
-      dayExactSum: dayExact1 + dayExact2,
       vacationRemaining: vacRemaining.remaining,
       vacationTaken: vacRemaining.taken,
     };
@@ -371,12 +362,48 @@ async function runOvertimeReductionUnits(page) {
     return result;
   });
   assertEq('OT3: 2 angelegte Überstundenabbau-Tage', ot34.created, 2);
-  assertEq('OT3: computeMonthReport zählt 2 Überstundenabbau-Tage', ot34.overtimeReductionDays, 2);
-  assertEq('OT3: creditedAbsenceMin = tagesgenaue Summe (Mo+Di, Schedule-Soll je Tag)',
-    ot34.creditedAbsenceMin, ot34.dayExactSum);
+  assertEq('OT3: computeMonthReport zählt weiterhin 2 Überstundenabbau-Tage (Anzeige)', ot34.overtimeReductionDays, 2);
+  assertEq('OT3: creditedAbsenceMin = 0 (Überstundenabbau wird NICHT mehr gutgeschrieben, seit v3.9.46)',
+    ot34.creditedAbsenceMin, 0);
   assertEq('OT4: Urlaubsanspruch bleibt bei 30 (Überstundenabbau mindert ihn NICHT)',
     ot34.vacationRemaining, 30);
   assertEq('OT4: computeVacationRemaining zählt 0 genommene Urlaubstage', ot34.vacationTaken, 0);
+
+  // OT4b: Saldo-Abbau-Demonstration (v3.9.46) — ein Gleittag verbraucht das zuvor aufgebaute
+  // Zeitguthaben tatsächlich. Arbeitgeber 24h/Woche (Default-Schema, 4:48h=288min/Werktag).
+  // 08.06. (Mo): doppelter Tag gearbeitet (576min = +288min/+4:48 Überstunden).
+  // 15.06. (Mo): ganzer Gleittag (overtime_reduction, kein Arbeits-Eintrag).
+  // Alle übrigen Werktage im Juni: exakt Tages-Soll (288min) gearbeitet → kein weiterer Einfluss.
+  // Erwarteter Saldo am Monatsende: 0 (die +4:48 Überstunden wurden exakt durch den
+  // ungedeckten Gleittag [-4:48] wieder abgebaut).
+  const ot4b = await page.evaluate(() => {
+    const empId = '__ot-check-e4b__';
+    state.employers.push({ id: empId, name: 'OT4b-Check', hoursMode: 'week', weeklyHours: 24, breakMode: 'none', annualVacation: 30 });
+    const holidays = new Set(getHolidaysInRange('2026-06-01', '2026-06-30', 'HE').map(h => h.date));
+    const workdays = [];
+    for (let d = 1; d <= 30; d++) {
+      const iso = `2026-06-${String(d).padStart(2, '0')}`;
+      const dow = new Date(iso + 'T00:00:00').getDay();
+      if (dow >= 1 && dow <= 5 && !holidays.has(iso)) workdays.push(iso);
+    }
+    workdays.forEach((iso) => {
+      if (iso === '2026-06-08') {
+        state.entries.push({ id: 'ot4b-1', employerId: empId, date: iso, type: 'work', start: '08:00', end: '17:36', breakMinutes: 0 }); // 576min
+      } else if (iso === '2026-06-15') {
+        state.entries.push({ id: 'ot4b-2', employerId: empId, date: iso, type: 'overtime_reduction', note: 'Gleittag' }); // kein Ist
+      } else {
+        state.entries.push({ id: 'ot4b-w-' + iso, employerId: empId, date: iso, type: 'work', start: '09:00', end: '13:48', breakMinutes: 0 }); // 288min = Tages-Soll
+      }
+    });
+    const report = computeMonthReport(empId, '2026-06');
+    const result = { balance: report.balance, overtimeReductionDays: report.overtimeReductionEntries.length, creditedAbsenceMin: report.creditedAbsenceMin };
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return result;
+  });
+  assertEq('OT4b: Saldo = 0:00 — Gleittag baut die zuvor gesammelten Überstunden korrekt ab', ot4b.balance, 0);
+  assertEq('OT4b: 1 Überstundenabbau-Tag weiterhin gezählt (Anzeige)', ot4b.overtimeReductionDays, 1);
+  assertEq('OT4b: creditedAbsenceMin bleibt 0 (kein Urlaub/Krank in diesem Monat)', ot4b.creditedAbsenceMin, 0);
 
   // OT5: computeMonthOverview summiert overtimeReductionDays korrekt über die Totals.
   const ot5 = await page.evaluate(() => {

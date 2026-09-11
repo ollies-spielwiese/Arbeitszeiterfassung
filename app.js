@@ -604,12 +604,14 @@ function renderTodaySummary() {
   const targetMin = computeMonthTargetMinutes(emp, ym);
   // Seit v3.9.45 bei hoursMode='week' tagesgenau (siehe computeDayTargetMinutes) statt
   // pauschalem Monatsdurchschnitt — analog zu Woche/Monat-Ansicht.
+  // Seit v3.9.46: Überstundenabbau-Tage werden NICHT mehr gutgeschrieben (anders als
+  // Urlaub/Krank) — ein Gleittag soll den Saldo tatsächlich verringern, nicht neutral bleiben.
   const isWeekModeCreditToday = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
   const creditedAbsenceMin = isWeekModeCreditToday
     ? entries
-        .filter(e => e.type === 'vacation' || e.type === 'sick' || e.type === 'overtime_reduction')
+        .filter(e => e.type === 'vacation' || e.type === 'sick')
         .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0)
-    : Math.round((vacationDays + sickDays + overtimeReductionDays) * (targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0));
+    : Math.round((vacationDays + sickDays) * (targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0));
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const summaryFields = getSummaryFields({
@@ -1135,9 +1137,10 @@ function renderWeek() {
   const sumCreditedAbsenceMinWeek = (type) => state.entries
     .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
     .reduce((sum, e) => sum + (isWeekModeCreditWeek ? computeDayTargetMinutes(emp, e.date) : perWorkdayMinWeek), 0);
+  // Überstundenabbau (seit v3.9.46): NICHT gutgeschrieben — anders als Urlaub/Krank soll ein
+  // Gleittag den Saldo tatsächlich verringern (Ist=0 bleibt gegen das Tages-Soll ungedeckt).
   const creditedAbsenceMinWeek = sumCreditedAbsenceMinWeek('vacation')
-    + sumCreditedAbsenceMinWeek('sick')
-    + sumCreditedAbsenceMinWeek('overtime_reduction');
+    + sumCreditedAbsenceMinWeek('sick');
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
 
   const weekFields = getSummaryFields({

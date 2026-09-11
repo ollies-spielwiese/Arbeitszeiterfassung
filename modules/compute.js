@@ -468,12 +468,16 @@ export function computeMonthReport(employerId, ym, ctx) {
     if (isWeekModeCredit) return sum + computeDayTargetMinutes(emp, e.date, innerCtx);
     return sum + perWorkdayMin;
   }, 0);
-  // Gleitzeit-Überstundenabbau: ganzer freier Tag, wird wie Urlaub/Krank als Arbeitstag angerechnet
-  // (kein Soll-Ist-Defizit), zählt aber bewusst NICHT in computeVacationRemaining/computeYearlyVacationPlanning,
-  // da es kein Urlaubstag ist und den Urlaubsanspruch nicht mindert.
+  // Gleitzeit-Überstundenabbau (seit v3.9.46): ANDERS als Urlaub/Krank NICHT gutgeschrieben.
+  // Urlaub/Krank sind gesetzlich als "wie gearbeitet" zu vergüten (§ 3 EntgFG) und dürfen den
+  // Saldo nicht belasten. Ein Überstundenabbau-Tag ("Gleittag") hat den GEGENTEILIGEN Zweck:
+  // er soll ein zuvor aufgebautes Zeitguthaben tatsächlich verbrauchen. Ist(0) an diesem Tag
+  // bleibt daher bewusst ungedeckt gegen das Tages-Soll, wodurch der Saldo um genau diesen
+  // Betrag sinkt — das ist der eigentliche "Abbau". overtime_reduction zählt weiterhin bewusst
+  // NICHT in computeVacationRemaining/computeYearlyVacationPlanning, da es kein Urlaubstag ist
+  // und den Urlaubsanspruch nicht mindert.
   const creditedAbsenceMin = sumCreditedAbsenceMin(vacationEntries)
-    + sumCreditedAbsenceMin(sickEntries)
-    + sumCreditedAbsenceMin(overtimeReductionEntries);
+    + sumCreditedAbsenceMin(sickEntries);
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);

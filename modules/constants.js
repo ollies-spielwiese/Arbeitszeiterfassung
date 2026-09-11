@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.45';
+export const APP_VERSION = '3.9.46';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.46', items: [
+    'Verhaltensänderung: Überstundenabbau ("Gleittag") wird nicht mehr wie Urlaub/Krank gutgeschrieben — ein voller Abbau-Tag senkt jetzt tatsächlich den Saldo um das Tages-Soll dieses Wochentags, statt neutral (Soll=Ist) verbucht zu werden',
+    'Hintergrund: § 3 EntgFG ("Krank wie gearbeitet") ist eine gesetzliche Schutzregel für Urlaub/Krankheit und gilt nicht für den freiwilligen Abbau von Gleitzeit-Guthaben, dessen Zweck gerade der Verbrauch des Zeitkontos ist',
+    'Wichtig: Da der Monatsbericht bei jedem Aufruf live aus den gespeicherten Einträgen neu berechnet wird, zeigen bereits vergangene Monate mit Überstundenabbau-Einträgen ab sofort automatisch einen geänderten — typischerweise niedrigeren — Saldo als zuvor an',
+    'Unverändert: Urlaub und Krankheit bleiben weiterhin voll gutgeschrieben (gesetzlich vorgeschrieben); der Urlaubsanspruch wird durch Überstundenabbau-Tage weiterhin NICHT gemindert',
+    'Regression: OT3 aktualisiert (creditedAbsenceMin=0 für reine Überstundenabbau-Tage statt bisheriger Gutschrift) und neue Assertion OT4b hinzugefügt (Saldo-Demonstration: 4:48h Gleittag baut exakt 4:48h zuvor geleistete Überstunden ab)',
+  ]},
   { version: '3.9.45', items: [
     'Neu: Tagesgenaue Gutschrift für Urlaub/Krank/Überstundenabbau bei Arbeitgebern mit Stunden-Modus "Woche" — die angerechneten Minuten je Abwesenheitstag entsprechen jetzt dem tatsächlichen Tages-Soll dieses Wochentags (inkl. individueller "Feste Wochenarbeitszeiten" und ggf. Pausenabzug) statt eines pauschalen Durchschnitts (Wochenstunden / 5)',
     'Betroffen sind "Woche", "Monat" und die Tagesübersicht im Tracker; unverändert bleiben Arbeitgeber mit Stunden-Modus "Monat" (dort gibt es kein Tagesschema)',
