@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.55';
+export const APP_VERSION = '3.9.56';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.56', items: [
+    'Neu: Feld "Pers.-Nr." beim Arbeitgeber (Personalnummer laut Gehaltsabrechnung) — eigene Zeile unter "Basisdaten" im Arbeitgeber-Modal; erscheint direkt unter dem Namen des Mitarbeiters in PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export, als Spalte in der Monatsübersicht (PDF) und klein in der Arbeitgeberliste',
+    'Fix: Checkbox "Ehemalige anzeigen" (Tracker, Einträge, Übersicht, Gleitzeitkonto) hat jetzt etwas mehr Abstand zum Inhalt darunter',
+    'Regression: neue Checks (PN1–PN12) für Pers.-Nr. in Arbeitgeberliste, Modal-Speichern/Bearbeiten sowie PDF-/Word-/CSV-/Übersicht-Export',
+  ]},
   { version: '3.9.55', items: [
     'Neu: Arbeitgeberwechsel — optionales Feld "Beschäftigt bis" pro Arbeitgeber. Ehemalige Arbeitgeber (Datum in der Vergangenheit) werden in der Liste mit rot hinterlegtem Namen und Badge "Ehemalig seit ..." markiert und verschwinden aus allen Dropdowns für NEUE Einträge/Zeiträume/HO-Tage; bestehende Einträge bleiben beim Bearbeiten weiter zuordenbar',
     'Neu: Checkbox "Ehemalige anzeigen" in Tracker, Einträge, Übersicht und Gleitzeitkonto blendet ehemalige Arbeitgeber bei Bedarf wieder ein (gemeinsamer Schalter für alle vier Ansichten)',

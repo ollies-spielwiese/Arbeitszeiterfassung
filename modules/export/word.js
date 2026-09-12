@@ -132,6 +132,13 @@ export async function generateWordBlob(report, ctx) {
       new TextRun({ text: empName }),
     ] }));
   }
+  const personnelNumber = (report.employer.personnelNumber || '').trim();
+  if (personnelNumber) {
+    headerLines.push(new Paragraph({ children: [
+      new TextRun({ text: 'Pers.-Nr.: ', bold: true }),
+      new TextRun({ text: personnelNumber }),
+    ] }));
+  }
   headerLines.push(new Paragraph({ children: [new TextRun({ text: `Erstellt am ${new Date().toLocaleDateString('de-DE')}`, italics: true, color: '64748B' })] }));
   headerLines.push(new Paragraph({ text: '' }));
 

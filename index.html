@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.55</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.56</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -894,6 +894,11 @@
           <div class="form-row">
             <label for="employer-phone">Telefon</label>
             <input type="tel" id="employer-phone" placeholder="+49 …" />
+          </div>
+          <div class="form-row">
+            <label for="employer-personnel-number">Pers.-Nr.:</label>
+            <input type="text" id="employer-personnel-number" placeholder="z. B. 48213" data-testid="input-employer-personnel-number" />
+            <small class="hint">Personalnummer laut Gehaltsabrechnung – erscheint im PDF-, Word- und CSV-Export direkt unter dem Namen des Mitarbeiters.</small>
           </div>
         </fieldset>
 

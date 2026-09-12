@@ -78,27 +78,31 @@ export function generateOverviewPdfBlob(ov, ctx) {
       : '—';
     body = ov.rows.map(row => [
       row.employer.name,
+      row.employer.personnelNumber || '',
       String(row.workEntriesCount),
       minutesToHM(row.workedMin),
       rowNet(row),
     ]);
     totalsRow = [
       'Gesamt',
+      '',
       String(ov.totals.workEntriesCount),
       minutesToHM(ov.totals.workedMin),
       totalsNetStr,
     ];
-    head = [[ovEmpLabel, 'Tage', 'Ist', 'Rechnungsbetrag']];
+    head = [[ovEmpLabel, 'Pers.-Nr.', 'Tage', 'Ist', 'Rechnungsbetrag']];
     columnStyles = {
-      0: { cellWidth: 70 },
+      0: { cellWidth: 55 },
       1: { cellWidth: 20 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 60 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 25 },
+      4: { cellWidth: 55 },
     };
     legend = 'Ist = geleistete Arbeitszeit. Rechnungsbetrag = Ist × Stundensatz. Freelance-Modus: kein Soll/Saldo.';
   } else {
     body = ov.rows.map(row => [
       row.employer.name,
+      row.employer.personnelNumber || '',
       String(row.workEntriesCount),
       minutesToHM(row.workedMin),
       minutesToHM(row.targetMin),
@@ -109,6 +113,7 @@ export function generateOverviewPdfBlob(ov, ctx) {
     ]);
     totalsRow = [
       'Gesamt',
+      '',
       String(ov.totals.workEntriesCount),
       minutesToHM(ov.totals.workedMin),
       minutesToHM(ov.totals.targetMin),
@@ -117,16 +122,17 @@ export function generateOverviewPdfBlob(ov, ctx) {
       String(ov.totals.sickDays),
       String(ov.totals.overtimeReductionDays || 0),
     ];
-    head = [[ovEmpLabel, 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank', 'Abbau']];
+    head = [[ovEmpLabel, 'Pers.-Nr.', 'Tage', 'Ist', 'Soll', 'Saldo', 'Urlaub', 'Krank', 'Abbau']];
     columnStyles = {
-      0: { cellWidth: 48 },
-      1: { cellWidth: 14 },
-      2: { cellWidth: 20 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 20 },
-      5: { cellWidth: 16 },
-      6: { cellWidth: 16 },
-      7: { cellWidth: 16 },
+      0: { cellWidth: 34 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 12 },
+      3: { cellWidth: 18 },
+      4: { cellWidth: 18 },
+      5: { cellWidth: 18 },
+      6: { cellWidth: 14 },
+      7: { cellWidth: 14 },
+      8: { cellWidth: 14 },
     };
     legend = 'Ist = geleistete Arbeitszeit. Soll = vertragliche Sollstunden inkl. Werktags- und Feiertagsberechnung. Saldo = Ist + gutgeschriebene Abwesenheiten - Soll.';
   }

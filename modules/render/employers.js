@@ -32,7 +32,7 @@ export function buildEmployerCardsHTML(employers, ctx) {
         <div class="employer-info">
           <div class="${nameClass}">${escapeHtml(e.name)}${formerBadge}</div>
           <div class="employer-meta">
-            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${rateDesc}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}
+            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${rateDesc}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}${e.personnelNumber ? ` • Pers.-Nr. ${escapeHtml(e.personnelNumber)}` : ''}
           </div>
           ${contacts ? `<div class="employer-meta">👤 ${escapeHtml(contacts)}</div>` : ''}
         </div>

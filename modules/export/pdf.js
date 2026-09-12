@@ -52,6 +52,20 @@ export function generatePdfBlob(report, ctx) {
     y += 6;
   }
 
+  // Pers.-Nr. (nur wenn gesetzt), direkt unter dem Namen des Mitarbeiters
+  const personnelNumber = (report.employer.personnelNumber || '').trim();
+  if (personnelNumber) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const label = 'Pers.-Nr.: ';
+    doc.setFont('helvetica', 'bold');
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(personnelNumber, marginX + labelWidth + 1, y);
+    y += 6;
+  }
+
   // Angestellt seit (neu, nur wenn gesetzt und nicht freelance)
   if (!isFreelance() && report.employer.hiredSince) {
     doc.setFont('helvetica', 'normal');

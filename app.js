@@ -1538,6 +1538,7 @@ async function exportPdf() {
 function generateCsvBlob(report) {
   return _generateCsvBlobRaw(report, {
     formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes,
+    employeeName: (state.settings.employeeName || '').trim(),
   });
 }
 

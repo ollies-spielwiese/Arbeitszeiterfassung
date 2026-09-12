@@ -217,7 +217,7 @@ async function runMigrationUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('mig-M1: changed=true bei Legacy-State', m1.changed === true, `changed=${m1.changed}`);
-  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 5);
+  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 6);
   const tpl2 = m1.state.templates.find(t => t.id === 'tpl-2');
   const tpl9 = m1.state.templates.find(t => t.id === 'tpl-9');
   assertEq('mig-M1: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
@@ -226,7 +226,7 @@ async function runMigrationUnits(page) {
   // Fall M2: State bereits auf aktueller Version darf nicht als changed markiert werden
   const m2 = await page.evaluate(() => {
     const currentState = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       employers: [], entries: [], archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
       settings: { state: 'HE' }, runningTimer: null,
@@ -1317,7 +1317,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state);
     return result;
   });
-  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 5);
+  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 6);
   assertTrue('BI1: zwei Legacy-Homeoffice-Einträge am selben Tag werden beim Import zu einem zusammengeführt',
     bi1.homeofficeCount === 1, `count=${bi1.homeofficeCount}`);
   assertTrue('BI1: zusammengeführter Eintrag hat beide Segmente',
@@ -1334,8 +1334,8 @@ async function runBackupImportMigrationUnits(page) {
     const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
 
     const currentBackup = {
-      schemaVersion: 5,
-      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3, employmentEndDate: '' }],
+      schemaVersion: 6,
+      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3, employmentEndDate: '', personnelNumber: '' }],
       entries: [{ id: 'x', employerId: 'e2', date: '2026-02-01', type: 'work', start: '09:00', end: '17:00' }],
       archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
@@ -1365,7 +1365,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state); // Resync: siehe Kommentar in BI1.
     return result;
   });
-  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=5', bi2.schemaVersion, 5);
+  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=6', bi2.schemaVersion, 6);
   assertEq('BI2: unveränderte Felder bleiben beim Import unverändert', bi2.employerVacationCarryOver, 3);
   assertEq('BI2: Einträge werden beim Import nicht verdoppelt/verloren', bi2.entryCount, 1);
 }
@@ -1586,10 +1586,11 @@ async function runGleitzeitkontoUnits(page) {
  * Seedet state.employers (auch im Freelance-Modus — der Kunde ist dort das "employer"-Objekt)
  * mit einem Work-Entry an heute-Datum, 09:00-16:00 = 7:00 = 420 Minuten.
  */
-async function seedState(page, mode, employer) {
-  await page.evaluate(({ mode, emp }) => {
+async function seedState(page, mode, employer, settingsOverrides = {}) {
+  await page.evaluate(({ mode, emp, settingsOverrides }) => {
     document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
     state.settings.appMode = mode;
+    Object.assign(state.settings, settingsOverrides);
     state.employers = [emp];
     state.activeEmployerId = emp.id;
     const today = new Date();
@@ -1608,7 +1609,7 @@ async function seedState(page, mode, employer) {
       createdAt: new Date().toISOString(),
     }];
     saveState();
-  }, { mode, emp: employer });
+  }, { mode, emp: employer, settingsOverrides });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof state !== 'undefined' && typeof getSummaryFields === 'function');
   await page.evaluate(() => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')));
@@ -1896,7 +1897,7 @@ async function runEmploymentEndUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('EE3a: changed=true, da employmentEndDate fehlte', ee3.changed === true, `changed=${ee3.changed}`);
-  assertEq('EE3b: schemaVersion nach Migration = 5', ee3.state.schemaVersion, 5);
+  assertEq('EE3b: schemaVersion nach Migration = 6', ee3.state.schemaVersion, 6);
   assertEq('EE3c: employmentEndDate defaultet auf leeren String', ee3.state.employers[0].employmentEndDate, '');
 
   // EE4: computeVacationRemaining — anteilige Kürzung bei Beschäftigungsende
@@ -2071,6 +2072,65 @@ async function runEmploymentEndUnits(page) {
   assertTrue('EE11b: setShowFormerEmployers(false) deaktiviert alle 4 Checkboxen wieder', ee11.allUnchecked.every((v) => v === false), JSON.stringify(ee11.allUnchecked));
 }
 
+// ---------- 1o) Pers.-Nr. beim Arbeitgeber (v3.9.56) ----------
+
+async function runPersonnelNumberUnits(page) {
+  console.log('\n=== 1o) Pers.-Nr. beim Arbeitgeber Unit- + Integrationstests (v3.9.56) ===');
+
+  // PN10: buildEmployerCardsHTML — Pers.-Nr. erscheint im employer-meta-Segment, wenn gesetzt
+  const pn10 = await page.evaluate(() => {
+    const employers = [
+      { id: 'a', name: 'Mit PersNr GmbH', color: '#000', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', employmentEndDate: '', personnelNumber: '48213' },
+      { id: 'b', name: 'Ohne PersNr GmbH', color: '#000', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', employmentEndDate: '', personnelNumber: '' },
+    ];
+    return buildEmployerCardsHTML(employers, {
+      escapeHtml: (s) => String(s),
+      formatMoney: (v) => String(v),
+      breakModeLabel: () => '',
+      isFreelance: () => false,
+      isFormerEmployer,
+      todayISO: () => '2026-06-15',
+      formatDate: (d) => d,
+    });
+  });
+  assertContains('PN10a: Arbeitgeber MIT Pers.-Nr. zeigt "Pers.-Nr. 48213" im Meta-Text', pn10, 'Pers.-Nr. 48213');
+  assertTrue('PN10b: Arbeitgeber OHNE Pers.-Nr. zeigt keinen "Pers.-Nr."-Abschnitt', !/Ohne PersNr GmbH[\s\S]{0,200}Pers\.-Nr\./.test(pn10), '');
+
+  // PN11: Arbeitgeber-Modal — Pers.-Nr. wird bei Neuanlage korrekt übernommen
+  const pn11 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    document.getElementById('btn-add-employer').click();
+    document.getElementById('employer-name').value = 'PN-Neu-Test';
+    document.getElementById('employer-personnel-number').value = ' 99887 ';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'PN-Neu-Test');
+    return { saved };
+  });
+  assertTrue('PN11a: neuer Arbeitgeber wird gespeichert', !!pn11.saved, JSON.stringify(pn11.saved));
+  assertEq('PN11b: Pers.-Nr. wird getrimmt korrekt gespeichert', pn11.saved?.personnelNumber, '99887');
+
+  // PN12: Arbeitgeber-Modal — Bearbeiten eines bestehenden Arbeitgebers zeigt die gespeicherte Pers.-Nr. an und erlaubt Änderung
+  const pn12 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const emp = state.employers.find((e) => e.name === 'PN-Neu-Test');
+    const card = document.querySelector(`.employer-card[data-id="${emp.id}"]`);
+    card && card.click();
+    const populatedValue = document.getElementById('employer-personnel-number').value;
+    document.getElementById('employer-personnel-number').value = '11223';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const savedAfterEdit = state.employers.find((e) => e.id === emp.id);
+    return { populatedValue, savedAfterEdit };
+  });
+  assertEq('PN12a: Modal zeigt beim Bearbeiten die zuvor gespeicherte Pers.-Nr. an', pn12.populatedValue, '99887');
+  assertEq('PN12b: geänderte Pers.-Nr. wird beim erneuten Speichern übernommen', pn12.savedAfterEdit?.personnelNumber, '11223');
+
+  // Aufräumen des Test-Arbeitgebers
+  await page.evaluate(() => {
+    state.employers = state.employers.filter((e) => e.name !== 'PN-Neu-Test');
+    saveState();
+  });
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -2147,7 +2207,8 @@ async function runEmployee(page) {
     hourlyRate: 0, currency: 'EUR',
     targetHours: 160, weeklySchedule: null,
     annualVacation: 30, hiredSince: '2020-03-15', vacationCarryOver: 5,
-  });
+    personnelNumber: '48213',
+  }, { employeeName: 'Max Mustermann' });
 
   const tracker = await checkView(page, 'tracker');
   assertTrue('employee tracker: Ist 7:00', /7:00/.test(tracker));
@@ -2197,6 +2258,8 @@ async function runEmployee(page) {
     assertTrue('employee pdf-content: Ist-Stunden', /Ist-Stunden/.test(t), snippet(t));
     assertTrue('employee pdf-content: Soll-Stunden', /Soll-Stunden/.test(t), snippet(t));
     assertTrue('employee pdf-content: Angestellt seit', /Angestellt seit/.test(t), snippet(t));
+    assertTrue('PN1: employee pdf-content: Arbeitnehmer/in Max Mustermann', /Arbeitnehmer\/in:\s*Max Mustermann/.test(t), snippet(t));
+    assertTrue('PN2: employee pdf-content: Pers.-Nr. 48213 direkt unter dem Namen', /Arbeitnehmer\/in:\s*Max Mustermann\s*Pers\.-Nr\.:\s*48213/.test(t), snippet(t));
     assertTrue('employee pdf-content: Jahresurlaub', /Jahresurlaub/.test(t), snippet(t));
     assertTrue('employee pdf-content: Resturlaub', /Resturlaub/.test(t), snippet(t));
     assertTrue('employee pdf-content: Resturlaub Vorjahr 5', /Resturlaub Vorjahr:\s*5/.test(t), snippet(t));
@@ -2212,19 +2275,26 @@ async function runEmployee(page) {
     assertTrue('employee word-content: Soll sichtbar', /\bSoll\b/i.test(t), snippet(t));
     assertTrue('employee word-content: Saldo sichtbar', /\bSaldo\b/i.test(t), snippet(t));
     assertTrue('employee word-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
+    assertTrue('PN3: employee word-content: Arbeitnehmer/in Max Mustermann', /Arbeitnehmer\/in:\s*Max Mustermann/.test(t), snippet(t));
+    assertTrue('PN4: employee word-content: Pers.-Nr. 48213 direkt unter dem Namen', /Arbeitnehmer\/in:\s*Max Mustermann\s*Pers\.-Nr\.:\s*48213/.test(t), snippet(t));
   }
   const emOv = await checkBlob(page, 'employee', 'overviewPdf');
   if (emOv) {
     const t = await extractPdfText(emOv);
     assertTrue('employee overviewPdf-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
     assertTrue('employee overviewPdf-content: Ist gesamt sichtbar', /\bIst\b/i.test(t), snippet(t));
+    assertTrue('PN5: employee overviewPdf-content: Spalte "Pers.-Nr." vorhanden', /Pers\.-Nr\./.test(t), snippet(t));
+    assertTrue('PN6: employee overviewPdf-content: Wert 48213 in der Tabelle', /48213/.test(t), snippet(t));
   }
   const emCsv = await checkBlob(page, 'employee', 'csv');
   if (emCsv) {
     const t = extractCsvText(emCsv);
-    assertTrue('employee csv-content: Header-Zeile korrekt', /^Datum;Typ;Beginn;Ende;Pause \(Min\);Stunden;Grund\/Bemerkung/.test(t), snippet(t));
+    assertTrue('employee csv-content: Header-Zeile korrekt', /^Datum;Typ;Beginn;Ende;Pause \(Min\);Stunden;Grund\/Bemerkung/m.test(t), snippet(t));
     assertTrue('employee csv-content: mindestens eine Arbeitszeile (Typ Arbeit)', /;Arbeit;/.test(t), snippet(t));
     assertTrue('employee csv-content: 7:00 (Ist-Stunden) enthalten', /7:00/.test(t), snippet(t));
+    assertTrue('PN7: employee csv-content: Kopfzeile Arbeitnehmer/in;Max Mustermann', /^Arbeitnehmer\/in;Max Mustermann$/m.test(t), snippet(t));
+    assertTrue('PN8: employee csv-content: Kopfzeile Pers.-Nr.;48213', /^Pers\.-Nr\.;48213$/m.test(t), snippet(t));
+    assertTrue('PN9: employee csv-content: Datenkopf "Datum;..." steht NACH den Metadatenzeilen', t.indexOf('Arbeitnehmer/in;Max Mustermann') < t.indexOf('Datum;Typ'), snippet(t));
   }
 }
 
@@ -2465,6 +2535,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runStateCorruptionUnits(page);
     await runGleitzeitkontoUnits(page);
     await runEmploymentEndUnits(page);
+    await runPersonnelNumberUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

@@ -45,6 +45,9 @@
  * @property {string} name
  * @property {string} color Hex-Farbe '#RRGGBB'
  * @property {string} [phone]
+ * @property {string} [personnelNumber] Personalnummer beim Arbeitgeber ("Pers.-Nr."), erscheint auf der
+ *   Gehaltsabrechnung. Rein informativ, seit v3.9.56 in PDF-/Word-/CSV-Export sowie Arbeitgeberliste
+ *   und Monatsübersicht (PDF) sichtbar, direkt unter dem Namen des Mitarbeiters.
  * @property {AZContact[]} [contacts]
  * @property {'week'|'month'} hoursMode
  * @property {number} [weeklyHours]

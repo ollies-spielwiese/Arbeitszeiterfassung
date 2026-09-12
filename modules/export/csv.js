@@ -7,6 +7,7 @@
 // ctx = {
 //   formatDate, minutesToHM,
 //   computeWorkMinutes, computeHomeofficeMinutes,
+//   employeeName,   // seit v3.9.56: state.settings.employeeName (getrimmt), fuer Kopf-Metadatenzeile
 // }
 
 const CSV_HEADER = ['Datum', 'Typ', 'Beginn', 'Ende', 'Pause (Min)', 'Stunden', 'Grund/Bemerkung'];
@@ -35,11 +36,11 @@ function csvField(value) {
 
 /**
  * @param {any} report Ergebnis von computeMonthReport()
- * @param {{formatDate:(iso:string)=>string, minutesToHM:(m:number)=>string, computeWorkMinutes:(e:any)=>number, computeHomeofficeMinutes:(e:any)=>number}} ctx
+ * @param {{formatDate:(iso:string)=>string, minutesToHM:(m:number)=>string, computeWorkMinutes:(e:any)=>number, computeHomeofficeMinutes:(e:any)=>number, employeeName?:string}} ctx
  * @returns {Blob}
  */
 export function generateCsvBlob(report, ctx) {
-  const { formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes } = ctx;
+  const { formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes, employeeName } = ctx;
 
   const rows = [];
 
@@ -70,7 +71,16 @@ export function generateCsvBlob(report, ctx) {
   rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
   const formattedRows = rows.map((r) => [formatDate(r[0]), ...r.slice(1)]);
 
-  const lines = [CSV_HEADER, ...formattedRows].map((row) => row.map(csvField).join(';'));
+  // Kopf-Metadatenzeilen (Arbeitnehmer/in, Pers.-Nr.) — nur wenn jeweils gesetzt, seit v3.9.56.
+  const empName = (employeeName || '').trim();
+  const personnelNumber = (report.employer.personnelNumber || '').trim();
+  const metaRows = [];
+  if (empName) metaRows.push(['Arbeitnehmer/in', empName]);
+  if (personnelNumber) metaRows.push(['Pers.-Nr.', personnelNumber]);
+
+  const tableRows = [CSV_HEADER, ...formattedRows];
+  const allRows = metaRows.length ? [...metaRows, [], ...tableRows] : tableRows;
+  const lines = allRows.map((row) => row.map(csvField).join(';'));
   // BOM für Excel-de-DE (UTF-8-Erkennung von Umlauten in geöffneten CSVs).
   const csvContent = '\uFEFF' + lines.join('\r\n') + '\r\n';
   return new Blob([csvContent], { type: 'text/csv;charset=utf-8' });

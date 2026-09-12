@@ -77,7 +77,7 @@ export function openEmployerModal(emp, ctx) {
   const defWeekly = freelanceDefault ? 0 : 40;
   const defMonthly = freelanceDefault ? 0 : 160;
   const e = emp || {
-    id: '', name: '', color: '#3b82f6', phone: '',
+    id: '', name: '', color: '#3b82f6', phone: '', personnelNumber: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly,
     breakMode: 'legal', annualVacation: 0, hiredSince: '', employmentEndDate: '', vacationCarryOver: 0,
@@ -89,6 +89,7 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-name').value = e.name;
   document.getElementById('employer-color').value = e.color;
   document.getElementById('employer-phone').value = e.phone || '';
+  document.getElementById('employer-personnel-number').value = e.personnelNumber || '';
   const contacts = e.contacts || [];
   document.getElementById('employer-contact1-name').value = contacts[0]?.name || '';
   document.getElementById('employer-contact1-email').value = contacts[0]?.email || '';
@@ -128,6 +129,7 @@ export function saveEmployer(ev, ctx) {
     name: document.getElementById('employer-name').value.trim(),
     color: document.getElementById('employer-color').value,
     phone: document.getElementById('employer-phone').value.trim(),
+    personnelNumber: document.getElementById('employer-personnel-number').value.trim(),
     contacts: [
       {
         name: document.getElementById('employer-contact1-name').value.trim(),

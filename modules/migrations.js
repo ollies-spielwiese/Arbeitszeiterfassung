@@ -14,7 +14,7 @@
  * eigenen Utility-Abhängigkeiten hat.
  */
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /**
  * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
@@ -113,6 +113,18 @@ export const migrations = [
       const employers = (s.employers || []).map(e => ({
         ...e,
         employmentEndDate: (typeof e.employmentEndDate === 'string') ? e.employmentEndDate : '',
+      }));
+      return { ...s, employers };
+    },
+  },
+  {
+    from: 5, to: 6,
+    // v3.9.56: Neues Employer-Feld personnelNumber ("Pers.-Nr.", rein informativ, leer=nicht gesetzt).
+    // Ohne Migration bleibt das Feld undefined — diese Migration setzt einen sicheren Default.
+    fn: (s) => {
+      const employers = (s.employers || []).map(e => ({
+        ...e,
+        personnelNumber: (typeof e.personnelNumber === 'string') ? e.personnelNumber : '',
       }));
       return { ...s, employers };
     },
