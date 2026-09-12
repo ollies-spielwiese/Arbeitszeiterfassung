@@ -1,6 +1,6 @@
 # Architektur
 
-Stand: v3.8.5. Wird gepflegt, wenn sich Struktur oder Kontrakte ändern.
+Stand: v3.9.52. Wird gepflegt, wenn sich Struktur oder Kontrakte ändern.
 
 ## Ziel dieser Datei
 
@@ -14,10 +14,10 @@ Wer die App weiterentwickelt, sollte diese Datei zuerst lesen und danach `types.
 
 - **Statische PWA.** Kein Build-Step, kein Framework. HTML/CSS/JS werden 1:1 von GitHub Pages ausgeliefert.
 - **Offline-First.** Service Worker cached alle Assets. State liegt im `localStorage` unter `arbeitszeit_v1`.
-- **Single Source of Truth für Daten:** das globale `state`-Objekt (`app.js:592`), definiert durch `AZState` in `types.js`.
-- **Single Source of Truth für Zusammenfassungs-Felder:** `getSummaryFields()` (`app.js:254`). Screen, PDF, Word und E-Mail rendern aus demselben Feld-Array.
-- **Zwei Modi:** `employee` (mit Soll/Saldo/Urlaub/Krank) und `freelance` (nur Ist + Rechnungsbetrag). Umschaltung via `state.settings.appMode`. Labels via `L(key)` (`app.js:216`).
-- **Zwei Deploy-Pfade:** GitHub Actions (`.github/workflows/pages.yml`, mit Regression-Gate) und altes branch-basiertes Pages-Deployment (läuft parallel, kann später abgeschaltet werden).
+- **Single Source of Truth für Daten:** das globale `state`-Objekt (`app.js:324`, geladen über `loadState()` aus `modules/state.js`), definiert durch `AZState` in `types.js`.
+- **Single Source of Truth für Zusammenfassungs-Felder:** `getSummaryFields()` (`modules/selectors.js`, seit Phase 3.5 aus `app.js` extrahiert). Screen, PDF, Word und E-Mail rendern aus demselben Feld-Array.
+- **Zwei Modi:** `employee` (mit Soll/Saldo/Urlaub/Krank) und `freelance` (nur Ist + Rechnungsbetrag). Umschaltung via `state.settings.appMode`. Labels via `L(key)` (`app.js:212`).
+- **Ein Deploy-Pfad:** GitHub Actions (`.github/workflows/pages.yml`, mit Regression-Gate). Die Pages-Source ist seit der Umstellung auf „GitHub Actions" reine Actions-Auslieferung — das frühere parallele branch-basierte Legacy-Deployment existiert nicht mehr.
 
 Nicht-Ziele:
 - Kein Server, kein Konto, keine Cloud-Sync.
@@ -74,11 +74,13 @@ Vollständige Typen: `types.js` (`AZState`). Persistiert unter `localStorage['ar
 
 ```
 state (AZState)
-├── schemaVersion: number              // aktuell 3
+├── schemaVersion: number              // aktuell 4
 ├── employers: AZEmployer[]            // im Freelance-Modus sind das "Kunden"
 │   ├── id, name, hourlyRate, currency
 │   ├── targetHours: number | null     // Monats-Soll (schlicht)
 │   ├── weeklySchedule: AZSchedule|null // wenn gesetzt: pro Wochentag Std./Pause/Modus
+│   ├── hiredSince: string             // Datum, leer='' — seit v3.9.31 (Migration 3→4)
+│   ├── vacationCarryOver: number      // Resturlaub Vorjahr, default 0 — seit v3.9.31 (Migration 3→4)
 │   └── contact: AZContact?             // Empfänger für Share
 ├── activeEmployerId: string
 ├── entries: AZEntry[]                 // die eigentlichen Zeit-Einträge
@@ -105,91 +107,39 @@ state (AZState)
 
 ---
 
-## Aktuelle Modul-Karte (Ist-Zustand)
+## Modul-Karte (Ist-Zustand — Phase 3 Modul-Split abgeschlossen)
 
-Alles lebt in `app.js`. Sektions-Kommentare markieren die logischen Cluster. Zeilenangaben sind Anker für v3.8.5:
+`app.js` ist seit Phase 3 nur noch der Einstiegspunkt (DOMContentLoaded, Router, Wiring), 1906 Zeilen statt ursprünglich 4118. Die eigentliche Logik lebt in `modules/*`:
 
-| Cluster                    | Zeilen        | Kernfunktionen                                                            |
-| -------------------------- | ------------- | ------------------------------------------------------------------------- |
-| Konstanten & Changelog     | 30–133        | `APP_VERSION`, `SCHEMA_VERSION`, `CHANGELOG`                              |
-| Storage-Abstraktion        | 136–186       | Wrapper um `localStorage`                                                 |
-| State & Persistence        | 170–229       | `L()`, `formatMoney()`                                                    |
-| Zentrale Selektoren        | 230–398       | `getSummaryFields`, `getOverviewSummaryFields`                            |
-| Renderer für Selektoren    | 400–495       | `renderSummary{HTML,PdfLines,WordParagraphs,Plaintext}`                   |
-| loadState / Migrationen    | 497–652       | `loadState`, `runMigrations`, `migrations[]`, `saveState`                 |
-| Zeit/Datum-Utilities       | 654–825       | `todayISO`, `minutesToHM`, `hhmmToMinutes`, ISO-Wochen-Fallback           |
-| Compute (Kern-Berechnung)  | 827–870       | `computeWorkMinutes`, `computeHomeofficeMinutes`, `isWorkedEntry`         |
-| Feiertage                  | 871–1017      | `getHolidays`, Overrides, Easter-Algorithmus                              |
-| Soll-Berechnung            | 1018–1156     | `computeMonthTargetMinutes`, `computeWeekTargetMinutes`                   |
-| Employer-Helpers           | 1157–1189     | `getEmployer`, `ensureActiveEmployer`                                     |
-| Views/Router               | 1168–1189     | `switchView`                                                              |
-| Tracker (Tages-Ansicht)    | 1191–1425     | `renderTracker`, `startWork`, `endWork`, Live-Timer                       |
-| Entry-Modal                | 1427–1605     | `openEntryModal`, `saveEntry`, `deleteEntry`, Template-Picker             |
-| Home-Office-Modal          | 1607–1897     | `openHomeofficeModal`, Segment-Handling                                   |
-| Entries-Liste              | 1898–1978     | `renderEntries`                                                           |
-| Week-View                  | 1979–2087     | `renderWeek`, `isoWeekToDates`                                            |
-| Monthly Report             | 2088–2398     | `computeMonthReport`, `renderReport`                                      |
-| Word-Export                | 2223–2398     | `generateWordBlob`                                                        |
-| PDF-Export                 | 2399–2572     | `generatePdfBlob`, `wrapText`                                             |
-| Overview                   | 2574–2909     | `computeMonthOverview`, `renderOverview`, `generateOverviewPdfBlob`       |
-| Export-UI (Buttons)        | 2911–2948     | `exportPdf`, `exportWord`, `exportOverviewPdf`                            |
-| Share (E-Mail/WebShare)    | 2950–3252     | `openShareModal`, `shareReport`, `shareOverviewPdf`                       |
-| Archiv                     | 3254–3337     | `archiveCurrentMonth`, `renderArchive`                                    |
-| Employer-Modal             | 3338–3537     | `renderEmployers`, `openEmployerModal`, Schedule-Grid                     |
-| Templates                  | 3538–3579     | `renderTemplates` (Setup-View)                                            |
-| Feiertag-Overrides UI      | 3580–3765     | `renderHolidayList`, `openHolidayModal`                                   |
-| Template-Modal             | 3767–3862     | `openTemplateModal`, `saveTemplate`                                       |
-| Backup Import/Export       | 3863–3893     | `exportBackup`, `importBackup`                                            |
-| Toast/Utils                | 3894–3908     | `escapeHtml`, `toast`                                                     |
-| DOMContentLoaded / Wiring  | 3909–4113     | Event-Handler-Verkabelung                                                 |
-| „What's new"-Modal         | 4114–4173     | `maybeShowWhatsNew`, `compareVersions`                                    |
-| Service-Worker-Update-Flow | 4175–4234     | Update-Banner, Skip-Waiting-Handshake                                     |
+| Modul                         | Verantwortung                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `modules/constants.js`         | `APP_VERSION`, `CHANGELOG`, sonstige App-weite Konstanten                          |
+| `modules/state.js`             | `STORAGE_KEY`, `loadState`, `saveState`, Default-State                            |
+| `modules/migrations.js`        | `SCHEMA_VERSION`, `migrations[]`, `runMigrations`                                 |
+| `modules/compute.js`           | Reine Rechenlogik: Arbeitszeit-Minuten, Soll-Minuten, Monatsbericht/-übersicht     |
+| `modules/selectors.js`         | `getSummaryFields`, `getOverviewSummaryFields`, `computeEntryRows`, `computeFormFields` |
+| `modules/holidays.js`          | Deutsche Feiertage (alle 16 Bundesländer) + User-Overrides                         |
+| `modules/util-time.js`         | Reine Zeit-/Datums-Utilities (`formatDate`, `minutesToHM`, ISO-Wochen, …)          |
+| `modules/util-format.js`       | Reine Format-Utilities (`escapeHtml`, `formatMoney`, …)                            |
+| `modules/audit-log.js`         | Änderungsprotokoll-Helfer (seit v3.9.47)                                           |
+| `modules/range-entry.js`       | Reine Logik für Zeitraum-Bulk-Erfassung (Urlaub/Krank „von…bis“)                   |
+| `modules/share.js`             | Share-Flow: Web Share API + Mailto-Fallback + iOS-Two-Stage                        |
+| `modules/lib-loader.js`        | Lazy-Loader + SRI-Pinning für CDN-Libraries (jsPDF, jspdf-autotable, docx)          |
+| `modules/sw-update.js`         | Service-Worker-Registrierung + Update-Prompt                                       |
+| `modules/whatsnew.js`          | „Was ist neu"-Modal-Logik                                                          |
+| `modules/bootstrap.js`         | Verdrahtet alle Event-Listener, startet die App                                    |
+| `modules/regression-bridge.js` | Compatibility-Bridge, exponiert interne Funktionen für `scripts/regression.mjs`     |
+| `modules/render/*.js`          | Reine HTML-Builder pro View (`summary`, `tracker`, `entries`, `week`, `report`, `overview`, `employers`, `archive`, `audit-log`, `gleitzeitkonto`, `vacation-planning`) — kein DOM-Zugriff, keine Seiteneffekte |
+| `modules/ui/*.js`              | Modal-/Formular-Controller mit ctx-DI (`entry-modal`, `homeoffice-modal`, `employer-modal`, `range-entry-modal`, `holiday-overrides`, `templates`) — lesen/schreiben `state` über `ctx` |
+| `modules/export/*.js`          | `pdf.js`, `word.js`, `csv.js`, `overview-pdf.js`, `download.js` — konsumieren `AZMonthReport`/`AZMonthOverview`, kein direkter State-Zugriff |
 
----
-
-## Ziel-Modul-Karte (Phase 3)
-
-Wenn `app.js` in ES-Module zerlegt wird, dann so:
-
-```
-app.js  ── Einstiegspunkt (DOMContentLoaded, Router, Wiring)
-│
-├── modules/state.js       ← STORAGE_KEY, loadState, saveState, state (default export)
-├── modules/migrations.js  ← SCHEMA_VERSION, migrations[], runMigrations
-├── modules/types.js       ← bereits vorhanden, bleibt
-├── modules/util-time.js   ← minutesToHM, hhmmToMinutes, isoDateAdd, etc.
-├── modules/util-format.js ← formatMoney, formatDateLong, escapeHtml
-├── modules/holidays.js    ← getHolidays, Overrides, Easter
-├── modules/compute.js     ← computeWorkMinutes, computeMonthReport, computeMonthOverview, computeMonthTargetMinutes
-├── modules/selectors.js   ← getSummaryFields, getOverviewSummaryFields
-├── modules/render/
-│   ├── summary.js         ← renderSummary{HTML,PdfLines,WordParagraphs,Plaintext}
-│   ├── tracker.js         ← renderTracker + Live-Timer
-│   ├── entries.js         ← renderEntries + Entry-Modal
-│   ├── homeoffice.js      ← Home-Office-Modal (Segmente)
-│   ├── week.js            ← renderWeek
-│   ├── report.js          ← renderReport
-│   ├── overview.js        ← renderOverview
-│   ├── employers.js       ← renderEmployers + Employer-Modal + Schedule-Grid
-│   ├── templates.js       ← renderTemplates + Template-Modal
-│   ├── archive.js         ← renderArchive
-│   └── settings.js        ← renderSettings + Holiday-Overrides UI
-├── modules/export/
-│   ├── pdf.js             ← generatePdfBlob, generateOverviewPdfBlob, wrapText
-│   ├── word.js            ← generateWordBlob
-│   └── share.js           ← shareReport, openShareModal, downloadBlob
-└── modules/sw-update.js   ← Service-Worker-Update-Banner
-```
-
-Wichtige Grenzen:
+Wichtige Grenzen (weiterhin gültig):
 - `compute/*` darf `render/*` nicht importieren. Nie.
-- `render/*` darf `compute/*` und `selectors.js` importieren, aber nicht direkt an `state` schreiben — nur über explizite Save-Fn., die in demselben `render/*`-Modul wohnt.
+- `render/*` darf `compute/*` und `selectors.js` importieren, aber nicht direkt an `state` schreiben — nur über explizite Save-Fn. in `modules/ui/*`.
 - `export/*` konsumiert `AZMonthReport` / `AZMonthOverview` — keine State-Zugriffe.
 - Der Einstiegs-`app.js` importiert nur, verkabelt Events und ruft Renderer.
 
-Migration von hier nach dort: Phase 3 der Roadmap. Diese Modul-Karte ist der Plan.
-
----
+Details zum Verlauf des Splits: `docs/ROADMAP.md`, Phase 3 (✅ erledigt) und Phase 4 (✅ erledigt — Selector-Prinzip auf Tabellen/Modal-Formulare ausgerollt via `computeEntryRows`/`computeFormFields`).
 
 ## Zentrale Selektoren (Contract)
 
@@ -272,7 +222,7 @@ User mit `hoursMode='month'` und Schichtdienst/konzentrierter Teilzeit müssen K
 
 Formalisiert in v3.8.3. Regeln:
 
-1. **`SCHEMA_VERSION` ist die einzige Wahrheit.** Aktuell 3.
+1. **`SCHEMA_VERSION` ist die einzige Wahrheit.** Aktuell 4.
 2. **`migrations[]` ist ein Array von `{ from, to, apply(state) }`.** Jede Migration erhöht die Version um genau 1 und ist idempotent bei doppelter Anwendung.
 3. **`runMigrations(state)` läuft in `loadState`** und iteriert vom aktuellen `state.schemaVersion` (Default 0 für Alt-Daten) bis `SCHEMA_VERSION`. Seit v3.9.49 läuft `runMigrations` aus demselben Grund auch in `importBackup()` (`modules/backup.js`) — ein importiertes Backup durchläuft dieselben Migrationen wie ein normaler App-Start, statt mit veraltetem Schema eingespielt zu werden.
 4. **Bestehende Daten dürfen sich nicht verändern**, außer die Migration steht dafür. Test: `mig-M2` in `scripts/regression.mjs` prüft genau das.
@@ -280,14 +230,15 @@ Formalisiert in v3.8.3. Regeln:
 
 Bekannte Migrationen:
 - 0→1 (implizit, historisch): Baseline
-- 1→2: Home-Office-Duplikat-Konsolidierung (`migrateHomeofficeEntries`, `app.js:600`)
+- 1→2: Home-Office-Duplikat-Konsolidierung (`migrateHomeofficeEntries`, `modules/migrations.js`)
 - 2→3: Template `scope`-Feld setzen (`tpl-2` → `employee`, sonst `both`)
+- 3→4 (v3.9.31): Neue Employer-Felder `hiredSince` (Datum, leer `''`) und `vacationCarryOver` (Zahl, Default 0) bekommen sichere Defaults auf bestehenden Employern.
 
 Neue Migration hinzufügen:
-1. `SCHEMA_VERSION` erhöhen (`app.js:43`).
-2. Neues Objekt in `migrations[]` einfügen (`app.js:538`).
-3. `apply(state)` schreiben, muss `state` mutieren und ist der einzige Ort mit dieser Kenntnis.
-4. Regression-Test in `runMigrationUnits` (`scripts/regression.mjs:129`) ergänzen: legacy in → migrated out.
+1. `SCHEMA_VERSION` in `modules/migrations.js` erhöhen.
+2. Neues Objekt in `migrations[]` (`modules/migrations.js`) einfügen.
+3. `fn(state, helpers)` schreiben, muss `state` mutieren und ist der einzige Ort mit dieser Kenntnis.
+4. Regression-Test in `runMigrationUnits` (`scripts/regression.mjs`) ergänzen: legacy in → migrated out.
 
 ---
 
@@ -295,7 +246,7 @@ Neue Migration hinzufügen:
 
 `scripts/regression.mjs` ist das Sicherheitsnetz. CI läuft ihn bei jedem Push. Grün ist Voraussetzung für jeden Version-Bump und für den Pages-Deploy.
 
-**Aktueller Umfang: 247 Checks in laufend wachsenden Sektionen** (Zahlen unten sind Anker zum Zeitpunkt v3.9.48 — die verbindliche, aktuelle Zahl liefert immer `npm run qa`; jedes neue Feature ergänzt eine eigene Sektion, siehe Regel unten).
+**Aktueller Umfang: 282 Checks in laufend wachsenden Sektionen** (Zahlen unten sind Anker zum Zeitpunkt v3.9.52 — die verbindliche, aktuelle Zahl liefert immer `npm run qa`; jedes neue Feature ergänzt eine eigene Sektion, siehe Regel unten).
 
 1. **Selektor-Unit-Tests** (8) — `getSummaryFields` in 5 Konfigurationen. Erwartet: richtige Felder pro Modus, richtige `rawAmount` und `rawMinutes`.
 2. **Migrations-Unit-Tests** (9) — Legacy → migriert; Idempotenz; keine ungewollten Mutationen; Home-Office-Konsolidierung.
@@ -306,6 +257,7 @@ Neue Migration hinzufügen:
 7. **Gleitzeitkonto** (27) — seit v3.9.47, Kalenderjahr-Ansicht mit Truncation auf "Angestellt seit" und durchlaufendem Saldo über Jahresgrenzen seit v3.9.48, siehe `runGleitzeitkontoUnits` in `scripts/regression.mjs`.
 8. **E2E Freelance** (14) — Seed mit „Kunde Alpha" 09:00–16:00 @ 85 €/h → Tracker, Week, Report, Overview zeigen 595,00 €. PDF/Word/OverviewPDF werden generiert und **inhaltlich** gegen die Werte gecheckt.
 9. **E2E Employee** (34) — Analog mit Ist/Soll/Saldo. PDF/Word/OverviewPDF/CSV-Textextraktion (via `pdf-parse`, `mammoth`, CSV-Parsing) prüft, dass die Labels und die 7:00 Ist tatsächlich im Blob stehen.
+10. **Sicherheits-Härtung SEC1/SEC1b/SEC2/SEC3** (seit v3.9.51/3.9.52) — SEC1/SEC1b: Live-Browser-Test, dass `buildWeekHTML()` sowohl `dm.detail` als auch `isoWeek` escaped (kein Stored-XSS über `container.innerHTML`). SEC2: statischer Source-Check, dass `updateRangeVacationStats()` alle fünf angezeigten Werte escaped. SEC3: statischer Source-Check, dass der Service-Worker-Fetch-Handler `isCacheableResponseUrl()` (Hostname-Vergleich) statt einer unsicheren Teilstring-Prüfung nutzt.
 
 **Regeln:**
 - Rot = kein Merge, kein Bump, kein Deploy.
@@ -323,14 +275,9 @@ Voraussetzung: HTTP-Server auf 8765 läuft (`npm run serve` in einem zweiten Ter
 
 ## Bekannte Verschmutzungen (technische Schuld)
 
-Nicht kritisch, kommt in Phase 4 dran:
+Der frühere Stand dieses Abschnitts (Renderer mutiert `state`, `saveEntry` schreibt DOM, Overview-Zeilen vierfach gebaut, wiederholende Modal-Formulare, `app.js` als Monolith, paralleles Legacy-Pages-Deployment) ist durch Phase 3 (Modul-Split) und Phase 4 (`computeEntryRows`/`computeFormFields` in `modules/selectors.js`, Actions-only Pages-Deploy) vollständig abgearbeitet — siehe `docs/ROADMAP.md`.
 
-1. **Renderer mutiert manchmal `state`.** Einige `render*`-Funktionen setzen z. B. `activeEmployerId` oder aktualisieren `settings.lastView`. Wandert in Save-Fn.
-2. **`saveEntry` schreibt DOM.** Die Entry-Save-Fn. macht mehr als speichern — sie rendert auch. Trennung: `saveEntry(dto)` mutiert nur, `renderEntries()` liest.
-3. **Overview-Zeilen werden vierfach gebaut.** In `computeMonthOverview`, `renderOverview`, `generateOverviewPdfBlob`, sowie im Share-Weg. Kandidat für `getOverviewRows` nach `getSummaryFields`-Muster.
-4. **Modal-Formulare sind wiederholend.** Jedes hat eigenes Show/Validate/Submit-Boilerplate. Kandidat für einen Modal-Controller mit deklarativen Bindings.
-5. **`app.js` ist eine Datei.** Wird in Phase 3 auf ES-Module aufgeteilt (Ziel-Karte siehe oben).
-6. **Alte Pages-Deployment läuft parallel.** Neben dem CI-gated Actions-Deploy triggert das Repo noch das Legacy „pages build and deployment". Sobald in den Repo-Settings die Pages-Source auf „GitHub Actions" umgestellt wird, verschwindet der Legacy-Run.
+Aktuell keine offene strukturelle Altlast auf dieser Ebene bekannt. Neue technische Schuld hier eintragen, sobald sie identifiziert wird; größere Vorhaben laufen unter `docs/ROADMAP.md` Phase 5+.
 
 ---
 
@@ -347,7 +294,7 @@ Nicht kritisch, kommt in Phase 4 dran:
 ### Neues Entry-Typ (z. B. „Bildungsurlaub")
 
 1. `AZEntry.type` erweitern (`types.js`).
-2. `isWorkedEntry` prüfen — soll der neue Typ als geleistete Zeit zählen? (`app.js:853`)
+2. `isWorkedEntry` prüfen — soll der neue Typ als geleistete Zeit zählen? (`modules/compute.js`)
 3. `renderEntries` und `openEntryModal` ergänzen (UI).
 4. Wenn nötig Migration schreiben (falls der Typ Bestandsdaten ersetzt).
 5. Regression: seed einen Entry vom neuen Typ, Report muss ihn richtig zählen.
@@ -362,7 +309,7 @@ Nicht kritisch, kommt in Phase 4 dran:
 
 ### Neues Bundesland-Feiertag
 
-Nicht Code, sondern `getHolidays` (`app.js:939`). Konstante Tabelle erweitern. Regression sollte einen Test bekommen, wenn der Feiertag exotisch ist.
+Nicht Code, sondern `getHolidays` (`modules/holidays.js`). Konstante Tabelle erweitern. Regression sollte einen Test bekommen, wenn der Feiertag exotisch ist.
 
 ### Neue Bulk-Erfassung (Zeitraum, z. B. „Fortbildungstage“)
 
@@ -378,10 +325,11 @@ Muster für „von … bis …“-Erfassung, umgesetzt für Urlaub/Krankheit in 
 
 ## Versionierung & Release
 
-- **`APP_VERSION`** in `app.js:31` — sichtbar im Header-Badge.
+- **`APP_VERSION`** in `modules/constants.js` — sichtbar im Header-Badge (`#app-version-badge` in `index.html`).
 - **`CACHE_NAME`** in `sw.js:1` — muss synchron zu `APP_VERSION` sein (Schema `arbeitszeit-vMAJOR-MINOR-PATCH`), sonst zeigt der Service Worker alte Assets.
-- **Badge in `index.html`** — im `<span class="app-version">`.
-- **`CHANGELOG`** in `app.js:46` — neuester Eintrag oben. Wird beim ersten Öffnen einer neuen Version als „Was ist neu"-Modal angezeigt.
+- **`"version"`** in `package.json` — muss ebenfalls synchron sein.
+- **`CHANGELOG`** in `modules/constants.js` — neuester Eintrag oben. Wird beim ersten Öffnen einer neuen Version als „Was ist neu"-Modal angezeigt.
+- Alle 4 Stellen (`modules/constants.js` ×2, `package.json`, `index.html`, `sw.js`) müssen bei jedem Release synchron gehalten werden — siehe `RELEASE.md`.
 
 Der Version-Bump-Ablauf lebt in `CONTRIBUTING.md`.
 
@@ -390,7 +338,7 @@ Der Version-Bump-Ablauf lebt in `CONTRIBUTING.md`.
 ## Referenzen
 
 - `types.js` — alle Typ-Signaturen
-- `scripts/regression.mjs` — 247 Checks (aktuelle Zahl siehe `npm run qa`-Ausgabe)
+- `scripts/regression.mjs` — 282 Checks (aktuelle Zahl siehe `npm run qa`-Ausgabe)
 - `.github/workflows/regression.yml` — CI-Sweep
 - `.github/workflows/pages.yml` — CI-gated Deploy
 - `docs/ROADMAP.md` — Phasen und Reihenfolge
