@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.64';
+export const APP_VERSION = '3.9.65';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.65', items: [
+    'CI: neuer Lighthouse-Check (Performance/Barrierefreiheit/Best-Practices/SEO) gegen den lokal servierten Build — lighthouserc.json mit Mindestwerten (Barrierefreiheit & Best-Practices als harte Schranke ≥90 %, Performance/SEO als Warnung); läuft bei jedem Push/PR auf main sowie manuell',
+  ]},
   { version: '3.9.64', items: [
     'Fix: CI-Job "Visual-Regression" wich auf dem GitHub-Actions-Runner trotz identischer Schrift noch minimal ab (0.4–0.9 % Sub-Pixel-Antialiasing durch abweichendes Font-Hinting). Fix: Chromium startet für die Tests jetzt mit --font-render-hinting=none, --disable-font-subpixel-positioning, --disable-lcd-text; Toleranz auf 1 % angehoben; Baselines neu erzeugt',
   ]},
