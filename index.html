@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.56</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.57</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -460,10 +460,12 @@
               <li><strong>+ Neu</strong> legt einen weiteren Arbeitgeber an.</li>
               <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Arbeitgebers:
                 <ul>
-                  <li>Name, Ansprechperson und Adresse für den Nachweiskopf.</li>
+                  <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
+                  <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber laut Gehaltsabrechnung. Erscheint, falls ausgefüllt, direkt unter deinem Namen im PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export und als eigene Spalte in der Monatsübersicht (PDF).</li>
                   <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
                   <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
-                  <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen.</li>
+                  <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>, die zum Jahresanspruch hinzugerechnet werden.</li>
+                  <li><strong>Angestellt seit</strong> und <strong>Beschäftigt bis:</strong> grenzen die anteilige Urlaubsberechnung und das Gleitzeitkonto ein. Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> — er erhält in der Liste einen rot hinterlegten Namen und das Badge „Ehemalig seit ...“ und verschwindet aus den Auswahlfeldern für neue Einträge. Über die Checkbox <strong>„Ehemalige anzeigen“</strong> (verfügbar in Tracker, Einträge, Übersicht und Gleitzeitkonto) blendest du ehemalige Arbeitgeber bei Bedarf wieder ein, etwa um nachträglich noch einen Nachweis zu erstellen.</li>
                   <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
                 </ul>
               </li>
@@ -564,6 +566,7 @@
               <li>Erfasse Zeiten wie gewohnt – pro Kunde können mehrere Projekte über das Notizfeld oder Vorlagen unterschieden werden.</li>
               <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
               <li>Der Bundesland-/Feiertage-Block in den Einstellungen, das Urlaubsanspruch-Feld im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
+              <li>Das Feld <strong>Pers.-Nr.</strong> steht auch im Kunden-Formular zur Verfügung, falls dir ein Kunde eine eigene Nummer zugewiesen hat. „Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> (siehe Abschnitt 7) funktionieren für Kunden genauso wie für Arbeitgeber.</li>
             </ol>
             <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
           </div>
@@ -1192,10 +1195,12 @@
           <li><strong>+ Neu</strong> legt einen weiteren Arbeitgeber an.</li>
           <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Arbeitgebers:
             <ul>
-              <li>Name, Ansprechperson und Adresse für den Nachweiskopf.</li>
+              <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
+              <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber — erscheint, falls ausgefüllt, im PDF-, Word- und CSV-Export sowie in der Monatsübersicht.</li>
               <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
               <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
-              <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen.</li>
+              <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>.</li>
+              <li><strong>Angestellt seit</strong> / <strong>Beschäftigt bis:</strong> Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> (rote Markierung, Badge) und verschwindet aus den Auswahlfeldern für neue Einträge — über die Checkbox <strong>„Ehemalige anzeigen“</strong> blendest du ihn wieder ein.</li>
               <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
             </ul>
           </li>
@@ -1208,9 +1213,10 @@
           <li><strong>+ Neu</strong> legt einen weiteren Kunden an.</li>
           <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Kunden:
             <ul>
-              <li>Name, Ansprechperson und Adresse für den Nachweiskopf.</li>
+              <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail), zusätzlich <strong>Pers.-Nr.</strong> für eine eigene Kunden-/Projektnummer.</li>
               <li><strong>Abrechnung:</strong> optionaler <strong>Stundensatz</strong> und <strong>Währung</strong> — Grundlage für die Netto-Summe (Zeit × Stundensatz), die am Ende von PDF-/Word-Berichten ausgewiesen wird. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
-              <li>Sollstunden, Pausenregelung, Urlaubsanspruch und feste Wochenarbeitszeiten sind im Freiberufler-Modus ausgeblendet, da hier keine Anstellung vorliegt.</li>
+              <li>Nur das <strong>Urlaubsanspruch</strong>-Feld ist im Freiberufler-Modus ausgeblendet, da hier keine Anstellung vorliegt. Sollstunden, Pausenregelung und feste Wochenarbeitszeiten bleiben verfügbar.</li>
+              <li>„Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> funktionieren wie bei Arbeitgebern.</li>
             </ul>
           </li>
         </ul>

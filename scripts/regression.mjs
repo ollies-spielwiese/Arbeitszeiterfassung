@@ -1066,6 +1066,10 @@ async function runEmployersHelpUnits(page) {
   assertEq('EH6: Modal-Titel "Hilfe: Arbeitgeber verwalten" im Angestellt-Modus', employedOpen.modalTitle, 'Hilfe: Arbeitgeber verwalten');
   assertTrue('EH7: Arbeitgeber-Textblock sichtbar, Kunden-Textblock verborgen', !employedOpen.employedHidden && employedOpen.freelanceHidden);
   assertContains('EH7b: Hilfetext (Angestellt) enthaelt "Sollstunden"', employedOpen.text, 'Sollstunden');
+  assertContains('EH7c: Hilfetext (Angestellt) enthaelt "Pers.-Nr."', employedOpen.text, 'Pers.-Nr.');
+  assertContains('EH7d: Hilfetext (Angestellt) enthaelt "Beschäftigt bis"', employedOpen.text, 'Beschäftigt bis');
+  assertContains('EH7e: Hilfetext (Angestellt) enthaelt "Ehemalige anzeigen"', employedOpen.text, 'Ehemalige anzeigen');
+  assertTrue('EH7f: Hilfetext (Angestellt) enthaelt NICHT mehr veraltetes "Adresse"-Feld', !employedOpen.text.includes('Adresse für den Nachweiskopf'));
 
   const closeEmployed = await page.evaluate(() => {
     const modal = document.getElementById('modal-employers-help');
@@ -1092,6 +1096,9 @@ async function runEmployersHelpUnits(page) {
   assertEq('EH9b: Modal-Titel "Hilfe: Kunden verwalten" im Freiberufler-Modus', freelanceOpen.modalTitle, 'Hilfe: Kunden verwalten');
   assertTrue('EH9c: Kunden-Textblock sichtbar, Arbeitgeber-Textblock verborgen', !freelanceOpen.freelanceHidden && freelanceOpen.employedHidden);
   assertContains('EH9d: Hilfetext (Freiberuflich) enthaelt "Stundensatz"', freelanceOpen.text, 'Stundensatz');
+  assertContains('EH9e: Hilfetext (Freiberuflich) enthaelt "Pers.-Nr."', freelanceOpen.text, 'Pers.-Nr.');
+  assertContains('EH9f: Hilfetext (Freiberuflich) enthaelt "Ehemalige anzeigen"', freelanceOpen.text, 'Ehemalige anzeigen');
+  assertTrue('EH9g: Hilfetext (Freiberuflich) behauptet NICHT mehr faelschlich, Sollstunden seien ausgeblendet', !freelanceOpen.text.includes('Sollstunden, Pausenregelung, Urlaubsanspruch und feste Wochenarbeitszeiten sind im Freiberufler-Modus ausgeblendet'));
 
   const closeFreelanceAndReset = await page.evaluate(() => {
     const modal = document.getElementById('modal-employers-help');
@@ -1102,6 +1109,32 @@ async function runEmployersHelpUnits(page) {
     return { hidden };
   });
   assertTrue('EH10: Modal schliesst sich ueber das X-Icon (Freiberuflich)', closeFreelanceAndReset.hidden);
+}
+
+// ---------- 1o-2) Bedienungsanleitung Abschnitt 7 + 12a auf Aktualitaet pruefen ----------
+
+async function runGuideDocUnits(page) {
+  console.log('\n=== 1o-2) Bedienungsanleitung: Abschnitt 7 (Arbeitgeber) + 12a (Freiberufler) ===');
+
+  const guide = await page.evaluate(() => {
+    const sections = Array.from(document.querySelectorAll('#view-guide details.guide-section'));
+    const find = (needle) => sections.find((s) => s.querySelector('summary')?.textContent.includes(needle));
+    const sec7 = find('7. Reiter');
+    const sec12a = find('12a.');
+    return {
+      sec7Text: sec7 ? sec7.textContent : null,
+      sec12aText: sec12a ? sec12a.textContent : null,
+    };
+  });
+  assertTrue('GD1: Abschnitt 7 gefunden', !!guide.sec7Text);
+  assertTrue('GD2: Abschnitt 12a gefunden', !!guide.sec12aText);
+  assertContains('GD3: Abschnitt 7 enthaelt "Pers.-Nr."', guide.sec7Text || '', 'Pers.-Nr.');
+  assertContains('GD4: Abschnitt 7 enthaelt "Beschaeftigt bis"', guide.sec7Text || '', 'Besch\u00e4ftigt bis');
+  assertContains('GD5: Abschnitt 7 enthaelt "Ehemalige anzeigen"', guide.sec7Text || '', 'Ehemalige anzeigen');
+  assertContains('GD6: Abschnitt 7 enthaelt "Resturlaubstage Vorjahr"', guide.sec7Text || '', 'Resturlaubstage Vorjahr');
+  assertTrue('GD7: Abschnitt 7 enthaelt NICHT mehr veraltetes "Adresse"-Feld', !(guide.sec7Text || '').includes('Adresse f\u00fcr den Nachweiskopf'));
+  assertContains('GD8: Abschnitt 12a enthaelt "Pers.-Nr."', guide.sec12aText || '', 'Pers.-Nr.');
+  assertContains('GD9: Abschnitt 12a enthaelt "Ehemalige anzeigen"', guide.sec12aText || '', 'Ehemalige anzeigen');
 }
 
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
@@ -2529,6 +2562,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runAuditLogUnits(page);
     await runSettingsHelpUnits(page);
     await runEmployersHelpUnits(page);
+    await runGuideDocUnits(page);
     await runUndoUnits(page);
     await runBackupReminderUnits(page);
     await runBackupImportMigrationUnits(page);

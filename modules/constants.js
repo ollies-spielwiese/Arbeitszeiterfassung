@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.56';
+export const APP_VERSION = '3.9.57';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.57', items: [
+    'Doku: Bedienungsanleitung (Abschnitt 7 + 12a) und Hilfe-Modal "Arbeitgeber/Kunden verwalten" aktualisiert — beschreibt jetzt Telefon, Pers.-Nr., Resturlaubstage Vorjahr, "Beschäftigt bis"/ehemalige Arbeitgeber sowie die Checkbox "Ehemalige anzeigen"; veraltete/falsche Angabe "Adresse"-Feld entfernt',
+    'Fix: Hilfe-Modal-Text im Freiberufler-Modus behauptete fälschlich, Sollstunden/Pausenregelung/feste Wochenarbeitszeiten seien ausgeblendet — korrigiert (nur Urlaubsanspruch ist ausgeblendet, wie in der Anleitung Abschnitt 12a bereits korrekt beschrieben)',
+  ]},
   { version: '3.9.56', items: [
     'Neu: Feld "Pers.-Nr." beim Arbeitgeber (Personalnummer laut Gehaltsabrechnung) — eigene Zeile unter "Basisdaten" im Arbeitgeber-Modal; erscheint direkt unter dem Namen des Mitarbeiters in PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export, als Spalte in der Monatsübersicht (PDF) und klein in der Arbeitgeberliste',
     'Fix: Checkbox "Ehemalige anzeigen" (Tracker, Einträge, Übersicht, Gleitzeitkonto) hat jetzt etwas mehr Abstand zum Inhalt darunter',
