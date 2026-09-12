@@ -172,6 +172,21 @@ export function wireEvents(ctx) {
 
     // Employer modal
     document.getElementById('btn-add-employer').addEventListener('click', () => openEmployerModal(null));
+
+    // Hilfe-Button neben "Arbeitgeber/Kunden verwalten" (Text aus Anleitung, Abschnitt 7 bzw. 12a)
+    const btnEmployersHelp = document.getElementById('btn-employers-help');
+    if (btnEmployersHelp) btnEmployersHelp.addEventListener('click', () => {
+      const titleEl = document.getElementById('employers-view-title');
+      const freelance = !!(titleEl && titleEl.textContent.trim().startsWith('Kunden'));
+      const modalTitle = document.getElementById('modal-employers-help-title');
+      const empBlock = document.getElementById('employers-help-employed');
+      const freeBlock = document.getElementById('employers-help-freelance');
+      if (modalTitle) modalTitle.textContent = freelance ? 'Hilfe: Kunden verwalten' : 'Hilfe: Arbeitgeber verwalten';
+      if (empBlock) empBlock.classList.toggle('hidden', freelance);
+      if (freeBlock) freeBlock.classList.toggle('hidden', !freelance);
+      const modal = document.getElementById('modal-employers-help');
+      if (modal) modal.classList.remove('hidden');
+    });
     document.getElementById('form-employer').addEventListener('submit', saveEmployer);
     document.getElementById('btn-delete-employer').addEventListener('click', deleteEmployer);
     document.getElementById('employer-hours-mode').addEventListener('change', updateHoursModeVisibility);

@@ -1029,6 +1029,81 @@ async function runSettingsHelpUnits(page) {
   assertTrue('SH9: Modal schlie\u00dft sich \u00fcber den Schlie\u00dfen-Button', afterClose.hidden);
 }
 
+// ---------- 1o) Hilfe-Button "Arbeitgeber/Kunden verwalten" (Modal, modusabhaengig) ----------
+
+async function runEmployersHelpUnits(page) {
+  console.log('\n=== 1o) Hilfe-Button "Arbeitgeber/Kunden verwalten" (Modal, modusabhaengig) ===');
+
+  const before = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    renderEmployers();
+    const modal = document.getElementById('modal-employers-help');
+    return {
+      existsBtn: !!document.getElementById('btn-employers-help'),
+      existsModal: !!modal,
+      hiddenBefore: modal ? modal.classList.contains('hidden') : null,
+      titleText: document.getElementById('employers-view-title').textContent.trim(),
+    };
+  });
+  assertTrue('EH1: Hilfe-Button #btn-employers-help existiert', before.existsBtn);
+  assertTrue('EH2: Modal #modal-employers-help existiert', before.existsModal);
+  assertTrue('EH3: Modal ist initial verborgen', before.hiddenBefore, String(before.hiddenBefore));
+  assertEq('EH4: Ansicht zeigt "Arbeitgeber verwalten" im Angestellt-Modus', before.titleText, 'Arbeitgeber verwalten');
+
+  const employedOpen = await page.evaluate(() => {
+    document.getElementById('btn-employers-help').click();
+    const modal = document.getElementById('modal-employers-help');
+    return {
+      hidden: modal.classList.contains('hidden'),
+      modalTitle: document.getElementById('modal-employers-help-title').textContent.trim(),
+      employedHidden: document.getElementById('employers-help-employed').classList.contains('hidden'),
+      freelanceHidden: document.getElementById('employers-help-freelance').classList.contains('hidden'),
+      text: modal.textContent,
+    };
+  });
+  assertTrue('EH5: Modal oeffnet sich nach Klick (Angestellt-Modus)', !employedOpen.hidden);
+  assertEq('EH6: Modal-Titel "Hilfe: Arbeitgeber verwalten" im Angestellt-Modus', employedOpen.modalTitle, 'Hilfe: Arbeitgeber verwalten');
+  assertTrue('EH7: Arbeitgeber-Textblock sichtbar, Kunden-Textblock verborgen', !employedOpen.employedHidden && employedOpen.freelanceHidden);
+  assertContains('EH7b: Hilfetext (Angestellt) enthaelt "Sollstunden"', employedOpen.text, 'Sollstunden');
+
+  const closeEmployed = await page.evaluate(() => {
+    const modal = document.getElementById('modal-employers-help');
+    modal.querySelector('[data-close-modal]').click();
+    return { hidden: modal.classList.contains('hidden') };
+  });
+  assertTrue('EH8: Modal schliesst sich ueber den Schliessen-Button (Angestellt)', closeEmployed.hidden);
+
+  const freelanceOpen = await page.evaluate(() => {
+    state.settings.appMode = 'freelance';
+    renderEmployers();
+    document.getElementById('btn-employers-help').click();
+    const modal = document.getElementById('modal-employers-help');
+    return {
+      titleText: document.getElementById('employers-view-title').textContent.trim(),
+      modalTitle: document.getElementById('modal-employers-help-title').textContent.trim(),
+      employedHidden: document.getElementById('employers-help-employed').classList.contains('hidden'),
+      freelanceHidden: document.getElementById('employers-help-freelance').classList.contains('hidden'),
+      text: modal.textContent,
+      hidden: modal.classList.contains('hidden'),
+    };
+  });
+  assertEq('EH9: Ansicht zeigt "Kunden verwalten" im Freiberufler-Modus', freelanceOpen.titleText, 'Kunden verwalten');
+  assertEq('EH9b: Modal-Titel "Hilfe: Kunden verwalten" im Freiberufler-Modus', freelanceOpen.modalTitle, 'Hilfe: Kunden verwalten');
+  assertTrue('EH9c: Kunden-Textblock sichtbar, Arbeitgeber-Textblock verborgen', !freelanceOpen.freelanceHidden && freelanceOpen.employedHidden);
+  assertContains('EH9d: Hilfetext (Freiberuflich) enthaelt "Stundensatz"', freelanceOpen.text, 'Stundensatz');
+
+  const closeFreelanceAndReset = await page.evaluate(() => {
+    const modal = document.getElementById('modal-employers-help');
+    modal.querySelector('.modal-close').click();
+    const hidden = modal.classList.contains('hidden');
+    state.settings.appMode = 'employee';
+    renderEmployers();
+    return { hidden };
+  });
+  assertTrue('EH10: Modal schliesst sich ueber das X-Icon (Freiberuflich)', closeFreelanceAndReset.hidden);
+}
+
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
 
 async function runUndoUnits(page) {
@@ -2159,6 +2234,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runOffDayUnits(page);
     await runAuditLogUnits(page);
     await runSettingsHelpUnits(page);
+    await runEmployersHelpUnits(page);
     await runUndoUnits(page);
     await runBackupReminderUnits(page);
     await runBackupImportMigrationUnits(page);

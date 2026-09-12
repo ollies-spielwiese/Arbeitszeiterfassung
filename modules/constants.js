@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.53';
+export const APP_VERSION = '3.9.54';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.54', items: [
+    'Neu: Hilfe-Button (?) neben der Überschrift "Arbeitgeber verwalten" / "Kunden verwalten" öffnet ein Modal mit passendem Hilfetext (aus der Bedienungsanleitung, Abschnitt 7 bzw. 12a) — der Text passt sich automatisch dem aktiven Modus (Angestellt/Freiberuflich) an',
+    'Regression: 10 neue Checks (EH1–EH10) für Button-Vorhandensein, modusabhängigen Titel/Inhalt und Schließen des Modals',
+  ]},
   { version: '3.9.53', items: [
     'Neu: Hilfe-Button (?) neben der Überschrift "Einstellungen" öffnet ein Modal mit dem Hilfetext aus der Bedienungsanleitung (Abschnitt 10 — Feinjustage)',
     'Regression: 9 neue Checks (SH1–SH9) für Button-Vorhandensein, Öffnen/Schließen des Modals und Inhalt des Hilfetexts',

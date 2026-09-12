@@ -511,13 +511,13 @@ textarea { resize: vertical; min-height: 3rem; }
 .archive-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
 .archive-actions button { flex: 1; font-size: 0.85rem; padding: 0.5rem; }
 
-.settings-title-row {
+.title-help-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
-.settings-title-row h2 { margin: 0; }
+.title-help-row h2 { margin: 0; }
 .btn-help {
   width: 26px;
   height: 26px;
