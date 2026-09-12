@@ -64,6 +64,9 @@ const DISABLE_ANIMATIONS_CSS = `
     transition: none !important;
     caret-color: transparent !important;
   }
+  html, body, * {
+    font-family: "Noto Sans", sans-serif !important;
+  }
 `;
 
 async function boot() {

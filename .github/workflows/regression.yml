@@ -131,6 +131,9 @@ jobs:
       - name: Install Playwright Chromium (with system deps)
         run: npx playwright install --with-deps chromium
 
+      - name: Noto-Schriften installieren (fuer pixelgleiches Rendering wie in der Entwicklungsumgebung)
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-core
+
       - name: Start static HTTP server
         run: |
           python3 -m http.server 8765 >/tmp/httpd.log 2>&1 &
