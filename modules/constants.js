@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.59';
+export const APP_VERSION = '3.9.60';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.60', items: [
+    'Regression: konsolidierter Migrationsketten-Test (mig-chain-1 bis mig-chain-9) — fährt einen realistischen Alt-Backup-Zustand einmal durch die GESAMTE Migrationskette (schemaVersion 1→7) statt nur einzelne Schritte isoliert zu prüfen; deckt Wechselwirkungen zwischen aufeinanderfolgenden Schritten sowie Idempotenz der kompletten Kette und den Einstieg aus der Mitte der Kette (z. B. ab v4) ab',
+  ]},
   { version: '3.9.59', items: [
     'Neu: Einmal-Hinweis nach dem Update, falls bei bestehenden Arbeitgebern/Kunden die neue Unterscheidung "Arbeitgeber"/"Kunde" automatisch anhand des zum Zeitpunkt der Umstellung aktiven Modus zugeordnet wurde — zeigt die betroffenen Namen und erklärt, wie man das im Feld „Eintragstyp“ korrigiert, falls die Vermutung falsch war',
     'Regression: neue Checks (KN1–KN6) für Migration-Hinweis-Erzeugung, Idempotenz und Modal-Anzeige/-Abbau',

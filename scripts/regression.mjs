@@ -267,6 +267,114 @@ async function runMigrationUnits(page) {
     hoOn15[0]?.segments?.length === 2, `segs=${hoOn15[0]?.segments?.length}`);
 }
 
+// ---------- 1c) Konsolidierter Migrationsketten-Test (v1 → SCHEMA_VERSION, end-to-end) ----------
+//
+// Die einzelnen mig-M*-Tests oben prüfen jeweils EINEN Migrationsschritt isoliert.
+// Dieser Test fährt einen realistischen "sehr alten Backup"-Zustand (schemaVersion
+// fehlt komplett) EINMAL durch die GESAMTE Kette 1→2→3→4→5→6→7 und prüft das
+// Endergebnis sowie Idempotenz der kompletten Kette — nicht nur pro Einzelschritt.
+// Deckt zusätzlich Wechselwirkungen zwischen aufeinanderfolgenden Schritten ab, die
+// isolierte Einzeltests nicht sehen (z. B. ob ein von Schritt N gesetztes Feld von
+// Schritt N+1 versehentlich überschrieben wird).
+async function runMigrationChainUnits(page) {
+  console.log('\n=== 1c) Migrationsketten-Test (v1 → SCHEMA_VERSION, end-to-end) ===');
+
+  // Voll-Legacy-Zustand: berührt JEDEN Schritt der Kette in einem Durchlauf.
+  //   1→2: zwei Home-Office-Einträge am selben Tag/Employer → müssen zu einem verschmelzen
+  //   2→3: Template tpl-2 ohne scope → 'employee'; Template ohne bekannte id → 'both'
+  //   3→4: employer1 hat weder hiredSince noch vacationCarryOver
+  //   4→5: employer1 hat kein employmentEndDate
+  //   5→6: employer1 hat kein personnelNumber
+  //   6→7: employer1 UND employer2 haben kein kind → beide werden auto-zugeordnet
+  const chainFull = await page.evaluate(() => {
+    const legacy = {
+      // kein schemaVersion-Feld — muss als 1 behandelt werden
+      employers: [
+        { id: 'e1', name: 'Alt GmbH' },
+        { id: 'e2', name: 'Kunde Alt AG' },
+      ],
+      entries: [
+        { id: 'a', employerId: 'e1', date: '2026-02-10', type: 'homeoffice', segments: [{ start: '08:00', end: '12:00' }] },
+        { id: 'b', employerId: 'e1', date: '2026-02-10', type: 'homeoffice', segments: [{ start: '13:00', end: '16:00' }] },
+        { id: 'c', employerId: 'e1', date: '2026-02-11', type: 'work', start: '09:00', end: '17:00' },
+      ],
+      archives: [],
+      templates: [
+        { id: 'tpl-2', label: 'Alt', text: 'x' },
+        { id: 'tpl-legacy', label: 'Y', text: 'y' },
+      ],
+      settings: { state: 'HE', appMode: 'employee' },
+      runningTimer: null,
+    };
+    const first = runMigrations(legacy);
+    const second = runMigrations(first.state);
+    return { first, second };
+  });
+
+  const s1 = chainFull.first.state;
+  assertTrue('mig-chain-1: erster Durchlauf changed=true', chainFull.first.changed === true, '');
+  assertEq('mig-chain-1: schemaVersion erreicht SCHEMA_VERSION (7)', s1.schemaVersion, 7);
+
+  // 1→2: Home-Office-Konsolidierung überlebt die gesamte restliche Kette
+  const hoMerged = s1.entries.filter(e => e.type === 'homeoffice' && e.date === '2026-02-10');
+  assertTrue('mig-chain-2: Home-Office-Duplikate am Kettenende konsolidiert (1 Eintrag)',
+    hoMerged.length === 1, `count=${hoMerged.length}`);
+  assertTrue('mig-chain-2: konsolidierter Eintrag hat beide Segmente',
+    hoMerged[0]?.segments?.length === 2, `segs=${hoMerged[0]?.segments?.length}`);
+  assertTrue('mig-chain-2: unbeteiligter work-Eintrag unverändert erhalten',
+    s1.entries.some(e => e.id === 'c' && e.type === 'work'), '');
+
+  // 2→3: Template-Scopes
+  const tpl2 = s1.templates.find(t => t.id === 'tpl-2');
+  const tplLegacy = s1.templates.find(t => t.id === 'tpl-legacy');
+  assertEq('mig-chain-3: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
+  assertEq('mig-chain-3: unbekanntes Template bekommt scope=both', tplLegacy?.scope, 'both');
+
+  // 3→4, 4→5, 5→6: additive Employer-Felder, für BEIDE Employer gesetzt
+  for (const id of ['e1', 'e2']) {
+    const emp = s1.employers.find(e => e.id === id);
+    assertEq(`mig-chain-4: ${id}.hiredSince = '' (Default)`, emp?.hiredSince, '');
+    assertEq(`mig-chain-4: ${id}.vacationCarryOver = 0 (Default)`, emp?.vacationCarryOver, 0);
+    assertEq(`mig-chain-5: ${id}.employmentEndDate = '' (Default)`, emp?.employmentEndDate, '');
+    assertEq(`mig-chain-6: ${id}.personnelNumber = '' (Default)`, emp?.personnelNumber, '');
+  }
+
+  // 6→7: kind-Zuordnung + Hinweis, appMode='employee' → Fallback 'employer'
+  const e1After = s1.employers.find(e => e.id === 'e1');
+  const e2After = s1.employers.find(e => e.id === 'e2');
+  assertEq('mig-chain-7: e1.kind = employer (Fallback aus appMode)', e1After?.kind, 'employer');
+  assertEq('mig-chain-7: e2.kind = employer (Fallback aus appMode)', e2After?.kind, 'employer');
+  assertEq('mig-chain-7: pendingMigrationNotice.type gesetzt', s1.pendingMigrationNotice?.type, 'kindAutoAssigned');
+  assertTrue('mig-chain-7: pendingMigrationNotice listet beide betroffenen Namen',
+    s1.pendingMigrationNotice?.names?.length === 2, `names=${JSON.stringify(s1.pendingMigrationNotice?.names)}`);
+
+  // Idempotenz der GESAMTEN Kette (nicht nur eines Einzelschritts): zweiter voller
+  // Durchlauf über den bereits migrierten Zustand darf nichts mehr ändern.
+  assertTrue('mig-chain-8: zweiter Durchlauf über voll migrierten State ist no-op',
+    chainFull.second.changed === false, `changed=${chainFull.second.changed}`);
+
+  // Einstieg aus der Mitte der Kette: State startet bereits bei schemaVersion=4
+  // (3→4 bereits gelaufen) — nur 4→5→6→7 dürfen noch laufen, frühere Felder
+  // bleiben unangetastet.
+  const midChain = await page.evaluate(() => {
+    const partial = {
+      schemaVersion: 4,
+      employers: [{ id: 'e1', name: 'Mitte GmbH', hiredSince: '2020-01-01', vacationCarryOver: 5 }],
+      entries: [], archives: [],
+      templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
+      settings: { state: 'HE', appMode: 'freelance' },
+      runningTimer: null,
+    };
+    return runMigrations(partial);
+  });
+  assertEq('mig-chain-9: Einstieg bei v4 erreicht ebenfalls v7', midChain.state.schemaVersion, 7);
+  const midEmp = midChain.state.employers[0];
+  assertEq('mig-chain-9: bereits gesetztes hiredSince (v3→4) bleibt unangetastet', midEmp?.hiredSince, '2020-01-01');
+  assertEq('mig-chain-9: bereits gesetztes vacationCarryOver (v3→4) bleibt unangetastet', midEmp?.vacationCarryOver, 5);
+  assertEq('mig-chain-9: employmentEndDate wird beim Einstieg bei v4 nachgezogen', midEmp?.employmentEndDate, '');
+  assertEq('mig-chain-9: kind wird beim Einstieg bei v4 nachgezogen (appMode=freelance → client)', midEmp?.kind, 'client');
+}
+
 // ---------- 1e) Range-Entry (Option B) Unit-Tests ----------
 
 async function runRangeEntryUnits(page) {
@@ -2826,6 +2934,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runSelectorUnits(page);
     await runLibIntegrityUnits(page);
     await runMigrationUnits(page);
+    await runMigrationChainUnits(page);
     await runVacationRemainingUnits(page);
     await runVacationPlanningUnits(page);
     await runRangeEntryUnits(page);
