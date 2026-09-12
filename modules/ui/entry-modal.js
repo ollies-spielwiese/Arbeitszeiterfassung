@@ -38,7 +38,7 @@ export function openEntryModal(entry, opts, ctx) {
 
   const empSel = document.getElementById('entry-employer');
   empSel.innerHTML = fields.employerOptions.map((e) =>
-    `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+    `<option value="${e.id}">${escapeHtml(e.name)}${e.former ? ' (ehemalig)' : ''}</option>`).join('');
 
   const v = fields.values;
   form.querySelector('#entry-id').value = v.id;

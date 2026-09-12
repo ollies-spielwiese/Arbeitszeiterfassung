@@ -47,6 +47,8 @@ export function exportBridge(target, refs) {
     generateCsvBlob,
     // Gleitzeitkonto-Ansicht (seit v3.9.47, Kalenderjahr-Logik seit v3.9.48)
     buildGleitzeitkontoHTML, renderGleitzeitkonto, computeGleitzeitkontoRows,
+    // Arbeitgeberwechsel / "Beschäftigt bis" (seit v3.9.55)
+    isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO, buildEmployerCardsHTML,
   } = refs;
 
   // State + Persistenz
@@ -138,4 +140,11 @@ export function exportBridge(target, refs) {
   if (typeof buildGleitzeitkontoHTML === 'function') target.buildGleitzeitkontoHTML = buildGleitzeitkontoHTML;
   if (typeof renderGleitzeitkonto === 'function') target.renderGleitzeitkonto = renderGleitzeitkonto;
   if (typeof computeGleitzeitkontoRows === 'function') target.computeGleitzeitkontoRows = computeGleitzeitkontoRows;
+
+  // Arbeitgeberwechsel / "Beschäftigt bis" (seit v3.9.55, für Regression-Unit-Tests)
+  if (typeof isFormerEmployer === 'function') target.isFormerEmployer = isFormerEmployer;
+  if (typeof filterVisibleEmployers === 'function') target.filterVisibleEmployers = filterVisibleEmployers;
+  if (typeof setShowFormerEmployers === 'function') target.setShowFormerEmployers = setShowFormerEmployers;
+  if (typeof todayISO === 'function') target.todayISO = todayISO;
+  if (typeof buildEmployerCardsHTML === 'function') target.buildEmployerCardsHTML = buildEmployerCardsHTML;
 }

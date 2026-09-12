@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.54';
+export const APP_VERSION = '3.9.55';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.55', items: [
+    'Neu: Arbeitgeberwechsel — optionales Feld "Beschäftigt bis" pro Arbeitgeber. Ehemalige Arbeitgeber (Datum in der Vergangenheit) werden in der Liste mit rot hinterlegtem Namen und Badge "Ehemalig seit ..." markiert und verschwinden aus allen Dropdowns für NEUE Einträge/Zeiträume/HO-Tage; bestehende Einträge bleiben beim Bearbeiten weiter zuordenbar',
+    'Neu: Checkbox "Ehemalige anzeigen" in Tracker, Einträge, Übersicht und Gleitzeitkonto blendet ehemalige Arbeitgeber bei Bedarf wieder ein (gemeinsamer Schalter für alle vier Ansichten)',
+    'Fix: Urlaubsanspruch wird bei Ausscheiden während des Jahres nun auch am ENDE anteilig gekürzt (bisher nur anteilige Erhöhung bei Eintritt)',
+    'Fix: Gleitzeitkonto-Soll-Berechnung endet am "Beschäftigt bis"-Datum, inkl. Hinweisbanner bei Kappung',
+    'Regression: neue Checks (EE1–EEn) für Migration, anteilige Urlaubskürzung, Gleitzeitkonto-Endgrenze, Dropdown-Filterung und Badge/Hintergrund-Darstellung',
+  ]},
   { version: '3.9.54', items: [
     'Neu: Hilfe-Button (?) neben der Überschrift "Arbeitgeber verwalten" / "Kunden verwalten" öffnet ein Modal mit passendem Hilfetext (aus der Bedienungsanleitung, Abschnitt 7 bzw. 12a) — der Text passt sich automatisch dem aktiven Modus (Angestellt/Freiberuflich) an',
     'Regression: 10 neue Checks (EH1–EH10) für Button-Vorhandensein, modusabhängigen Titel/Inhalt und Schließen des Modals',

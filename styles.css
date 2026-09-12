@@ -493,8 +493,31 @@ textarea { resize: vertical; min-height: 3rem; }
   flex-shrink: 0;
 }
 .employer-info { flex: 1; min-width: 0; }
-.employer-name { font-weight: 600; margin-bottom: 0.15rem; }
+.employer-name { font-weight: 600; margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .employer-meta { font-size: 0.85rem; color: var(--text-muted); }
+
+/* Ehemalige Arbeitgeber ("Beschäftigt bis" in der Vergangenheit), seit v3.9.55 */
+.employer-name-former {
+  background: #fdecea;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  margin: -0.1rem -0.4rem;
+}
+@media (prefers-color-scheme: dark) {
+  .employer-name-former { background: #4c2a2a; }
+}
+.employer-former-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fee2e2;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .employer-former-badge { background: #5c2626; color: #fecaca; }
+}
 
 .data-actions { display: flex; flex-direction: column; gap: 0.5rem; }
 

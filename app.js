@@ -103,6 +103,8 @@ import {
   computeYearlyVacationPlanning,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
   MONTH_LABELS_LONG,
+  isFormerEmployer,
+  filterVisibleEmployers,
 } from './modules/compute.js';
 import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './modules/render/vacation-planning.js';
 import { buildAuditLogHTML as _buildAuditLogHTMLRaw } from './modules/render/audit-log.js';
@@ -323,6 +325,12 @@ function saveState() {
 // für Regression-Skripte, die über page.evaluate darauf zugreifen.
 let state = loadState();
 if (typeof window !== 'undefined') window.state = state;
+
+// Seit v3.9.55: gemeinsames, nicht-persistiertes Flag "Ehemalige Arbeitgeber anzeigen".
+// Steuert alle aktiven/Live-Dropdowns (active-employer, filter-employer, week-employer,
+// report-employer) sowie die Entries-/Uebersicht-/Gleitzeitkonto-Listen. Erstell-Dropdowns
+// (entry-employer, range-employer, ho-employer) ignorieren dieses Flag bewusst (siehe RELEASE.md).
+let showFormerEmployers = false;
 // Seit v3.9.49: unmittelbar nach dem Laden festhalten, ob der Speicher defekt war —
 // wireEvents() zeigt in diesem Fall einen sichtbaren Warn-Banner (siehe modules/bootstrap.js).
 const stateWasCorrupted = wasLastLoadCorrupted();
@@ -552,8 +560,15 @@ let liveTimerInterval = null;
 function renderTracker() {
   ensureActiveEmployer();
   const sel = document.getElementById('active-employer');
+  const formerCb = document.getElementById('show-former-employers-tracker');
+  if (formerCb) formerCb.checked = showFormerEmployers;
+  const today = todayISO();
+  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+    showAll: showFormerEmployers,
+    includeIds: [state.activeEmployerId],
+  });
   sel.innerHTML = state.employers.length
-    ? state.employers.map(e => `<option value="${e.id}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${e.id}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : `<option value="">— Bitte ${L('employer')} anlegen —</option>`;
 
   const hint = document.getElementById('onboarding-hint');
@@ -566,7 +581,9 @@ function renderTracker() {
 
   const running = state.runningTimer;
   const hasEmployers = state.employers.length > 0;
-  document.getElementById('btn-start').disabled = !!running || !hasEmployers;
+  const activeEmp = getEmployer(state.activeEmployerId);
+  const activeIsFormer = isFormerEmployer(activeEmp, today);
+  document.getElementById('btn-start').disabled = !!running || !hasEmployers || activeIsFormer;
   document.getElementById('btn-end').disabled = !running;
 
   const liveEl = document.getElementById('live-status');
@@ -867,6 +884,7 @@ function _rangeEntryCtx() {
     getState: _getState,
     saveState,
     escapeHtml,
+    todayISO,
     renderTracker,
     renderEntries,
     refreshAll,
@@ -1002,11 +1020,18 @@ function hhmmToMinutes(hhmm) {
 function renderEntries() {
   const filterSel = document.getElementById('filter-employer');
   const monthInput = document.getElementById('filter-month');
+  const formerCb = document.getElementById('show-former-employers-entries');
+  if (formerCb) formerCb.checked = showFormerEmployers;
 
   const currentEmpFilter = filterSel.value;
+  const today = todayISO();
+  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+    showAll: showFormerEmployers,
+    includeIds: [currentEmpFilter],
+  });
   filterSel.innerHTML =
     `<option value="">Alle Arbeitgeber</option>` +
-    state.employers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+    visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
   filterSel.value = currentEmpFilter || '';
 
   if (!monthInput.value) monthInput.value = currentYearMonth();
@@ -1016,6 +1041,7 @@ function renderEntries() {
 
   let list = [...state.entries];
   if (empFilter) list = list.filter(e => e.employerId === empFilter);
+  else if (!showFormerEmployers) list = list.filter(e => !isFormerEmployer(getEmployer(e.employerId), today));
   if (monthFilter) list = list.filter(e => e.date.startsWith(monthFilter));
 
   list.sort((a, b) => b.date.localeCompare(a.date) || (b.start || '').localeCompare(a.start || ''));
@@ -1077,10 +1103,15 @@ function renderWeek() {
   const wkInput = document.getElementById('week-input');
 
   const currentEmp = sel.value;
+  const today = todayISO();
+  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+    showAll: showFormerEmployers,
+    includeIds: [currentEmp, state.activeEmployerId],
+  });
   sel.innerHTML = state.employers.length
-    ? state.employers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
-  sel.value = currentEmp || state.activeEmployerId || state.employers[0]?.id || '';
+  sel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
 
   if (!wkInput.value) wkInput.value = currentYearWeek();
 
@@ -1093,7 +1124,6 @@ function renderWeek() {
   const emp = getEmployer(empId);
   const dates = isoWeekToDates(isoWeek);
   const stateCode = state.settings.state || 'HE';
-  const today = todayISO();
 
   let totalMin = 0;
   const dayModels = dates.map((d) => {
@@ -1203,10 +1233,15 @@ function renderReport() {
   const monthInput = document.getElementById('report-month');
 
   const currentEmp = empSel.value;
+  const today = todayISO();
+  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+    showAll: showFormerEmployers,
+    includeIds: [currentEmp, state.activeEmployerId],
+  });
   empSel.innerHTML = state.employers.length
-    ? state.employers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
-  empSel.value = currentEmp || state.activeEmployerId || state.employers[0]?.id || '';
+  empSel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
 
   if (!monthInput.value) monthInput.value = currentYearMonth();
 
@@ -1267,14 +1302,37 @@ async function generatePdfBlob(report) {
 /**
  * Monats-Übersicht über ALLE Arbeitgeber (siehe modules/compute.js).
  * @param {string} ym 'YYYY-MM'
+ * @param {Array<any>} [employers] optionale explizite Employer-Liste (sonst aktueller
+ *   "Ehemalige anzeigen"-Zustand via filterVisibleEmployers, seit v3.9.55)
  * @returns {AZMonthOverview}
  */
-function computeMonthOverview(ym) {
-  return _computeMonthOverviewRaw(ym, { state });
+function computeMonthOverview(ym, employers) {
+  // Ohne explizite Liste: aktuellen Stand des "Ehemalige anzeigen"-Flags anwenden, damit
+  // auch der PDF-Export (getCurrentOverview → selectors.js) die Bildschirmansicht widerspiegelt.
+  const emp = employers || filterVisibleEmployers(state.employers, todayISO(), { showAll: showFormerEmployers });
+  return _computeMonthOverviewRaw(ym, { state, employers: emp });
+}
+
+/**
+ * Setzt das gemeinsame "Ehemalige Arbeitgeber anzeigen"-Flag (seit v3.9.55) und aktualisiert
+ * alle davon betroffenen Ansichten, damit die vier Checkboxen (Tracker, Einträge, Übersicht,
+ * Gleitzeitkonto) konsistent denselben Zustand widerspiegeln.
+ * @param {boolean} value
+ */
+function setShowFormerEmployers(value) {
+  showFormerEmployers = !!value;
+  renderTracker();
+  renderEntries();
+  renderWeek();
+  renderReport();
+  renderOverview();
+  renderGleitzeitkonto();
 }
 
 function renderOverview() {
   const monthInput = document.getElementById('overview-month');
+  const formerCb = document.getElementById('show-former-employers-overview');
+  if (formerCb) formerCb.checked = showFormerEmployers;
   if (!monthInput.value) monthInput.value = currentYearMonth();
   const ym = monthInput.value;
   const container = document.getElementById('overview-content');
@@ -1374,6 +1432,8 @@ function renderVacationPlanning() {
 
 function renderGleitzeitkonto() {
   const yearInput = document.getElementById('gleitzeitkonto-year');
+  const formerCb = document.getElementById('show-former-employers-gleitzeitkonto');
+  if (formerCb) formerCb.checked = showFormerEmployers;
   if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
   const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
   const container = document.getElementById('gleitzeitkonto-content');
@@ -1387,14 +1447,14 @@ function renderGleitzeitkonto() {
 
   // Kalenderjahr-Ansicht (Jan-Dez), seit v3.9.48: der kumulierte Saldo läuft über
   // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
-  const { rows, effectiveStartYm, hiredAfterYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
 
   container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
     escapeHtml,
     minutesToHM,
     formatMonthYear,
     renderSummaryHTML,
-  }, { year, effectiveStartYm, hiredAfterYear });
+  }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
 }
 
 async function generateOverviewPdfBlob(ov) {
@@ -1635,6 +1695,9 @@ function renderEmployers() {
     formatMoney,
     breakModeLabel,
     isFreelance,
+    isFormerEmployer,
+    todayISO,
+    formatDate,
   });
 
   container.querySelectorAll('.employer-card').forEach(card => {
@@ -1839,6 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   stateWasCorrupted, corruptedBackupKey,
   switchView, renderTracker, renderEntries, renderEmployers, renderReport,
   renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
+  setShowFormerEmployers,
   startWork, endWork, setMode, updateModeVisibility,
   openEntryModal, saveEntry, deleteEntry,
   updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
@@ -1902,5 +1966,7 @@ if (typeof window !== 'undefined') {
     computeGleitzeitkontoRows: _computeGleitzeitkontoRowsRaw,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
+    isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO,
+    buildEmployerCardsHTML: _buildEmployerCardsHTMLRaw,
   });
 }

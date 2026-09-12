@@ -12,6 +12,8 @@
 //   - computeEntryRows(list, ctx) — pre-computed Row-Objekte für Einträge-Liste
 //   - computeFormFields(entry, opts, ctx) — Feld-Definitionen für Entry-Modal
 
+import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
+
 /**
  * Findet einen Arbeitgeber per ID.
  * @param {string} id
@@ -43,7 +45,7 @@ export function getCurrentReport(ctx) {
 /**
  * Ermittelt die aktuelle Übersicht anhand von Overview-Filter (Monat).
  * Rückgabe null wenn Voraussetzungen fehlen — Toast wird gesetzt.
- * @param {{state:{employers:Array<any>}, computeMonthOverview:(ym:string)=>any,
+ * @param {{state:{employers:Array<any>}, computeMonthOverview:(ym:string, employers?:any)=>any,
  *          toast:(msg:string)=>void, getYm:()=>string|null}} ctx
  */
 export function getCurrentOverview(ctx) {
@@ -454,7 +456,14 @@ export function computeFormFields(entry, opts, ctx) {
 
   const showWorkFields = (values.type === 'work' || values.type === 'homeoffice');
 
-  const employerOptions = state.employers.map((e) => ({ id: e.id, name: e.name }));
+  // Seit v3.9.55: ehemalige Arbeitgeber ("Beschäftigt bis" in der Vergangenheit) werden bei
+  // NEUEN Einträgen nie als Option angeboten. Beim Bearbeiten eines bestehenden Eintrags bleibt
+  // dessen eigener (ggf. ehemaliger) Arbeitgeber sichtbar, damit er nicht kommentarlos verschwindet.
+  const today = todayISO();
+  const visibleForOptions = filterVisibleEmployers(state.employers, today, {
+    includeIds: isNew ? [] : [values.employerId],
+  });
+  const employerOptions = visibleForOptions.map((e) => ({ id: e.id, name: e.name, former: isFormerEmployer(e, today) }));
 
   // Schedule-Suggestion: nur bei work, mit Employer und Datum, wenn Wochenschema hinterlegt
   let scheduleSuggestion = null;

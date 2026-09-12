@@ -18,20 +18,24 @@
 // }
 
 import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from '../range-entry.js';
-import { computeVacationRemaining } from '../compute.js';
+import { computeVacationRemaining, filterVisibleEmployers } from '../compute.js';
 import { pushAuditLog } from '../audit-log.js';
 
 export function openRangeEntryModal(ctx) {
-  const { getState, escapeHtml } = ctx;
+  const { getState, escapeHtml, todayISO } = ctx;
   const state = getState();
   const modal = document.getElementById('modal-range-entry');
   const form = document.getElementById('form-range-entry');
   if (!modal || !form) return;
 
+  // Seit v3.9.55: Zeitraum-Erfassung ist stets eine NEUE Erfassung — ehemalige
+  // Arbeitgeber werden hier immer ausgeblendet (keine Bearbeiten-Ausnahme).
+  const visibleEmployers = filterVisibleEmployers(state.employers, todayISO());
   const empSel = document.getElementById('range-employer');
-  empSel.innerHTML = state.employers.map((e) =>
+  empSel.innerHTML = visibleEmployers.map((e) =>
     `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
-  empSel.value = state.activeEmployerId || (state.employers[0] && state.employers[0].id) || '';
+  const activeIsVisible = visibleEmployers.some((e) => e.id === state.activeEmployerId);
+  empSel.value = (activeIsVisible ? state.activeEmployerId : '') || (visibleEmployers[0] && visibleEmployers[0].id) || '';
 
   document.getElementById('range-type').value = 'vacation';
   document.getElementById('range-start').value = '';
@@ -87,7 +91,7 @@ export function updateRangeVacationStats(ctx) {
     `Urlaubsanspruch: <strong>${escapeHtml(String(planned))}</strong> Tage · ` +
     `Noch nicht erfasst: <strong>${escapeHtml(String(vr.remaining))}</strong> Tage</div>` +
     `<div class="range-vacation-stats-hint">Urlaubsjahr ${escapeHtml(String(year))}` +
-    `${vr.prorated ? ' · anteilig ab Eintritt' : ''}` +
+    `${vr.prorated ? ' · anteilig' : ''}` +
     `${vr.carryOver ? ` · davon ${escapeHtml(String(vr.carryOver))} Tage Resturlaub Vorjahr` : ''}</div>`;
 }
 

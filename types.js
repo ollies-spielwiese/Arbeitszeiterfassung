@@ -57,6 +57,11 @@
  * @property {string} [currency] 'EUR' | 'CHF' | 'USD'
  * @property {string} [hiredSince] 'YYYY-MM-DD', Anstellungsbeginn ("Angestellt seit") — grenzt u.a. die
  *   anteilige Urlaubsberechnung und seit v3.9.48 auch das Gleitzeitkonto nach unten ab
+ * @property {string} [employmentEndDate] 'YYYY-MM-DD', Ende der Beschäftigung ("Beschäftigt bis") —
+ *   leer/undefined bedeutet weiterhin aktiv. Liegt das Datum in der Vergangenheit, gilt der
+ *   Arbeitgeber als "ehemalig" (siehe isFormerEmployer in compute.js): er verschwindet aus neuen
+ *   Auswahl-Dropdowns, erhält eine rote Markierung in der Liste, grenzt die anteilige
+ *   Urlaubsberechnung und seit v3.9.55 auch das Gleitzeitkonto nach oben ab (seit v3.9.55)
  */
 
 /**

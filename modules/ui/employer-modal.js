@@ -80,7 +80,7 @@ export function openEmployerModal(emp, ctx) {
     id: '', name: '', color: '#3b82f6', phone: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly,
-    breakMode: 'legal', annualVacation: 0, hiredSince: '', vacationCarryOver: 0,
+    breakMode: 'legal', annualVacation: 0, hiredSince: '', employmentEndDate: '', vacationCarryOver: 0,
     hourlyRate: 0, currency: (state.settings && state.settings.currency) || 'EUR',
     schedule: defaultSchedule(defWeekly),
     notes: '',
@@ -101,6 +101,8 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-break-mode').value = e.breakMode || 'legal';
   document.getElementById('employer-annual-vacation').value = e.annualVacation || 0;
   document.getElementById('employer-hired-since').value = e.hiredSince || '';
+  const endDateEl = document.getElementById('employer-employment-end-date');
+  if (endDateEl) endDateEl.value = e.employmentEndDate || '';
   document.getElementById('employer-vacation-carryover').value = e.vacationCarryOver || 0;
   document.getElementById('employer-notes').value = e.notes || '';
   const rateEl = document.getElementById('employer-hourly-rate');
@@ -142,6 +144,7 @@ export function saveEmployer(ev, ctx) {
     breakMode: document.getElementById('employer-break-mode').value,
     annualVacation: parseInt(document.getElementById('employer-annual-vacation').value) || 0,
     hiredSince: document.getElementById('employer-hired-since').value || '',
+    employmentEndDate: document.getElementById('employer-employment-end-date')?.value || '',
     vacationCarryOver: parseInt(document.getElementById('employer-vacation-carryover').value) || 0,
     hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
     currency: document.getElementById('employer-currency')?.value || 'EUR',
@@ -149,6 +152,10 @@ export function saveEmployer(ev, ctx) {
     notes: document.getElementById('employer-notes').value.trim(),
   };
   if (!data.name) { toast('Bitte Namen eingeben'); return; }
+  if (data.hiredSince && data.employmentEndDate && data.employmentEndDate < data.hiredSince) {
+    toast('„Beschäftigt bis" darf nicht vor „Angestellt seit" liegen');
+    return;
+  }
   if (id) {
     const idx = state.employers.findIndex(e => e.id === id);
     if (idx >= 0) state.employers[idx] = { ...state.employers[idx], ...data };

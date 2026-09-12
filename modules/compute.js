@@ -17,6 +17,40 @@ import { getHolidays, getHolidaysInRange } from './holidays.js';
 export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const DAY_LABELS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+/* ---------- Ehemalige Arbeitgeber ("Beschäftigt bis", seit v3.9.55) ---------- */
+
+/**
+ * True, wenn der Arbeitgeber ein gesetztes "Beschäftigt bis"-Datum hat, das strikt vor
+ * `todayISOStr` liegt (d.h. die Beschäftigung ist zum Stichtag bereits beendet). Der Tag des
+ * Enddatums selbst zählt noch als beschäftigt (analog "bis einschließlich").
+ * @param {AZEmployer|null|undefined} emp
+ * @param {string} todayISOStr 'YYYY-MM-DD'
+ * @returns {boolean}
+ */
+export function isFormerEmployer(emp, todayISOStr) {
+  return !!(emp && typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 10 && emp.employmentEndDate < todayISOStr);
+}
+
+/**
+ * Filtert eine Arbeitgeberliste fuer Dropdowns/Ansichten: ehemalige Arbeitgeber (siehe
+ * `isFormerEmployer`) werden standardmaessig ausgeblendet. Zwei Ausnahmen:
+ *   - `opts.showAll` true → gar nicht filtern (z.B. Checkbox "Ehemalige anzeigen" aktiv).
+ *   - `opts.includeIds` → diese IDs bleiben immer sichtbar, auch wenn ehemalig (z.B. der bereits
+ *     ausgewaehlte/aktive Arbeitgeber oder der Arbeitgeber eines gerade bearbeiteten Eintrags,
+ *     damit er nicht kommentarlos aus dem Dropdown verschwindet).
+ * @param {AZEmployer[]} employers
+ * @param {string} todayISOStr 'YYYY-MM-DD'
+ * @param {{showAll?:boolean, includeIds?:Array<string|null|undefined>}} [opts]
+ * @returns {AZEmployer[]}
+ */
+export function filterVisibleEmployers(employers, todayISOStr, opts) {
+  opts = opts || {};
+  if (opts.showAll) return employers || [];
+  const includeIds = new Set((opts.includeIds || []).filter(Boolean));
+  return (employers || []).filter(e => includeIds.has(e.id) || !isFormerEmployer(e, todayISOStr));
+}
+
 export const MONTH_LABELS_LONG = [
   'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
@@ -124,6 +158,8 @@ export function defaultSchedule(weeklyHours = 40) {
  * @property {object} [state] voller State fuer Aggregat-Funktionen (Monatsbericht/Overview)
  * @property {Set<string>|string[]} [offDayDates] Daten (YYYY-MM-DD) mit type='off_day' fuer
  *   diesen Employer — werden wie Feiertage vom Soll ausgenommen (seit v3.9.47, "Freier Tag").
+ * @property {AZEmployer[]} [employers] explizite Employer-Liste fuer computeMonthOverview,
+ *   z.B. bereits durch filterVisibleEmployers gefiltert (seit v3.9.55, "Beschäftigt bis").
  */
 
 /**
@@ -341,10 +377,10 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
  * @param {any} emp Employer-Objekt (mit annualVacation, vacationCarryOver, hiredSince)
  * @param {string} ym Monat im Format YYYY-MM — bestimmt Kalenderjahr und Stichtag
  * @param {Array<any>} allEntries Alle Einträge (state.entries) — werden employer-/jahresgefiltert
- * @returns {{annual:number, carryOver:number, taken:number, remaining:number, prorated:boolean, hiredMonth:number|null}}
+ * @returns {{annual:number, carryOver:number, taken:number, remaining:number, prorated:boolean, hiredMonth:number|null, endMonth:number|null}}
  */
 export function computeVacationRemaining(emp, ym, allEntries) {
-  if (!emp) return { annual: 0, carryOver: 0, taken: 0, remaining: 0, prorated: false, hiredMonth: null };
+  if (!emp) return { annual: 0, carryOver: 0, taken: 0, remaining: 0, prorated: false, hiredMonth: null, endMonth: null };
   const annualBase = Math.max(0, parseInt(emp.annualVacation) || 0);
   const carryOver = Math.max(0, parseInt(emp.vacationCarryOver) || 0);
   const year = ym.slice(0, 4);
@@ -352,18 +388,34 @@ export function computeVacationRemaining(emp, ym, allEntries) {
   const lastDayOfMonth = new Date(yearNum, parseInt(ym.slice(5, 7), 10), 0).getDate();
   const stichtag = `${ym}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-  // Anteilige Kürzung bei Anstellung im laufenden Jahr
+  // Anteilige Kürzung bei Anstellung und/oder Beschäftigungsende im laufenden Jahr. Liegen
+  // beide Grenzen ("Angestellt seit" UND "Beschäftigt bis") im selben Kalenderjahr, zählen nur
+  // die Monate dazwischen. Liegt nur eine der beiden Grenzen im Jahr, wird nur diese angewendet
+  // (analog zur bisherigen Start-Logik).
   let annual = annualBase;
   let prorated = false;
   let hiredMonth = null;
+  let endMonth = null;
   if (emp.hiredSince && typeof emp.hiredSince === 'string' && emp.hiredSince.length >= 7) {
     const hiredYear = emp.hiredSince.slice(0, 4);
-    if (hiredYear === year) {
-      hiredMonth = parseInt(emp.hiredSince.slice(5, 7), 10);
-      const monthsWorked = 13 - hiredMonth; // Mai=5 → 8 Monate
-      annual = Math.round((annualBase * monthsWorked) / 12);
-      prorated = true;
-    }
+    if (hiredYear === year) hiredMonth = parseInt(emp.hiredSince.slice(5, 7), 10);
+  }
+  if (emp.employmentEndDate && typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 7) {
+    const endYear = emp.employmentEndDate.slice(0, 4);
+    if (endYear === year) endMonth = parseInt(emp.employmentEndDate.slice(5, 7), 10);
+  }
+  if (hiredMonth !== null && endMonth !== null) {
+    const monthsWorked = Math.max(0, endMonth - hiredMonth + 1); // z.B. Mär-Aug → 6 Monate
+    annual = Math.round((annualBase * monthsWorked) / 12);
+    prorated = true;
+  } else if (hiredMonth !== null) {
+    const monthsWorked = 13 - hiredMonth; // Mai=5 → 8 Monate
+    annual = Math.round((annualBase * monthsWorked) / 12);
+    prorated = true;
+  } else if (endMonth !== null) {
+    const monthsWorked = endMonth; // Ende im August=8 → 8 Monate (Jan-Aug)
+    annual = Math.round((annualBase * monthsWorked) / 12);
+    prorated = true;
   }
 
   // Genommene Urlaubstage im Kalenderjahr bis Stichtag
@@ -375,7 +427,7 @@ export function computeVacationRemaining(emp, ym, allEntries) {
   ).length;
 
   const remaining = Math.max(0, annual + carryOver - taken);
-  return { annual, carryOver, taken, remaining, prorated, hiredMonth };
+  return { annual, carryOver, taken, remaining, prorated, hiredMonth, endMonth };
 }
 
 /**
@@ -527,7 +579,12 @@ export function computeMonthOverview(ym, ctx) {
   const state = ctx && ctx.state;
   if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
 
-  const rows = state.employers.map(emp => {
+  // ctx.employers ueberschreibt state.employers als Iterationsbasis (z.B. um ehemalige
+  // Arbeitgeber ausser der "Ehemalige anzeigen"-Checkbox auszublenden), ohne die Totals-Logik
+  // zu duplizieren. Default: alle Arbeitgeber wie bisher.
+  const employers = (ctx && ctx.employers) || state.employers;
+
+  const rows = employers.map(emp => {
     const r = computeMonthReport(emp.id, ym, ctx);
     if (!r) return null;
     return {
@@ -571,7 +628,7 @@ export function computeMonthOverview(ym, ctx) {
  * @param {AZEmployer} emp
  * @param {number} year z.B. 2026
  * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
- * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number}>, effectiveStartYm: string, hiredAfterYear: boolean}}
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
  */
 export function computeGleitzeitkontoRows(emp, year, ctx) {
   const state = ctx && ctx.state;
@@ -590,15 +647,27 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
   }
   const effectiveStartYm = boundaryYm || yearStartYm;
 
+  // "Beschaeftigt bis" (seit v3.9.55) begrenzt symmetrisch zum Start: die Soll-Berechnung
+  // endet spaetestens im Monat des Beschaeftigungsendes, nie danach.
+  let endBoundaryYm = null;
+  if (emp && typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 7) {
+    endBoundaryYm = emp.employmentEndDate.slice(0, 7);
+  }
+  const effectiveEndYm = (endBoundaryYm && endBoundaryYm < yearEndYm) ? endBoundaryYm : yearEndYm;
+
   if (effectiveStartYm > yearEndYm) {
     // "Angestellt seit" liegt komplett nach dem gewaehlten Jahr.
-    return { rows: [], effectiveStartYm, hiredAfterYear: true };
+    return { rows: [], effectiveStartYm, effectiveEndYm, hiredAfterYear: true, endedBeforeYear: false };
+  }
+  if (endBoundaryYm && endBoundaryYm < yearStartYm) {
+    // "Beschaeftigt bis" liegt komplett vor dem gewaehlten Jahr.
+    return { rows: [], effectiveStartYm, effectiveEndYm, hiredAfterYear: false, endedBeforeYear: true };
   }
 
   let cumulative = 0;
   let cursor = effectiveStartYm;
   const rows = [];
-  while (cursor <= yearEndYm) {
+  while (cursor <= effectiveEndYm) {
     const r = computeMonthReport(emp.id, cursor, ctx);
     if (r) {
       cumulative += r.balance;
@@ -608,5 +677,5 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
     }
     cursor = shiftYearMonth(cursor, 1);
   }
-  return { rows, effectiveStartYm, hiredAfterYear: false };
+  return { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear: false, endedBeforeYear: false };
 }

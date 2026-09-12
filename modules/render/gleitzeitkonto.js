@@ -24,18 +24,22 @@
  *   auf das gewählte Kalenderjahr begrenzt (siehe computeGleitzeitkontoRows in modules/compute.js)
  * @param {any} emp
  * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string}} ctx
- * @param {{year?: number, effectiveStartYm?: string, hiredAfterYear?: boolean}} [meta] seit v3.9.48:
- *   Metadaten aus computeGleitzeitkontoRows, um Hinweise zu "Angestellt seit"/fehlenden Daten
- *   anzuzeigen (siehe RELEASE.md → "Gleitzeitkonto: Kalenderjahr statt rollierendem Zeitraum").
+ * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean}} [meta] seit v3.9.48
+ *   (Endgrenze "Beschäftigt bis" seit v3.9.55): Metadaten aus computeGleitzeitkontoRows, um
+ *   Hinweise zu "Angestellt seit"/"Beschäftigt bis"/fehlenden Daten anzuzeigen (siehe
+ *   RELEASE.md → "Gleitzeitkonto: Kalenderjahr statt rollierendem Zeitraum").
  * @returns {string}
  */
 export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML } = ctx;
-  const { year, effectiveStartYm, hiredAfterYear } = meta || {};
+  const { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = meta || {};
 
   if (!rows || !rows.length) {
     if (hiredAfterYear) {
       return `<div class="empty-state">Du warst im Jahr ${escapeHtml(String(year))} bei diesem Arbeitgeber noch nicht angestellt${effectiveStartYm ? ` (angestellt seit ${escapeHtml(formatMonthYear(effectiveStartYm))})` : ''}.</div>`;
+    }
+    if (endedBeforeYear) {
+      return `<div class="empty-state">Die Beschäftigung bei diesem Arbeitgeber war im Jahr ${escapeHtml(String(year))} bereits beendet${effectiveEndYm ? ` (beschäftigt bis ${escapeHtml(formatMonthYear(effectiveEndYm))})` : ''}.</div>`;
     }
     return `<div class="empty-state">Keine Daten für den gewählten Zeitraum.</div>`;
   }
@@ -45,7 +49,9 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const totalWorked = rows.reduce((s, r) => s + r.workedMin, 0);
   const totalTarget = rows.reduce((s, r) => s + r.targetMin, 0);
   const yearStartYm = year ? `${year}-01` : null;
+  const yearEndYm = year ? `${year}-12` : null;
   const truncatedByHire = !!(effectiveStartYm && yearStartYm && effectiveStartYm > yearStartYm);
+  const truncatedByEnd = !!(effectiveEndYm && yearEndYm && effectiveEndYm < yearEndYm);
 
   const summaryFields = [
     { kind: 'count', label: 'Zeitraum', value: `${formatMonthYear(first.ym)} – ${formatMonthYear(last.ym)}` },
@@ -53,8 +59,11 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
     { kind: 'time', label: 'Ist gesamt', valueHM: minutesToHM(totalWorked) },
     { kind: 'time', label: 'Soll gesamt', valueHM: minutesToHM(totalTarget) },
   ];
-  const hireHintHTML = truncatedByHire
-    ? `<div class="hint-banner">Hinweis: Der Verlauf beginnt erst ab ${escapeHtml(formatMonthYear(effectiveStartYm))}, da du davor noch nicht bei diesem Arbeitgeber angestellt warst. Der kumulierte Saldo läuft ab diesem Monat durch (auch über Jahresgrenzen hinweg).</div>`
+  const hireHintParts = [];
+  if (truncatedByHire) hireHintParts.push(`Der Verlauf beginnt erst ab ${escapeHtml(formatMonthYear(effectiveStartYm))}, da du davor noch nicht bei diesem Arbeitgeber angestellt warst.`);
+  if (truncatedByEnd) hireHintParts.push(`Der Verlauf endet mit ${escapeHtml(formatMonthYear(effectiveEndYm))}, da die Beschäftigung zu diesem Zeitpunkt endete.`);
+  const hireHintHTML = hireHintParts.length
+    ? `<div class="hint-banner">Hinweis: ${hireHintParts.join(' ')} Der kumulierte Saldo läuft über Jahresgrenzen hinweg durch.</div>`
     : '';
 
   const bodyRows = rows.map((r) => {

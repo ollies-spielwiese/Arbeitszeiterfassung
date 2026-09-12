@@ -26,6 +26,7 @@
 // }
 
 import { pushAuditLog } from '../audit-log.js';
+import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 
 export function openHomeofficeModal(entry, opts, ctx) {
   opts = opts || {};
@@ -39,8 +40,14 @@ export function openHomeofficeModal(entry, opts, ctx) {
   const idInput = document.getElementById('ho-id');
   const delBtn = document.getElementById('btn-delete-homeoffice');
 
-  empSel.innerHTML = state.employers
-    .map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+  // Seit v3.9.55: ehemalige Arbeitgeber nur bei NEUEN HO-Tagen ausblenden; beim Bearbeiten
+  // bleibt der eigene (ggf. ehemalige) Arbeitgeber des Eintrags sichtbar.
+  const today = todayISO();
+  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+    includeIds: (entry && entry.id) ? [entry.employerId] : [],
+  });
+  empSel.innerHTML = visibleEmployers
+    .map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
 
   if (entry && entry.id) {
     title.textContent = 'Home-Office-Tag bearbeiten';

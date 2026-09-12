@@ -31,6 +31,7 @@ export function wireEvents(ctx) {
     // Views + Rendering
     switchView, renderTracker, renderEntries, renderEmployers, renderReport,
     renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
+    setShowFormerEmployers,
     // Tracker/Timer + Mode
     startWork, endWork, setMode, updateModeVisibility,
     // Entry Modal
@@ -265,6 +266,13 @@ export function wireEvents(ctx) {
     // Gleitzeitkonto (Kalenderjahr-Ansicht, seit v3.9.48)
     const gleitzeitkontoYear = document.getElementById('gleitzeitkonto-year');
     if (gleitzeitkontoYear) gleitzeitkontoYear.addEventListener('change', renderGleitzeitkonto);
+
+    // "Ehemalige Arbeitgeber anzeigen"-Checkboxen (seit v3.9.55): alle vier steuern dasselbe
+    // gemeinsame Flag, damit der Zustand über Tracker/Einträge/Übersicht/Gleitzeitkonto konsistent ist.
+    ['show-former-employers-tracker', 'show-former-employers-entries', 'show-former-employers-overview', 'show-former-employers-gleitzeitkonto'].forEach((id) => {
+      const cb = document.getElementById(id);
+      if (cb) cb.addEventListener('change', (e) => setShowFormerEmployers(e.target.checked));
+    });
     const addHolidayBtn = document.getElementById('btn-add-holiday-override');
     if (addHolidayBtn) addHolidayBtn.addEventListener('click', () => openHolidayModal(null));
     const formHoliday = document.getElementById('form-holiday');

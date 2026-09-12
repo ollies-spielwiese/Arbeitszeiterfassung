@@ -217,7 +217,7 @@ async function runMigrationUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('mig-M1: changed=true bei Legacy-State', m1.changed === true, `changed=${m1.changed}`);
-  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 4);
+  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 5);
   const tpl2 = m1.state.templates.find(t => t.id === 'tpl-2');
   const tpl9 = m1.state.templates.find(t => t.id === 'tpl-9');
   assertEq('mig-M1: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
@@ -226,7 +226,7 @@ async function runMigrationUnits(page) {
   // Fall M2: State bereits auf aktueller Version darf nicht als changed markiert werden
   const m2 = await page.evaluate(() => {
     const currentState = {
-      schemaVersion: 4,
+      schemaVersion: 5,
       employers: [], entries: [], archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
       settings: { state: 'HE' }, runningTimer: null,
@@ -1317,7 +1317,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state);
     return result;
   });
-  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 4);
+  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 5);
   assertTrue('BI1: zwei Legacy-Homeoffice-Einträge am selben Tag werden beim Import zu einem zusammengeführt',
     bi1.homeofficeCount === 1, `count=${bi1.homeofficeCount}`);
   assertTrue('BI1: zusammengeführter Eintrag hat beide Segmente',
@@ -1334,8 +1334,8 @@ async function runBackupImportMigrationUnits(page) {
     const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
 
     const currentBackup = {
-      schemaVersion: 4,
-      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3 }],
+      schemaVersion: 5,
+      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3, employmentEndDate: '' }],
       entries: [{ id: 'x', employerId: 'e2', date: '2026-02-01', type: 'work', start: '09:00', end: '17:00' }],
       archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
@@ -1365,7 +1365,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state); // Resync: siehe Kommentar in BI1.
     return result;
   });
-  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=4', bi2.schemaVersion, 4);
+  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=5', bi2.schemaVersion, 5);
   assertEq('BI2: unveränderte Felder bleiben beim Import unverändert', bi2.employerVacationCarryOver, 3);
   assertEq('BI2: Einträge werden beim Import nicht verdoppelt/verloren', bi2.entryCount, 1);
 }
@@ -1401,7 +1401,7 @@ async function runStateCorruptionUnits(page) {
 
       // CS2: Ein direkt folgendes, gültiges Laden muss die Warnung wieder zurücksetzen.
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        schemaVersion: 4, employers: [], entries: [], archives: [], templates: [],
+        schemaVersion: 5, employers: [], entries: [], archives: [], templates: [],
         settings: { state: 'HE' }, runningTimer: null,
       }));
       loadState(helpers);
@@ -1847,6 +1847,230 @@ function extractCsvText(buf) {
   return buf.toString('utf-8').replace(/^\uFEFF/, '');
 }
 
+// ---------- 1n) Arbeitgeberwechsel / "Beschäftigt bis" Unit- + Integrationstests (v3.9.55) ----------
+
+async function runEmploymentEndUnits(page) {
+  console.log('\n=== 1n) Arbeitgeberwechsel / "Beschäftigt bis" Unit- + Integrationstests (v3.9.55) ===');
+
+  // EE1: isFormerEmployer — Kernfälle (kein Datum, Zukunft, Vergangenheit, exakt heute, fehlendes Feld)
+  const ee1 = await page.evaluate(() => {
+    const today = '2026-06-15';
+    return {
+      noDate: isFormerEmployer({ employmentEndDate: '' }, today),
+      future: isFormerEmployer({ employmentEndDate: '2026-12-31' }, today),
+      past: isFormerEmployer({ employmentEndDate: '2026-01-01' }, today),
+      exactlyToday: isFormerEmployer({ employmentEndDate: '2026-06-15' }, today),
+      missingField: isFormerEmployer({}, today),
+    };
+  });
+  assertTrue('EE1a: kein employmentEndDate → nicht ehemalig', ee1.noDate === false, `noDate=${ee1.noDate}`);
+  assertTrue('EE1b: employmentEndDate in der Zukunft → nicht ehemalig', ee1.future === false, `future=${ee1.future}`);
+  assertTrue('EE1c: employmentEndDate in der Vergangenheit → ehemalig', ee1.past === true, `past=${ee1.past}`);
+  assertTrue('EE1d: employmentEndDate = heute → noch nicht ehemalig (erst danach)', ee1.exactlyToday === false, `exactlyToday=${ee1.exactlyToday}`);
+  assertTrue('EE1e: fehlendes Feld → nicht ehemalig statt Crash', ee1.missingField === false, `missingField=${ee1.missingField}`);
+
+  // EE2: filterVisibleEmployers — Standardfilterung / showAll / gezieltes includeIds
+  const ee2 = await page.evaluate(() => {
+    const today = '2026-06-15';
+    const employers = [
+      { id: 'a', name: 'Aktiv', employmentEndDate: '' },
+      { id: 'b', name: 'Ehemalig', employmentEndDate: '2026-01-01' },
+    ];
+    return {
+      byDefault: filterVisibleEmployers(employers, today).map((e) => e.id),
+      showAll: filterVisibleEmployers(employers, today, { showAll: true }).map((e) => e.id),
+      includeIds: filterVisibleEmployers(employers, today, { includeIds: ['b'] }).map((e) => e.id),
+    };
+  });
+  assertEq('EE2a: Standard blendet ehemalige Arbeitgeber aus', JSON.stringify(ee2.byDefault), JSON.stringify(['a']));
+  assertEq('EE2b: showAll zeigt auch ehemalige Arbeitgeber', JSON.stringify(ee2.showAll), JSON.stringify(['a', 'b']));
+  assertEq('EE2c: includeIds zeigt gezielt einen einzelnen Ehemaligen zusätzlich', JSON.stringify(ee2.includeIds), JSON.stringify(['a', 'b']));
+
+  // EE3: Migration v4→v5 — employmentEndDate wird bei bestehenden Arbeitgebern auf '' defaultet
+  const ee3 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 4,
+      employers: [{ id: 'e1', name: 'Alt-Arbeitgeber', hiredSince: '2020-01-01', vacationCarryOver: 0 }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertTrue('EE3a: changed=true, da employmentEndDate fehlte', ee3.changed === true, `changed=${ee3.changed}`);
+  assertEq('EE3b: schemaVersion nach Migration = 5', ee3.state.schemaVersion, 5);
+  assertEq('EE3c: employmentEndDate defaultet auf leeren String', ee3.state.employers[0].employmentEndDate, '');
+
+  // EE4: computeVacationRemaining — anteilige Kürzung bei Beschäftigungsende
+  const ee4 = await page.evaluate(() => {
+    // Nur Ende im Jahr (Ende Mitte August → Monate Jan–Aug = 8/12 von 24 Tagen = 16)
+    const empEndOnly = { id: 'e1', annualVacation: 24, vacationCarryOver: 0, hiredSince: '2020-01-01', employmentEndDate: '2026-08-15' };
+    const endOnly = computeVacationRemaining(empEndOnly, '2026-09', []);
+    // Anstellung UND Ende im selben Jahr (März–August → 6/12 von 24 Tagen = 12)
+    const empBoth = { id: 'e2', annualVacation: 24, vacationCarryOver: 0, hiredSince: '2026-03-01', employmentEndDate: '2026-08-31' };
+    const both = computeVacationRemaining(empBoth, '2026-09', []);
+    return { endOnly, both };
+  });
+  assertEq('EE4a: nur Beschäftigungsende im Jahr → 8/12 von 24 Tagen = 16', ee4.endOnly.annual, 16);
+  assertEq('EE4b: Anstellung + Ende im selben Jahr (März–August) → 6/12 von 24 Tagen = 12', ee4.both.annual, 12);
+
+  // EE5: computeGleitzeitkontoRows — Soll-Berechnung endet am "Beschäftigt bis"-Monat
+  const ee5 = await page.evaluate(() => {
+    const emp = { id: '__ee-gk-end__', name: 'GK-End', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2026-05-20' };
+    state.employers.push(emp);
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== emp.id);
+    return result;
+  });
+  assertEq('EE5a: bei Beschäftigungsende im Mai zeigt das Jahr nur 5 Monate (Jan–Mai)', ee5.rows.length, 5);
+  assertEq('EE5b: letzte Zeile ist Mai 2026', ee5.rows[ee5.rows.length - 1].ym, '2026-05');
+  assertEq('EE5c: effectiveEndYm = Beschäftigungsende-Monat', ee5.effectiveEndYm, '2026-05');
+  assertTrue('EE5d: endedBeforeYear=false, da Ende im gewählten Jahr liegt', ee5.endedBeforeYear === false, '');
+
+  // EE6: computeGleitzeitkontoRows — Beschäftigung endete bereits vor dem gewählten Jahr
+  const ee6 = await page.evaluate(() => {
+    const emp = { id: '__ee-gk-past__', name: 'GK-Past', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2025-03-01' };
+    state.employers.push(emp);
+    const result = computeGleitzeitkontoRows(emp, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== emp.id);
+    return result;
+  });
+  assertEq('EE6a: keine Zeilen, wenn Beschäftigung schon vor dem Jahr endete', ee6.rows.length, 0);
+  assertTrue('EE6b: endedBeforeYear=true', ee6.endedBeforeYear === true, '');
+
+  // EE7: buildEmployerCardsHTML — rötlicher Namenshintergrund + "Ehemalig seit"-Badge nur bei Ex-Arbeitgebern
+  const ee7 = await page.evaluate(() => {
+    const employers = [
+      { id: 'a', name: 'Aktiv GmbH', color: '#000', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', employmentEndDate: '' },
+      { id: 'b', name: 'Ehemalig GmbH', color: '#000', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', employmentEndDate: '2020-01-01' },
+    ];
+    return buildEmployerCardsHTML(employers, {
+      escapeHtml: (s) => String(s),
+      formatMoney: (v) => String(v),
+      breakModeLabel: () => '',
+      isFreelance: () => false,
+      isFormerEmployer,
+      todayISO: () => '2026-06-15',
+      formatDate: (d) => d,
+    });
+  });
+  assertContains('EE7a: aktiver Arbeitgeber ohne "former"-Klasse und ohne Badge', ee7, 'employer-name">Aktiv GmbH</div>');
+  assertContains('EE7b: ehemaliger Arbeitgeber erhält die Klasse employer-name-former', ee7, 'employer-name employer-name-former">Ehemalig GmbH');
+  assertContains('EE7c: ehemaliger Arbeitgeber erhält "Ehemalig seit"-Badge mit Enddatum', ee7, 'Ehemalig seit 2020-01-01');
+
+  // EE8: Arbeitgeber-Modal — Validierung blockiert, wenn "Beschäftigt bis" vor "Angestellt seit" liegt
+  const ee8 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const beforeCount = state.employers.length;
+    document.getElementById('btn-add-employer').click();
+    document.getElementById('employer-name').value = 'EE-Validation-Test';
+    document.getElementById('employer-hired-since').value = '2026-01-01';
+    document.getElementById('employer-employment-end-date').value = '2025-12-31';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const toastText = document.getElementById('toast')?.querySelector('.toast-msg')?.textContent || '';
+    const modalStillOpen = !document.getElementById('modal-employer').classList.contains('hidden');
+    return { toastText, modalStillOpen, countAfterBlocked: state.employers.length, beforeCount };
+  });
+  assertContains('EE8a: Validierungsfehler-Toast bei Ende vor Anstellungsbeginn', ee8.toastText, 'darf nicht vor');
+  assertTrue('EE8b: Arbeitgeber wird bei ungültigem Datum NICHT gespeichert', ee8.countAfterBlocked === ee8.beforeCount, `vorher=${ee8.beforeCount} nachher=${ee8.countAfterBlocked}`);
+  assertTrue('EE8c: Modal bleibt offen, damit die Eingabe korrigiert werden kann', ee8.modalStillOpen, '');
+
+  // EE9: Arbeitgeber-Modal — gültiges Enddatum (nach Anstellungsbeginn) wird gespeichert
+  const ee9 = await page.evaluate(() => {
+    document.getElementById('employer-employment-end-date').value = '2026-06-30';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'EE-Validation-Test');
+    const modalHidden = document.getElementById('modal-employer').classList.contains('hidden');
+    return { saved, modalHidden };
+  });
+  assertTrue('EE9a: Arbeitgeber wird bei gültigem Enddatum gespeichert', !!ee9.saved, JSON.stringify(ee9.saved));
+  assertEq('EE9b: employmentEndDate wird korrekt gespeichert', ee9.saved?.employmentEndDate, '2026-06-30');
+  assertTrue('EE9c: Modal schließt nach erfolgreichem Speichern', ee9.modalHidden, '');
+  await page.evaluate(() => {
+    state.employers = state.employers.filter((e) => e.name !== 'EE-Validation-Test');
+    saveState();
+  });
+
+  // EE10: Dropdown-Filterung — neue Einträge blenden ehemalige Arbeitgeber aus; das Bearbeiten
+  // eines bestehenden Eintrags eines Ehemaligen zeigt ihn weiterhin an (Range-Neuanlage: immer ausgeblendet).
+  const ee10 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const empF = { id: '__ee-former__', name: 'EE-Former GmbH', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 0, hiredSince: '2019-01-01', employmentEndDate: '2020-01-01' };
+    const empA = { id: '__ee-active__', name: 'EE-Active GmbH', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 0, hiredSince: '2019-01-01', employmentEndDate: '' };
+    state.employers.push(empF, empA);
+    const prevActiveId = state.activeEmployerId;
+    state.activeEmployerId = empA.id;
+    switchView('tracker');
+    renderTracker();
+
+    document.getElementById('btn-add-manual').click();
+    const entryOptionsNew = Array.from(document.getElementById('entry-employer').options).map((o) => o.value);
+    document.querySelector('#modal-entry .modal-close').click();
+
+    document.getElementById('btn-add-homeoffice').click();
+    const hoOptionsNew = Array.from(document.getElementById('ho-employer').options).map((o) => o.value);
+    document.querySelector('#modal-homeoffice .modal-close').click();
+
+    document.getElementById('btn-add-range').click();
+    const rangeOptionsNew = Array.from(document.getElementById('range-employer').options).map((o) => o.value);
+    document.querySelector('#modal-range-entry .modal-close').click();
+
+    const today = todayISO();
+    const formerEntryId = '__ee-entry-former__';
+    const formerHoId = '__ee-ho-former__';
+    state.entries.push({ id: formerEntryId, employerId: empF.id, date: today, type: 'work', start: '09:00', end: '17:00', breakMinutes: 0 });
+    state.entries.push({ id: formerHoId, employerId: empF.id, date: today, type: 'homeoffice', start: '09:00', end: '17:00', breakMinutes: 0 });
+    setShowFormerEmployers(true);
+    document.getElementById('filter-employer').value = '';
+    document.getElementById('filter-month').value = '';
+    renderEntries();
+
+    const entryCard = document.querySelector(`.entry-card[data-id="${formerEntryId}"]`);
+    entryCard && entryCard.click();
+    const entryOptionsEdit = Array.from(document.getElementById('entry-employer').options).map((o) => ({ value: o.value, text: o.textContent }));
+    const entrySelectedValue = document.getElementById('entry-employer').value;
+    document.querySelector('#modal-entry .modal-close').click();
+
+    const hoCard = document.querySelector(`.entry-card[data-id="${formerHoId}"]`);
+    hoCard && hoCard.click();
+    const hoOptionsEdit = Array.from(document.getElementById('ho-employer').options).map((o) => ({ value: o.value, text: o.textContent }));
+    document.querySelector('#modal-homeoffice .modal-close').click();
+
+    setShowFormerEmployers(false);
+    state.entries = state.entries.filter((e) => e.id !== formerEntryId && e.id !== formerHoId);
+    state.employers = state.employers.filter((e) => e.id !== empF.id && e.id !== empA.id);
+    state.activeEmployerId = prevActiveId;
+    saveState();
+    renderTracker();
+    renderEntries();
+
+    return { entryOptionsNew, hoOptionsNew, rangeOptionsNew, entryOptionsEdit, entrySelectedValue, hoOptionsEdit };
+  });
+  assertTrue('EE10a: neuer Eintrag — ehemaliger Arbeitgeber fehlt in #entry-employer', !ee10.entryOptionsNew.includes('__ee-former__'), JSON.stringify(ee10.entryOptionsNew));
+  assertTrue('EE10b: neuer Eintrag — aktiver Arbeitgeber ist wählbar', ee10.entryOptionsNew.includes('__ee-active__'), JSON.stringify(ee10.entryOptionsNew));
+  assertTrue('EE10c: neuer Homeoffice-Eintrag — ehemaliger Arbeitgeber fehlt in #ho-employer', !ee10.hoOptionsNew.includes('__ee-former__'), JSON.stringify(ee10.hoOptionsNew));
+  assertTrue('EE10d: neuer Zeitraum-Eintrag — ehemaliger Arbeitgeber fehlt in #range-employer (Creation-Only-Ausnahme)', !ee10.rangeOptionsNew.includes('__ee-former__'), JSON.stringify(ee10.rangeOptionsNew));
+  assertTrue('EE10e: Bearbeiten eines bestehenden Eintrags — ehemaliger Arbeitgeber bleibt in #entry-employer sichtbar', ee10.entryOptionsEdit.some((o) => o.value === '__ee-former__'), JSON.stringify(ee10.entryOptionsEdit));
+  assertEq('EE10f: Bearbeiten — der ehemalige Arbeitgeber des Eintrags ist vorausgewählt', ee10.entrySelectedValue, '__ee-former__');
+  assertTrue('EE10g: Bearbeiten zeigt "(ehemalig)"-Hinweis in der Options-Beschriftung', ee10.entryOptionsEdit.some((o) => o.value === '__ee-former__' && o.text.includes('(ehemalig)')), JSON.stringify(ee10.entryOptionsEdit));
+  assertTrue('EE10h: Bearbeiten eines bestehenden Homeoffice-Eintrags — ehemaliger Arbeitgeber bleibt in #ho-employer sichtbar', ee10.hoOptionsEdit.some((o) => o.value === '__ee-former__'), JSON.stringify(ee10.hoOptionsEdit));
+
+  // EE11: Die 4 "Ehemalige anzeigen"-Checkboxen spiegeln denselben globalen Zustand konsistent wider
+  const ee11 = await page.evaluate(() => {
+    setShowFormerEmployers(true);
+    const allChecked = [
+      'show-former-employers-tracker', 'show-former-employers-entries',
+      'show-former-employers-overview', 'show-former-employers-gleitzeitkonto',
+    ].map((id) => document.getElementById(id)?.checked);
+    setShowFormerEmployers(false);
+    const allUnchecked = [
+      'show-former-employers-tracker', 'show-former-employers-entries',
+      'show-former-employers-overview', 'show-former-employers-gleitzeitkonto',
+    ].map((id) => document.getElementById(id)?.checked);
+    return { allChecked, allUnchecked };
+  });
+  assertTrue('EE11a: setShowFormerEmployers(true) markiert alle 4 Checkboxen', ee11.allChecked.every((v) => v === true), JSON.stringify(ee11.allChecked));
+  assertTrue('EE11b: setShowFormerEmployers(false) deaktiviert alle 4 Checkboxen wieder', ee11.allUnchecked.every((v) => v === false), JSON.stringify(ee11.allUnchecked));
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -2240,6 +2464,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runBackupImportMigrationUnits(page);
     await runStateCorruptionUnits(page);
     await runGleitzeitkontoUnits(page);
+    await runEmploymentEndUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

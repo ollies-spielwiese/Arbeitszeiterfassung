@@ -14,7 +14,7 @@
  * eigenen Utility-Abhängigkeiten hat.
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
@@ -101,6 +101,18 @@ export const migrations = [
         vacationCarryOver: (Number.isFinite(e.vacationCarryOver) && e.vacationCarryOver >= 0)
           ? Math.floor(e.vacationCarryOver)
           : 0,
+      }));
+      return { ...s, employers };
+    },
+  },
+  {
+    from: 4, to: 5,
+    // v3.9.55: Neues Employer-Feld employmentEndDate ("Beschäftigt bis", Datum, leer=noch aktiv).
+    // Ohne Migration bleibt das Feld undefined — diese Migration setzt einen sicheren Default.
+    fn: (s) => {
+      const employers = (s.employers || []).map(e => ({
+        ...e,
+        employmentEndDate: (typeof e.employmentEndDate === 'string') ? e.employmentEndDate : '',
       }));
       return { ...s, employers };
     },
