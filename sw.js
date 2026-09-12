@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-66';
+const CACHE_NAME = 'arbeitszeit-v3-9-67';
 const ASSETS = [
   './',
   './index.html',
@@ -84,9 +84,23 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Cache core assets individually so a single failure doesn't kill the install
+      // Cache core assets individually so a single failure doesn't kill the install.
+      // Fix v3.9.67: { cache: 'reload' } statt cache.add(url) — cache.add() respektiert
+      // das normale HTTP-Caching des Browsers. Kurz nach einem Deploy kann dessen
+      // Disk-Cache eine einzelne Datei (z. B. modules/constants.js) noch mit dem alten
+      // Inhalt liefern, waehrend andere Dateien (z. B. app.js) bereits frisch geholt
+      // werden — der neue Cache landet dann inkonsistent (neuer app.js + alter
+      // constants.js). Fetch mit cache:'reload' erzwingt eine echte Netzwerkanfrage
+      // unter Umgehung des HTTP-Caches fuer jede einzelne Datei.
       return Promise.all(
-        ASSETS.map((url) => cache.add(url).catch((err) => console.warn('Cache miss for', url, err)))
+        ASSETS.map((url) =>
+          fetch(url, { cache: 'reload' })
+            .then((response) => {
+              if (!response || !response.ok) throw new Error('HTTP ' + (response && response.status));
+              return cache.put(url, response);
+            })
+            .catch((err) => console.warn('Cache miss for', url, err))
+        )
       );
     })
   );

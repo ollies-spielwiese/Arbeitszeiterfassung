@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.66';
+export const APP_VERSION = '3.9.67';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.67', items: [
+    'Fix: Service-Worker cachte beim Update einzelne Dateien ggf. noch aus dem HTTP-Cache des Browsers statt frisch vom Netz, was kurz nach einem Deploy zu inkonsistenten Datei-Versionen im Offline-Cache führen konnte (z. B. neues app.js mit altem constants.js) — Precache nutzt jetzt fetch({ cache: \'reload\' }) und erzwingt für jede Datei eine echte Netzwerkanfrage',
+  ]},
   { version: '3.9.66', items: [
     'Fix: Statistik-Kachel "Gleitzeit-Überstundenabbau" im Tracker/Übersicht lief bei schmalerer Kachelbreite über den rechten Kachelrand hinaus — Label bricht jetzt an Silbengrenzen um (overflow-wrap + hyphens)',
     'Fix: Im Freiberufler-Modus zeigte das Label über der Kunden-Auswahl im Tracker fälschlich "Aktueller Arbeitgeber" statt "Aktueller Kunde" — wird jetzt dynamisch je Modus gesetzt',

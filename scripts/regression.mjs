@@ -2955,6 +2955,31 @@ function runServiceWorkerHostnameCheckSourceCheck() {
   );
 }
 
+// ---------- SW3: Install-Handler bypasst HTTP-Cache beim Precache ----------
+// cache.add(url) respektiert das normale HTTP-Caching des Browsers. Kurz nach
+// einem Deploy kann dessen Disk-Cache eine einzelne Datei noch mit altem Inhalt
+// liefern, waehrend andere Dateien bereits frisch geholt werden — der neue
+// SW-Cache landet dann inkonsistent (z.B. neuer app.js + alter constants.js,
+// beobachtet in v3.9.66: L('formerEmployers') zeigte den rohen Key statt des
+// Labels). fetch(url, { cache: 'reload' }) erzwingt eine echte Netzwerkanfrage
+// je Datei und verhindert das.
+function runServiceWorkerCacheBustCheck() {
+  const swSrc = fs.readFileSync(path.join(REPO_ROOT, 'sw.js'), 'utf8');
+  const installMatch = swSrc.match(/self\.addEventListener\('install'[\s\S]*?\n\}\);/);
+  assertTrue('SW5: install-Handler in sw.js gefunden', !!installMatch, 'sw.js');
+  if (!installMatch) return;
+  // Kommentare entfernen, damit erklaerende Kommentartexte (die selbst
+  // "cache.add(" erwaehnen duerfen) den Code-Check nicht faelschlich triggern.
+  const installSrc = installMatch[0]
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+  assertTrue(
+    'SW5: install-Handler nutzt fetch(url, { cache: \'reload\' }) statt cache.add(url)',
+    /cache:\s*['"]reload['"]/.test(installSrc) && !/\bcache\.add\(/.test(installSrc),
+    'sw.js install handler'
+  );
+}
+
 // ---------- Runner ----------
 
 (async () => {
@@ -2966,6 +2991,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
   runLibIntegritySourceCheck();
   runRangeVacationStatsEscapingSourceCheck();
   runServiceWorkerHostnameCheckSourceCheck();
+  runServiceWorkerCacheBustCheck();
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);
