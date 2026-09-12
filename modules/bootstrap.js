@@ -233,6 +233,13 @@ export function wireEvents(ctx) {
       });
     });
 
+    // Hilfe-Button neben "Einstellungen" (Text aus Anleitung, Abschnitt 10)
+    const btnSettingsHelp = document.getElementById('btn-settings-help');
+    if (btnSettingsHelp) btnSettingsHelp.addEventListener('click', () => {
+      const modal = document.getElementById('modal-settings-help');
+      if (modal) modal.classList.remove('hidden');
+    });
+
     // Holiday overrides
     const holidayYear = document.getElementById('holiday-year');
     if (holidayYear) holidayYear.addEventListener('change', renderHolidayList);

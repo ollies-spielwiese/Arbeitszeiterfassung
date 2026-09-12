@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.52';
+export const APP_VERSION = '3.9.53';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.53', items: [
+    'Neu: Hilfe-Button (?) neben der Überschrift "Einstellungen" öffnet ein Modal mit dem Hilfetext aus der Bedienungsanleitung (Abschnitt 10 — Feinjustage)',
+    'Regression: 9 neue Checks (SH1–SH9) für Button-Vorhandensein, Öffnen/Schließen des Modals und Inhalt des Hilfetexts',
+  ]},
   { version: '3.9.52', items: [
     'Sicherheit: Wochen-Label (isoWeek) in der Wochenansicht wird jetzt ebenfalls per escapeHtml() escaped — derselbe CodeQL-Fund wie in 3.9.51 (js/xss-through-dom, app.js/week.js) hatte neben den Zeit-Einträgen noch einen zweiten, zunaechst uebersehenen Einschleusungsweg ueber das Wochen-Eingabefeld',
     'Regression: buildWeekHTML() wird jetzt zusaetzlich direkt mit praepariertem isoWeek getestet (SEC1b)',

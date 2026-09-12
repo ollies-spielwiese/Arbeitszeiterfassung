@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.52</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.53</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -564,7 +564,10 @@
 
     <!-- Settings View -->
     <section id="view-settings" class="view">
-      <h2>Einstellungen</h2>
+      <div class="settings-title-row">
+        <h2>Einstellungen</h2>
+        <button type="button" id="btn-settings-help" class="btn-help" data-testid="button-settings-help" aria-label="Hilfe zu Einstellungen anzeigen">?</button>
+      </div>
 
       <div id="backup-reminder-banner" class="backup-reminder-banner hidden" data-testid="banner-backup-reminder">
         <span id="backup-reminder-text"></span>
@@ -1107,6 +1110,42 @@
       <div class="modal-actions">
         <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
         <button type="button" class="btn-primary" id="share-send-btn">Senden / Teilen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Hilfe zu Einstellungen (Text aus Anleitung, Abschnitt 10) -->
+  <div id="modal-settings-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-help-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-settings-help-title">Hilfe: Einstellungen</h3>
+        <button class="modal-close" data-close-modal>✕</button>
+      </div>
+      <div class="guide-body" data-testid="text-settings-help-body">
+        <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich). Daneben findest du:</p>
+        <ul>
+          <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
+            <ul>
+              <li><strong>Jahr</strong> oben wählen — die Liste zeigt alle Feiertage dieses Jahres im aktuell eingestellten Bundesland.</li>
+              <li>Berechnete Feiertage sind grau markiert. Per <strong>Deaktivieren</strong> gilt der Feiertag nicht mehr; per <strong>Umbenennen</strong> änderst du die Bezeichnung.</li>
+              <li>Geänderte Feiertage sind mit einem Punkt gekennzeichnet. Per <strong>Zurücksetzen</strong> stellst du das Original wieder her.</li>
+              <li>Neu hinzugefügte Feiertage können an ein bestimmtes Bundesland gebunden oder überall aktiv sein. Per Papierkorb wieder löschen.</li>
+              <li>Alle Änderungen bleiben ausschließlich lokal auf dem Gerät und wandern automatisch ins Backup.</li>
+            </ul>
+          </li>
+          <li><strong>Notizvorlagen:</strong> Textbausteine für Bemerkungen (z. B. „Überstunden wegen Projektabschluss"). Mit <strong>+ Neu</strong> anlegen, per <strong>✕</strong> wieder löschen.</li>
+          <li><strong>Daten:</strong>
+            <ul>
+              <li><strong>💾 Backup exportieren:</strong> speichert alle Daten als JSON‑Datei auf dein Gerät.</li>
+              <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel.</li>
+            </ul>
+          </li>
+          <li><strong>Backup-Erinnerung:</strong> Wurde noch nie oder seit mehr als 14 Tagen kein Backup exportiert, erscheint oben auf diesem Reiter ein Hinweisbanner mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+          <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-close-modal>Schließen</button>
       </div>
     </div>
   </div>

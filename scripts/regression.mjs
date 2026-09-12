@@ -991,6 +991,44 @@ async function runAuditLogUnits(page) {
   assertContains('AL6: Empty-State bei leerem Audit-Log', al6, 'Noch keine Änderungen protokolliert');
 }
 
+// ---------- 1n) Hilfe-Button "Einstellungen" (Modal) ----------
+
+async function runSettingsHelpUnits(page) {
+  console.log('\n=== 1n) Hilfe-Button "Einstellungen" (Modal) ===');
+
+  const before = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const modal = document.getElementById('modal-settings-help');
+    return {
+      existsBtn: !!document.getElementById('btn-settings-help'),
+      existsModal: !!modal,
+      hiddenBefore: modal ? modal.classList.contains('hidden') : null,
+    };
+  });
+  assertTrue('SH1: Hilfe-Button #btn-settings-help existiert', before.existsBtn);
+  assertTrue('SH2: Modal #modal-settings-help existiert', before.existsModal);
+  assertTrue('SH3: Modal ist initial verborgen', before.hiddenBefore, String(before.hiddenBefore));
+
+  const afterOpen = await page.evaluate(() => {
+    document.getElementById('btn-settings-help').click();
+    const modal = document.getElementById('modal-settings-help');
+    return { hidden: modal.classList.contains('hidden'), text: modal.textContent };
+  });
+  assertTrue('SH4: Modal \u00f6ffnet sich nach Klick auf den Hilfe-Button', !afterOpen.hidden);
+  assertContains('SH5: Hilfetext enth\u00e4lt "Feiertage anpassen"', afterOpen.text, 'Feiertage anpassen');
+  assertContains('SH6: Hilfetext enth\u00e4lt "Notizvorlagen"', afterOpen.text, 'Notizvorlagen');
+  assertContains('SH7: Hilfetext enth\u00e4lt "\u00c4nderungsprotokoll"', afterOpen.text, 'Änderungsprotokoll');
+  assertContains('SH8: Hilfetext enth\u00e4lt "Backup-Erinnerung"', afterOpen.text, 'Backup-Erinnerung');
+
+  const afterClose = await page.evaluate(() => {
+    const modal = document.getElementById('modal-settings-help');
+    const closeBtn = modal.querySelector('[data-close-modal]');
+    closeBtn.click();
+    return { hidden: modal.classList.contains('hidden') };
+  });
+  assertTrue('SH9: Modal schlie\u00dft sich \u00fcber den Schlie\u00dfen-Button', afterClose.hidden);
+}
+
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
 
 async function runUndoUnits(page) {
@@ -2120,6 +2158,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runRangeVacationStatsUnits(page);
     await runOffDayUnits(page);
     await runAuditLogUnits(page);
+    await runSettingsHelpUnits(page);
     await runUndoUnits(page);
     await runBackupReminderUnits(page);
     await runBackupImportMigrationUnits(page);

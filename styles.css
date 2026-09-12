@@ -511,6 +511,33 @@ textarea { resize: vertical; min-height: 3rem; }
 .archive-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
 .archive-actions button { flex: 1; font-size: 0.85rem; padding: 0.5rem; }
 
+.settings-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.settings-title-row h2 { margin: 0; }
+.btn-help {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-help:hover { background: var(--surface-alt); color: var(--text); }
+.modal-content .guide-body { padding: 0; margin-bottom: 0.5rem; }
+
 /* Modal */
 .modal {
   position: fixed;
