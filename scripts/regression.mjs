@@ -2570,6 +2570,12 @@ async function runFreelance(page) {
   const tracker = await checkView(page, 'tracker');
   assertTrue('freelance tracker: Rechnungsbetrag 595,00 €',
     /595,00\s*€/.test(tracker));
+  const flLabels = await page.evaluate(() => ({
+    activeEmployer: document.getElementById('active-employer-label')?.textContent,
+    formerEmployers: document.getElementById('former-employers-tracker-label')?.textContent,
+  }));
+  assertEq('BUG-B: freelance tracker: Aktueller-Kunde-Label', flLabels.activeEmployer, 'Aktueller Kunde');
+  assertEq('freelance tracker: Ehemalige-Kunden-Checkbox-Label', flLabels.formerEmployers, 'Ehemalige Kunden anzeigen');
 
   const week = await checkView(page, 'week');
   // Uppercase-Label "IST" via CSS text-transform; Woche kann leer sein wenn 1. des Monats
@@ -2640,6 +2646,28 @@ async function runEmployee(page) {
   assertTrue('employee tracker: Ist 7:00', /7:00/.test(tracker));
   assertTrue('employee tracker: Soll sichtbar', /Soll/i.test(tracker));
   assertTrue('employee tracker: Saldo sichtbar', /Saldo/i.test(tracker));
+  const emLabels = await page.evaluate(() => ({
+    activeEmployer: document.getElementById('active-employer-label')?.textContent,
+    formerEmployers: document.getElementById('former-employers-tracker-label')?.textContent,
+  }));
+  assertEq('BUG-B: employee tracker: Aktueller-Arbeitgeber-Label', emLabels.activeEmployer, 'Aktueller Arbeitgeber');
+  assertEq('employee tracker: Ehemalige-Arbeitgeber-Checkbox-Label', emLabels.formerEmployers, 'Ehemalige Arbeitgeber anzeigen');
+
+  // BUG-A: Statistik-Kachel-Label darf nicht über den rechten Kachelrand hinauslaufen
+  // (Regression: Gleitzeit-Überstundenabbau-Label überlief die Kachel bei 1280px Breite).
+  const overtimeOverflow = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll('.summary-item'));
+    const target = items.find(i => /GLEITZEIT/i.test(i.querySelector('.label')?.textContent || ''));
+    if (!target) return null;
+    const label = target.querySelector('.label');
+    const cardRect = target.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    return { overflowsRight: labelRect.right > cardRect.right + 1 };
+  });
+  assertTrue('BUG-A: Gleitzeit-Überstundenabbau-Kachel gefunden', overtimeOverflow !== null);
+  if (overtimeOverflow) {
+    assertTrue('BUG-A: Label überläuft rechten Kachelrand NICHT', overtimeOverflow.overflowsRight === false);
+  }
 
   const week = await checkView(page, 'week');
   assertTrue('employee week: Soll sichtbar', /Soll/i.test(week));

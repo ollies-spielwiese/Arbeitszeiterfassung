@@ -305,7 +305,7 @@ textarea { resize: vertical; min-height: 3rem; }
   padding: 0.75rem;
   border-radius: var(--radius-sm);
 }
-.summary-item .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.summary-item .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; overflow-wrap: break-word; hyphens: auto; }
 .summary-item .value { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 0.25rem; }
 .summary-item .value.pos { color: var(--success); }
 .summary-item .value.neg { color: var(--danger); }

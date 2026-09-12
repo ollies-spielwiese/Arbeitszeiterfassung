@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.65</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.66</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -130,12 +130,12 @@
     <!-- Tracker View -->
     <section id="view-tracker" class="view active">
       <div class="employer-selector">
-        <label for="active-employer">Aktueller Arbeitgeber</label>
+        <label for="active-employer" id="active-employer-label">Aktueller Arbeitgeber</label>
         <select id="active-employer" data-testid="select-active-employer"></select>
       </div>
       <label class="checkbox-row" for="show-former-employers-tracker">
         <input type="checkbox" id="show-former-employers-tracker" data-testid="checkbox-show-former-employers-tracker" />
-        Ehemalige Arbeitgeber anzeigen
+        <span id="former-employers-tracker-label">Ehemalige Arbeitgeber anzeigen</span>
       </label>
 
       <div class="mode-toggle" role="radiogroup" aria-label="Arbeitsort">

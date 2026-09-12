@@ -561,8 +561,12 @@ let liveTimerInterval = null;
 function renderTracker() {
   ensureActiveEmployer();
   const sel = document.getElementById('active-employer');
+  const activeEmployerLabel = document.getElementById('active-employer-label');
+  if (activeEmployerLabel) activeEmployerLabel.textContent = L('activeEmployer');
   const formerCb = document.getElementById('show-former-employers-tracker');
   if (formerCb) formerCb.checked = showFormerEmployers;
+  const formerEmployersLabel = document.getElementById('former-employers-tracker-label');
+  if (formerEmployersLabel) formerEmployersLabel.textContent = L('formerEmployers');
   const today = todayISO();
   const visibleEmployers = filterVisibleEmployers(state.employers, today, {
     showAll: showFormerEmployers,

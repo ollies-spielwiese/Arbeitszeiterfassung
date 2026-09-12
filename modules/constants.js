@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.65';
+export const APP_VERSION = '3.9.66';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.66', items: [
+    'Fix: Statistik-Kachel "Gleitzeit-Überstundenabbau" im Tracker/Übersicht lief bei schmalerer Kachelbreite über den rechten Kachelrand hinaus — Label bricht jetzt an Silbengrenzen um (overflow-wrap + hyphens)',
+    'Fix: Im Freiberufler-Modus zeigte das Label über der Kunden-Auswahl im Tracker fälschlich "Aktueller Arbeitgeber" statt "Aktueller Kunde" — wird jetzt dynamisch je Modus gesetzt',
+    'Fix: Die Checkbox "Ehemalige Arbeitgeber anzeigen" im Tracker zeigte im Freiberufler-Modus ebenfalls die falsche Bezeichnung — heißt dort jetzt korrekt "Ehemalige Kunden anzeigen"',
+  ]},
   { version: '3.9.65', items: [
     'CI: neuer Lighthouse-Check (Performance/Barrierefreiheit/Best-Practices/SEO) gegen den lokal servierten Build — lighthouserc.json mit Mindestwerten (Barrierefreiheit & Best-Practices als harte Schranke ≥90 %, Performance/SEO als Warnung); läuft bei jedem Push/PR auf main sowie manuell',
   ]},
@@ -467,6 +472,7 @@ export const LABELS = {
     employer: 'Arbeitgeber',
     employers: 'Arbeitgeber',
     activeEmployer: 'Aktueller Arbeitgeber',
+    formerEmployers: 'Ehemalige Arbeitgeber anzeigen',
     newEmployer: 'Neuer Arbeitgeber',
     editEmployer: 'Arbeitgeber bearbeiten',
     employerName: 'Name des Arbeitgebers',
@@ -477,6 +483,7 @@ export const LABELS = {
     employer: 'Kunde',
     employers: 'Kunden',
     activeEmployer: 'Aktueller Kunde',
+    formerEmployers: 'Ehemalige Kunden anzeigen',
     newEmployer: 'Neuer Kunde',
     editEmployer: 'Kunde bearbeiten',
     employerName: 'Name des Kunden',
