@@ -27,6 +27,7 @@ export function wireEvents(ctx) {
   const {
     // State + Storage
     state, saveState, storage,
+    stateWasCorrupted, corruptedBackupKey,
     // Views + Rendering
     switchView, renderTracker, renderEntries, renderEmployers, renderReport,
     renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
@@ -279,6 +280,19 @@ export function wireEvents(ctx) {
       const banner = document.createElement('div');
       banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:0.65rem 1rem;font-size:0.85rem;text-align:center;border-bottom:1px solid #fbbf24;';
       banner.innerHTML = '⚠️ Vorschaumodus – Daten werden nur während der Sitzung behalten. Auf dem Handy/Tablet installiert bleiben Daten dauerhaft gespeichert.';
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+
+    // Warn if stored data was corrupted and reset to defaults (seit v3.9.49).
+    // Ohne diesen Hinweis würde ein defekter Speicherinhalt unbemerkt zu einem
+    // leeren Zustand führen — die App sähe normal aus, wäre aber leer.
+    if (stateWasCorrupted) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:#fee2e2;color:#991b1b;padding:0.65rem 1rem;font-size:0.85rem;text-align:center;border-bottom:1px solid #f87171;';
+      const keyHint = corruptedBackupKey
+        ? ` Eine Kopie der beschädigten Daten wurde unter <code>${escapeHtml(corruptedBackupKey)}</code> im Speicher gesichert.`
+        : '';
+      banner.innerHTML = `⚠️ Deine gespeicherten Daten konnten nicht gelesen werden und wurden zurückgesetzt.${keyHint} Bitte prüfe, ob ein aktuelles Backup vorhanden ist.`;
       document.body.insertBefore(banner, document.body.firstChild);
     }
 

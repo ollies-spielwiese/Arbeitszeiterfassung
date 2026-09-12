@@ -274,7 +274,7 @@ Formalisiert in v3.8.3. Regeln:
 
 1. **`SCHEMA_VERSION` ist die einzige Wahrheit.** Aktuell 3.
 2. **`migrations[]` ist ein Array von `{ from, to, apply(state) }`.** Jede Migration erhöht die Version um genau 1 und ist idempotent bei doppelter Anwendung.
-3. **`runMigrations(state)` läuft in `loadState`** und iteriert vom aktuellen `state.schemaVersion` (Default 0 für Alt-Daten) bis `SCHEMA_VERSION`.
+3. **`runMigrations(state)` läuft in `loadState`** und iteriert vom aktuellen `state.schemaVersion` (Default 0 für Alt-Daten) bis `SCHEMA_VERSION`. Seit v3.9.49 läuft `runMigrations` aus demselben Grund auch in `importBackup()` (`modules/backup.js`) — ein importiertes Backup durchläuft dieselben Migrationen wie ein normaler App-Start, statt mit veraltetem Schema eingespielt zu werden.
 4. **Bestehende Daten dürfen sich nicht verändern**, außer die Migration steht dafür. Test: `mig-M2` in `scripts/regression.mjs` prüft genau das.
 5. **Neue Migration = neuer Regression-Test** in Sektion 1b von `regression.mjs`. Sonst brechen die Idempotenz-Garantien.
 

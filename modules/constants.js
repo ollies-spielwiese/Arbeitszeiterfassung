@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.48';
+export const APP_VERSION = '3.9.49';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.49', items: [
+    'Fehlerbehebung: Backup-Import ("Wiederherstellen") führte importierte Daten nicht durch die Schema-Migrationen — ein auf einem älteren App-Stand oder anderen Gerät exportiertes Backup konnte dadurch mit veraltetem Datenformat eingespielt werden, obwohl der normale App-Start dieselben Daten korrekt migriert hätte; importBackup() ruft jetzt dieselben Migrationen wie loadState() auf',
+    'Fehlerbehebung: War der gespeicherte Datenbestand beschädigt (z. B. durch einen abgebrochenen Schreibvorgang), wurden die Daten bisher stillschweigend durch einen leeren Ausgangszustand ersetzt — ohne jeden Hinweis. Jetzt wird eine Rettungskopie der beschädigten Rohdaten unter einem separaten Schlüssel gesichert und ein deutlich sichtbares Warnbanner eingeblendet',
+    'Regression: 15 neue Checks (BI1–BI2 für den Migrations-Lauf beim Backup-Import, CS1–CS2 für die Robustheit bei beschädigtem Speicher)',
+  ]},
   { version: '3.9.48', items: [
     'Geändert: Gleitzeitkonto zeigt jetzt ein Kalenderjahr (Januar–Dezember) statt eines rollierenden Zeitraums ("Bis Monat" + 6/12/24 Monate) — Eingabe ist jetzt eine einzelne Jahresauswahl, analog zur Urlaubsplanung',
     'Fehlerbehebung: Monate vor "Angestellt seit" (bzw. vor dem frühesten Eintrag, falls nicht gesetzt) flossen bisher mit vollem Monats-Soll gegen 0h Ist in den Saldo ein — das erzeugte bei kürzlich begonnenen Anstellungen einen falschen, stark negativen Saldo; diese Monate werden jetzt weder berechnet noch angezeigt',

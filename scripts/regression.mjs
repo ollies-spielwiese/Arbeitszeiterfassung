@@ -1004,10 +1004,186 @@ async function runBackupReminderUnits(page) {
   assertTrue('BR6: exportBackup() setzt lastBackupAt', br6, '');
 }
 
-// ---------- 1k) Gleitzeitkonto Unit-Tests (v3.9.47) ----------
+// ---------- 1k) Backup-Import: Migrations-Lauf beim Import (v3.9.49) ----------
+// Vor v3.9.49 rief importBackup() runMigrations() nicht auf — ein auf einem
+// anderen Gerät/einer älteren App-Version exportiertes Backup wurde beim Import
+// NICHT auf den aktuellen Schema-Stand gehoben (anders als beim normalen App-Start
+// via loadState()). Relevant, weil Backups als Geräte-Brücke ohne Cloud-Sync dienen.
+
+async function runBackupImportMigrationUnits(page) {
+  console.log('\n=== 1k) Backup-Import: Migrations-Lauf beim Import (v3.9.49) ===');
+
+  // BI1: Legacy-Backup ohne schemaVersion (doppelte Homeoffice-Einträge am selben Tag,
+  // tpl-2 ohne scope, Employer ohne hiredSince/vacationCarryOver) wird beim Import
+  // genauso migriert wie beim normalen App-Start — alle drei Migrationsstufen (1→2, 2→3, 3→4).
+  page.once('dialog', d => d.accept());
+  const bi1 = await page.evaluate(async () => {
+    const { importBackup } = await import('/modules/backup.js');
+    const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
+
+    const legacyBackup = {
+      employers: [{ id: 'e1', name: 'Import-Test AG' }],
+      entries: [
+        { id: 'a', employerId: 'e1', date: '2026-01-15', type: 'homeoffice', segments: [{ start: '09:00', end: '11:00' }] },
+        { id: 'b', employerId: 'e1', date: '2026-01-15', type: 'homeoffice', segments: [{ start: '13:00', end: '17:00' }] },
+      ],
+      archives: [],
+      templates: [{ id: 'tpl-2', label: 'Alt', text: 'x' }],
+      settings: { state: 'HE' },
+      runningTimer: null,
+      // Bewusst kein schemaVersion-Feld -> simuliert ein Backup von vor dem Migrations-Layer.
+    };
+    const file = new File([JSON.stringify(legacyBackup)], 'legacy-backup.json', { type: 'application/json' });
+
+    await new Promise((resolve) => {
+      importBackup(file, {
+        setState,
+        saveState: () => {},
+        toast: () => {},
+        DEFAULT_STATE,
+        normalizeHolidayOverrides: window.normalizeHolidayOverrides,
+        runMigrations: window.runMigrations,
+        onImport: () => resolve(),
+      });
+    });
+
+    const s = getState();
+    const homeofficeOn15 = s.entries.filter(e => e.type === 'homeoffice' && e.date === '2026-01-15');
+    const tpl2 = s.templates.find(t => t.id === 'tpl-2');
+    const employer = s.employers.find(e => e.id === 'e1');
+    const result = {
+      schemaVersion: s.schemaVersion,
+      homeofficeCount: homeofficeOn15.length,
+      homeofficeSegCount: homeofficeOn15[0]?.segments?.length,
+      tplScope: tpl2?.scope,
+      hiredSince: employer?.hiredSince,
+      vacationCarryOver: employer?.vacationCarryOver,
+    };
+    // WICHTIG: setState() im echten Modul-Singleton umgangen die App-Referenz (window.state).
+    // Ohne Resync würde ein späterer saveState()-Aufruf (z.B. in seedState()) versehentlich
+    // diese synthetischen Test-Daten statt der echten App-Daten persistieren.
+    setState(window.state);
+    return result;
+  });
+  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 4);
+  assertTrue('BI1: zwei Legacy-Homeoffice-Einträge am selben Tag werden beim Import zu einem zusammengeführt',
+    bi1.homeofficeCount === 1, `count=${bi1.homeofficeCount}`);
+  assertTrue('BI1: zusammengeführter Eintrag hat beide Segmente',
+    bi1.homeofficeSegCount === 2, `segs=${bi1.homeofficeSegCount}`);
+  assertEq('BI1: tpl-2 bekommt beim Import scope=employee', bi1.tplScope, 'employee');
+  assertEq('BI1: Employer bekommt beim Import hiredSince-Default', bi1.hiredSince, '');
+  assertEq('BI1: Employer bekommt beim Import vacationCarryOver-Default', bi1.vacationCarryOver, 0);
+
+  // BI2: Ein Backup, das bereits auf aktueller SCHEMA_VERSION ist, bleibt beim Import
+  // unverändert — kein unerwünschter Daten-Drift durch den neuen Migrations-Lauf.
+  page.once('dialog', d => d.accept());
+  const bi2 = await page.evaluate(async () => {
+    const { importBackup } = await import('/modules/backup.js');
+    const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
+
+    const currentBackup = {
+      schemaVersion: 4,
+      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3 }],
+      entries: [{ id: 'x', employerId: 'e2', date: '2026-02-01', type: 'work', start: '09:00', end: '17:00' }],
+      archives: [],
+      templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
+      settings: { state: 'HE' },
+      runningTimer: null,
+    };
+    const file = new File([JSON.stringify(currentBackup)], 'current-backup.json', { type: 'application/json' });
+
+    await new Promise((resolve) => {
+      importBackup(file, {
+        setState,
+        saveState: () => {},
+        toast: () => {},
+        DEFAULT_STATE,
+        normalizeHolidayOverrides: window.normalizeHolidayOverrides,
+        runMigrations: window.runMigrations,
+        onImport: () => resolve(),
+      });
+    });
+
+    const s = getState();
+    const result = {
+      schemaVersion: s.schemaVersion,
+      employerVacationCarryOver: s.employers.find(e => e.id === 'e2')?.vacationCarryOver,
+      entryCount: s.entries.length,
+    };
+    setState(window.state); // Resync: siehe Kommentar in BI1.
+    return result;
+  });
+  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=4', bi2.schemaVersion, 4);
+  assertEq('BI2: unveränderte Felder bleiben beim Import unverändert', bi2.employerVacationCarryOver, 3);
+  assertEq('BI2: Einträge werden beim Import nicht verdoppelt/verloren', bi2.entryCount, 1);
+}
+
+// ---------- 1l) State-Robustheit bei defektem localStorage (v3.9.49) ----------
+// Vor v3.9.49 fiel loadState() bei kaputtem JSON im Speicher (z.B. durch einen
+// abgebrochenen Schreibvorgang) stillschweigend auf einen leeren DEFAULT_STATE
+// zurück — ohne jeden Hinweis für den Nutzer. Diese Tests laufen direkt gegen
+// modules/state.js und stellen den realen localStorage-Inhalt danach exakt wieder her.
+
+async function runStateCorruptionUnits(page) {
+  console.log('\n=== 1l) State-Robustheit bei defektem localStorage (v3.9.49) ===');
+
+  const cs = await page.evaluate(async () => {
+    const { loadState, wasLastLoadCorrupted, getCorruptedBackupKey, setState, STORAGE_KEY } = await import('/modules/state.js');
+    const helpers = { uid: () => 'x', normalizeSegments: (s) => s, normalizeHolidayOverrides: window.normalizeHolidayOverrides };
+
+    const savedRaw = localStorage.getItem(STORAGE_KEY);
+    try {
+      // CS1: Speicherinhalt defekt simulieren (kaputtes JSON).
+      localStorage.setItem(STORAGE_KEY, '{not valid json!!!');
+      // loadState() protokolliert diesen Fall bewusst per console.error (Diagnose für echte
+      // Nutzer/Devtools) — hier gezielt unterdrückt, damit der globale console-error-Gate
+      // der QA-Suite nicht auf diesen erwarteten, absichtlich ausgelösten Fehler anspringt.
+      const origConsoleError = console.error;
+      console.error = () => {};
+      const fresh = loadState(helpers);
+      console.error = origConsoleError;
+      const corrupted = wasLastLoadCorrupted();
+      const rescueKey = getCorruptedBackupKey();
+      const rescuedContent = rescueKey ? localStorage.getItem(rescueKey) : null;
+      if (rescueKey) localStorage.removeItem(rescueKey);
+
+      // CS2: Ein direkt folgendes, gültiges Laden muss die Warnung wieder zurücksetzen.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        schemaVersion: 4, employers: [], entries: [], archives: [], templates: [],
+        settings: { state: 'HE' }, runningTimer: null,
+      }));
+      loadState(helpers);
+      const correctedAfterValidLoad = wasLastLoadCorrupted();
+
+      return {
+        freshIsEmpty: Array.isArray(fresh.employers) && fresh.employers.length === 0,
+        corrupted,
+        rescueKeyExists: !!rescueKey,
+        rescuedContentMatches: rescuedContent === '{not valid json!!!',
+        correctedAfterValidLoad,
+      };
+    } finally {
+      if (savedRaw === null) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, savedRaw);
+      // WICHTIG: loadState() hier ersetzt den Modul-Singleton durch einen von
+      // window.state losgelösten Test-State. Resync, damit ein späterer saveState()
+      // (z.B. in seedState()) wieder die echten App-Daten persistiert.
+      setState(window.state);
+    }
+  });
+
+  assertTrue('CS1: bei defektem Speicher wird ein leerer Fresh-State zurückgegeben (kein Crash)', cs.freshIsEmpty, '');
+  assertTrue('CS1: wasLastLoadCorrupted() meldet den Defekt', cs.corrupted === true, `corrupted=${cs.corrupted}`);
+  assertTrue('CS1: eine Rettungskopie wird unter einem Ersatzschlüssel angelegt', cs.rescueKeyExists, '');
+  assertTrue('CS1: die Rettungskopie enthält exakt die defekten Rohdaten', cs.rescuedContentMatches, '');
+  assertTrue('CS2: nach einem darauffolgenden gültigen Laden ist die Warnung wieder zurückgesetzt',
+    cs.correctedAfterValidLoad === false, `corrupted=${cs.correctedAfterValidLoad}`);
+}
+
+// ---------- 1m) Gleitzeitkonto Unit-Tests (v3.9.47) ----------
 
 async function runGleitzeitkontoUnits(page) {
-  console.log('\n=== 1k) Gleitzeitkonto Unit-Tests ===');
+  console.log('\n=== 1m) Gleitzeitkonto Unit-Tests ===');
 
   // GK1: buildGleitzeitkontoHTML berechnet den laufenden (kumulierten) Saldo korrekt
   // und zeigt Titel, Summary und je eine Tabellenzeile pro Monat.
@@ -1710,6 +1886,8 @@ function runActiveUpdateCheckOnLoadCheck() {
     await runAuditLogUnits(page);
     await runUndoUnits(page);
     await runBackupReminderUnits(page);
+    await runBackupImportMigrationUnits(page);
+    await runStateCorruptionUnits(page);
     await runGleitzeitkontoUnits(page);
     await runFreelance(page);
     await runEmployee(page);

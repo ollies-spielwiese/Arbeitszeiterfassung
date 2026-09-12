@@ -12,6 +12,9 @@
 //   DEFAULT_STATE,               // Merge-Basis fuer Legacy-Backups
 //   normalizeHolidayOverrides,   // Konsistenz nach Import
 //   onImport,                    // Callback (newState) -> void, fuer Re-Renders
+//   runMigrations,               // seit v3.9.49: hebt importierte Backups auf SCHEMA_VERSION (DI)
+//   uid,                         // an runMigrations weitergereicht
+//   normalizeSegments,           // an runMigrations weitergereicht
 // }
 
 export function exportBackup(ctx) {
@@ -33,6 +36,9 @@ export function importBackup(file, ctx) {
     DEFAULT_STATE,
     normalizeHolidayOverrides,
     onImport,
+    runMigrations,
+    uid,
+    normalizeSegments,
   } = ctx;
 
   const reader = new FileReader();
@@ -41,12 +47,22 @@ export function importBackup(file, ctx) {
       const data = JSON.parse(/** @type {string} */ (reader.result));
       if (!data.employers || !Array.isArray(data.employers)) throw new Error('Ungültiges Format');
       if (!confirm('Aktuelle Daten überschreiben?')) return;
-      const imported = {
+      let imported = {
         ...DEFAULT_STATE,
         ...data,
         settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
       };
       imported.settings.holidayOverrides = normalizeHolidayOverrides(imported.settings.holidayOverrides);
+      // Seit v3.9.49: importierte Backups können von einem anderen Gerät oder einer
+      // älteren App-Version stammen (z.B. Sync-Brücke zwischen iPad/Desktop ohne
+      // Cloud-Sync) und ein älteres Schema haben. Ohne diesen Migrations-Lauf würde
+      // ein Backup mit altem schemaVersion-Stand unmigriert übernommen werden,
+      // während loadState() beim normalen Start immer migriert — dieselbe Garantie
+      // muss auch für importierte Daten gelten.
+      if (typeof runMigrations === 'function') {
+        const { state: migrated } = runMigrations(imported, { uid, normalizeSegments });
+        imported = migrated;
+      }
       setState(imported);
       saveState();
       if (typeof onImport === 'function') onImport(imported);

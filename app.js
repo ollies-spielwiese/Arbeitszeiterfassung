@@ -51,6 +51,8 @@ import {
   saveState as _saveState,
   getState as _getState,
   setState as _setState,
+  wasLastLoadCorrupted,
+  getCorruptedBackupKey,
 } from './modules/state.js';
 import {
   pad,
@@ -321,6 +323,10 @@ function saveState() {
 // für Regression-Skripte, die über page.evaluate darauf zugreifen.
 let state = loadState();
 if (typeof window !== 'undefined') window.state = state;
+// Seit v3.9.49: unmittelbar nach dem Laden festhalten, ob der Speicher defekt war —
+// wireEvents() zeigt in diesem Fall einen sichtbaren Warn-Banner (siehe modules/bootstrap.js).
+const stateWasCorrupted = wasLastLoadCorrupted();
+const corruptedBackupKey = getCorruptedBackupKey();
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -1768,6 +1774,9 @@ function importBackup(file) {
     toast,
     DEFAULT_STATE,
     normalizeHolidayOverrides,
+    runMigrations: _runMigrationsModule,
+    uid,
+    normalizeSegments,
     onImport: (imported) => {
       state = _getState();
       if (typeof window !== 'undefined') window.state = state;
@@ -1819,6 +1828,7 @@ function toast(msg, opts) {
 // DOMContentLoaded-Wrapper bleibt hier, damit type=module (defer) das Event nicht verpasst.
 document.addEventListener('DOMContentLoaded', () => wireEvents({
   state, saveState, storage,
+  stateWasCorrupted, corruptedBackupKey,
   switchView, renderTracker, renderEntries, renderEmployers, renderReport,
   renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,
   startWork, endWork, setMode, updateModeVisibility,
@@ -1863,6 +1873,7 @@ if (typeof window !== 'undefined') {
   exportBridge(window, {
     state, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
     _runMigrationsModule, migrateHomeofficeEntries,
+    wasLastLoadCorrupted, getCorruptedBackupKey,
     getSummaryFields, getOverviewSummaryFields,
     renderSummaryHTML, renderSummaryPdfLines, renderSummaryWordParagraphs, renderSummaryPlaintext,
     getEmployer, getCurrentReport, getCurrentOverview,

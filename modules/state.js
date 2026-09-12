@@ -82,11 +82,39 @@ export const DEFAULT_STATE = {
 
 let _currentState = null;
 
+// Seit v3.9.49: Sichtbarkeit statt stillem Reset bei defektem localStorage.
+// Ohne diese beiden Flags fiel ein kaputter Speicherinhalt (z.B. durch einen
+// abgebrochenen Schreibvorgang) unbemerkt auf einen leeren DEFAULT_STATE zurück
+// — die App sah normal aus, war aber leer. wasLastLoadCorrupted()/
+// getCorruptedBackupKey() erlauben dem UI-Layer (siehe modules/bootstrap.js),
+// den Nutzer sichtbar zu warnen und auf die gerettete Rohkopie zu verweisen.
+let _lastLoadCorrupted = false;
+let _corruptedBackupKey = null;
+
+/** @returns {boolean} true, wenn der letzte loadState()-Aufruf auf einen defekten
+ *  Speicherinhalt gestossen ist (JSON-Parse-Fehler o.ä.) und auf DEFAULT_STATE
+ *  zurückgefallen ist. */
+export function wasLastLoadCorrupted() {
+  return _lastLoadCorrupted;
+}
+
+/** @returns {string|null} Storage-Key, unter dem die defekte Rohkopie gerettet
+ *  wurde (null, wenn keine Rettung nötig war oder die Rettung selbst fehlschlug). */
+export function getCorruptedBackupKey() {
+  return _corruptedBackupKey;
+}
+
 /**
  * Lädt State aus persistentem Storage, mergt Defaults und führt Migrationen aus.
  * helpers.uid und helpers.normalizeSegments werden an runMigrations weitergereicht
  * (Dependency-Injection), helpers.normalizeHolidayOverrides normalisiert das
  * settings.holidayOverrides-Feld nach dem Merge.
+ *
+ * Wenn unter STORAGE_KEY zwar Daten liegen, diese aber nicht gelesen werden
+ * können (kaputtes JSON), wird NICHT stillschweigend auf einen leeren State
+ * zurückgefallen: die Rohdaten werden zuerst unter einem Zeitstempel-Schlüssel
+ * gerettet, und wasLastLoadCorrupted() liefert danach true, damit der UI-Layer
+ * einen sichtbaren Hinweis zeigen kann (siehe modules/bootstrap.js).
  *
  * @param {{
  *   uid: () => string,
@@ -97,9 +125,18 @@ let _currentState = null;
  */
 export function loadState(helpers) {
   const { normalizeHolidayOverrides } = helpers;
+  _lastLoadCorrupted = false;
+  _corruptedBackupKey = null;
+
+  let raw = null;
   try {
-    const raw = storage.get(STORAGE_KEY);
-    if (raw) {
+    raw = storage.get(STORAGE_KEY);
+  } catch (e) {
+    raw = null;
+  }
+
+  if (raw) {
+    try {
       const loaded = JSON.parse(raw);
       const mergedSettings = { ...DEFAULT_STATE.settings, ...(loaded.settings || {}) };
       mergedSettings.holidayOverrides = normalizeHolidayOverrides(mergedSettings.holidayOverrides);
@@ -118,10 +155,20 @@ export function loadState(helpers) {
       }
       _currentState = migrated;
       return migrated;
+    } catch (e) {
+      console.error('State load failed — gespeicherte Daten sind beschädigt, rette Rohkopie', e);
+      _lastLoadCorrupted = true;
+      try {
+        const rescueKey = `${STORAGE_KEY}_corrupted_${Date.now()}`;
+        storage.set(rescueKey, raw);
+        _corruptedBackupKey = rescueKey;
+      } catch (e2) {
+        // Rettung ist Best-Effort: schlägt sie fehl, bleibt wasLastLoadCorrupted()
+        // trotzdem true, damit der Nutzer zumindest gewarnt wird.
+      }
     }
-  } catch (e) {
-    console.error('State load failed', e);
   }
+
   const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE));
   fresh.schemaVersion = SCHEMA_VERSION;
   _currentState = fresh;
