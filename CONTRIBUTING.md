@@ -135,7 +135,7 @@ Alte Legacy-Pages-Deployment (branch-basiert) läuft aktuell parallel. Kann in d
 
 ## Pull Requests
 
-Aktuell arbeitet das Projekt direkt auf `main`. Wenn Mitentwickler einsteigen, gilt:
+Aktuell arbeitet das Projekt direkt auf `main`. Seit v3.9.65 ist `main` per GitHub Branch Protection gegen Force-Pushes und Löschung geschützt; zusätzlich sind die Checks `Playwright-Regression`, `Playwright-Regression (WebKit/Safari)`, `Visual-Regression` und `Lighthouse-Check` als Required Status Checks hinterlegt (`strict: true`). `enforce_admins` ist bewusst deaktiviert, damit der bisherige Direct-Push-Workflow von Repo-Admins unverändert weiterläuft — die Required Checks greifen vor allem, sobald Dritte (z. B. Dependabot- oder externe PRs) einen Merge-Button sehen wollen. Wenn Mitentwickler einsteigen, gilt zusätzlich:
 
 - Feature-Branch von `main` abzweigen.
 - PR gegen `main` öffnen — CI-Regression muss grün sein.
