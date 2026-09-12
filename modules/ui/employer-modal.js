@@ -76,8 +76,9 @@ export function openEmployerModal(emp, ctx) {
   const freelanceDefault = isFreelance();
   const defWeekly = freelanceDefault ? 0 : 40;
   const defMonthly = freelanceDefault ? 0 : 160;
+  const defaultKind = isFreelance() ? 'client' : 'employer';
   const e = emp || {
-    id: '', name: '', color: '#3b82f6', phone: '', personnelNumber: '',
+    id: '', kind: defaultKind, name: '', color: '#3b82f6', phone: '', personnelNumber: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly,
     breakMode: 'legal', annualVacation: 0, hiredSince: '', employmentEndDate: '', vacationCarryOver: 0,
@@ -86,6 +87,8 @@ export function openEmployerModal(emp, ctx) {
     notes: '',
   };
   document.getElementById('employer-id').value = e.id;
+  const kindEl = document.getElementById('employer-kind');
+  if (kindEl) kindEl.value = (e.kind === 'employer' || e.kind === 'client') ? e.kind : defaultKind;
   document.getElementById('employer-name').value = e.name;
   document.getElementById('employer-color').value = e.color;
   document.getElementById('employer-phone').value = e.phone || '';
@@ -125,7 +128,9 @@ export function saveEmployer(ev, ctx) {
   const { getState, saveState, uid, closeModals, renderEmployers, renderTracker, toast } = ctx;
   const state = getState();
   const id = document.getElementById('employer-id').value;
+  const kindVal = document.getElementById('employer-kind')?.value;
   const data = {
+    kind: (kindVal === 'client') ? 'client' : 'employer',
     name: document.getElementById('employer-name').value.trim(),
     color: document.getElementById('employer-color').value,
     phone: document.getElementById('employer-phone').value.trim(),

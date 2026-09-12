@@ -14,7 +14,7 @@
  * eigenen Utility-Abhängigkeiten hat.
  */
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /**
  * v3.5-Migration: Führt mehrere Home-Office-Einträge pro (employerId, date) zu einem
@@ -125,6 +125,22 @@ export const migrations = [
       const employers = (s.employers || []).map(e => ({
         ...e,
         personnelNumber: (typeof e.personnelNumber === 'string') ? e.personnelNumber : '',
+      }));
+      return { ...s, employers };
+    },
+  },
+  {
+    from: 6, to: 7,
+    // v3.9.58: Neues Employer-Feld kind ('employer'|'client') — trennt den Reiter „Arbeitgeber“
+    // (Modus „Angestellt“) vom Reiter „Kunde“ (Modus „Freiberuflich“), da state.employers für beide
+    // Erwerbsformen eine gemeinsame Liste ist. Bestehende Einträge ohne kind bekommen einmalig den Wert,
+    // der zum AKTUELLEN Modus (zum Zeitpunkt dieses Updates) passt — spätere manuelle Korrektur pro
+    // Eintrag im Formular möglich. Bereits vorhandenes gültiges kind bleibt unberührt (idempotent).
+    fn: (s) => {
+      const fallbackKind = (s.settings && s.settings.appMode === 'freelance') ? 'client' : 'employer';
+      const employers = (s.employers || []).map(e => ({
+        ...e,
+        kind: (e.kind === 'employer' || e.kind === 'client') ? e.kind : fallbackKind,
       }));
       return { ...s, employers };
     },

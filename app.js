@@ -1687,11 +1687,17 @@ function renderEmployers() {
   if (empTabBtn) empTabBtn.textContent = L('employers');
   const empViewTitle = document.getElementById('employers-view-title');
   if (empViewTitle) empViewTitle.textContent = `${L('employers')} verwalten`;
-  if (!state.employers.length) {
+  // Seit v3.9.58: Arbeitgeber (Modus "Angestellt") und Kunden (Modus "Freiberuflich") sind zwar in
+  // derselben Liste gespeichert, werden hier aber nach ihrem festen `kind`-Feld getrennt angezeigt —
+  // eine Person kann parallel angestellt UND freiberuflich taetig sein, ohne dass sich die beiden
+  // Listen im jeweils falschen Reiter mischen.
+  const wantedKind = isFreelance() ? 'client' : 'employer';
+  const relevantEmployers = state.employers.filter(e => (e.kind === 'employer' || e.kind === 'client') ? e.kind === wantedKind : true);
+  if (!relevantEmployers.length) {
     container.innerHTML = `<div class="empty-state">Noch kein ${escapeHtml(L('employer'))} angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>`;
     return;
   }
-  container.innerHTML = _buildEmployerCardsHTMLRaw(state.employers, {
+  container.innerHTML = _buildEmployerCardsHTMLRaw(relevantEmployers, {
     escapeHtml,
     formatMoney,
     breakModeLabel,

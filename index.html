@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.57</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.58</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -467,6 +467,7 @@
                   <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>, die zum Jahresanspruch hinzugerechnet werden.</li>
                   <li><strong>Angestellt seit</strong> und <strong>Beschäftigt bis:</strong> grenzen die anteilige Urlaubsberechnung und das Gleitzeitkonto ein. Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> — er erhält in der Liste einen rot hinterlegten Namen und das Badge „Ehemalig seit ...“ und verschwindet aus den Auswahlfeldern für neue Einträge. Über die Checkbox <strong>„Ehemalige anzeigen“</strong> (verfügbar in Tracker, Einträge, Übersicht und Gleitzeitkonto) blendest du ehemalige Arbeitgeber bei Bedarf wieder ein, etwa um nachträglich noch einen Nachweis zu erstellen.</li>
                   <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
+                  <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint — beide Listen sind seit v3.9.58 strikt getrennt. Neue Einträge übernehmen automatisch den aktuellen Modus; du kannst den Typ im Formular aber jederzeit manuell umstellen, etwa wenn du parallel angestellt und freiberuflich tätig bist. Die Monatsübersicht (Reiter „Übersicht“) zeigt weiterhin beide Typen gemeinsam an.</li>
                 </ul>
               </li>
             </ul>
@@ -567,6 +568,7 @@
               <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
               <li>Der Bundesland-/Feiertage-Block in den Einstellungen, das Urlaubsanspruch-Feld im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
               <li>Das Feld <strong>Pers.-Nr.</strong> steht auch im Kunden-Formular zur Verfügung, falls dir ein Kunde eine eigene Nummer zugewiesen hat. „Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> (siehe Abschnitt 7) funktionieren für Kunden genauso wie für Arbeitgeber.</li>
+              <li>Bist du gleichzeitig angestellt <em>und</em> freiberuflich tätig (z. B. Lehrkraft mit abendlicher Nachhilfe), führt die App beide Erwerbsformen als getrennte Listen: der Reiter „Arbeitgeber“ zeigt nur Einträge mit Eintragstyp „Arbeitgeber“, der Reiter „Kunde“ nur solche mit Eintragstyp „Kunde“. Jeder Eintrag bekommt seinen Typ automatisch beim Anlegen zugewiesen, lässt sich aber im Formular manuell umstellen. Der Reiter „Übersicht“ ist davon unberührt und fasst beide Erwerbsformen weiterhin gemeinsam zusammen.</li>
             </ol>
             <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
           </div>
@@ -884,6 +886,14 @@
 
         <fieldset class="fs">
           <legend>Basisdaten</legend>
+          <div class="form-row" id="employer-kind-row">
+            <label for="employer-kind">Eintragstyp</label>
+            <select id="employer-kind" data-testid="select-employer-kind">
+              <option value="employer">Arbeitgeber (Modus „Angestellt“)</option>
+              <option value="client">Kunde (Modus „Freiberuflich“)</option>
+            </select>
+            <small class="hint">Wird beim Anlegen automatisch passend zum aktuellen Modus gesetzt. Nur ändern, wenn dieser Eintrag versehentlich im falschen Modus angelegt wurde.</small>
+          </div>
           <div class="form-row two-col">
             <div>
               <label for="employer-name">Name / Firma *</label>
@@ -1202,6 +1212,7 @@
               <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>.</li>
               <li><strong>Angestellt seit</strong> / <strong>Beschäftigt bis:</strong> Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> (rote Markierung, Badge) und verschwindet aus den Auswahlfeldern für neue Einträge — über die Checkbox <strong>„Ehemalige anzeigen“</strong> blendest du ihn wieder ein.</li>
               <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
+              <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag hier im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint. Neue Einträge übernehmen automatisch den aktuellen Modus, lassen sich aber jederzeit manuell umstellen — z. B. wenn du parallel angestellt und freiberuflich tätig bist.</li>
             </ul>
           </li>
         </ul>
@@ -1217,6 +1228,7 @@
               <li><strong>Abrechnung:</strong> optionaler <strong>Stundensatz</strong> und <strong>Währung</strong> — Grundlage für die Netto-Summe (Zeit × Stundensatz), die am Ende von PDF-/Word-Berichten ausgewiesen wird. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
               <li>Nur das <strong>Urlaubsanspruch</strong>-Feld ist im Freiberufler-Modus ausgeblendet, da hier keine Anstellung vorliegt. Sollstunden, Pausenregelung und feste Wochenarbeitszeiten bleiben verfügbar.</li>
               <li>„Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> funktionieren wie bei Arbeitgebern.</li>
+              <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag hier im Reiter „Kunde“ (Modus „Freiberuflich“) oder im Reiter „Arbeitgeber“ (Modus „Angestellt“) erscheint. Neue Einträge übernehmen automatisch den aktuellen Modus, lassen sich aber jederzeit manuell umstellen — z. B. wenn du parallel angestellt und freiberuflich tätig bist.</li>
             </ul>
           </li>
         </ul>

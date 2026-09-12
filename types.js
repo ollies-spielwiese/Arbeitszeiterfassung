@@ -42,6 +42,12 @@
  * Arbeitgeber (im Freelance-Modus: Kunde).
  * @typedef {Object} AZEmployer
  * @property {string} id
+ * @property {'employer'|'client'} kind Feste Einordnung, unabhängig vom aktuellen App-Modus, seit v3.9.58:
+ *   'employer' = erscheint im Reiter „Arbeitgeber" (Modus „Angestellt"), 'client' = erscheint im Reiter
+ *   „Kunde" (Modus „Freiberuflich"). Wird beim Anlegen automatisch nach aktuellem Modus vorbelegt, ist im
+ *   Formular aber manuell änderbar (Korrektur bei falsch angelegten Einträgen). Grund: Ein und dieselbe
+ *   Person kann parallel angestellt UND freiberuflich tätig sein (z.B. Lehrer + abends Nachhilfe) — die
+ *   Liste state.employers ist für beide Erwerbsformen gemeinsam, muss aber pro Reiter sauber trennen.
  * @property {string} name
  * @property {string} color Hex-Farbe '#RRGGBB'
  * @property {string} [phone]

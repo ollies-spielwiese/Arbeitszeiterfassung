@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.57';
+export const APP_VERSION = '3.9.58';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.58', items: [
+    'Neu: Arbeitgeber (Modus "Angestellt") und Kunden (Modus "Freiberuflich") werden jetzt strikt getrennt gefuehrt — der Reiter "Arbeitgeber verwalten" zeigt nur noch Eintraege vom Typ Arbeitgeber, der Reiter "Kunden verwalten" nur noch Eintraege vom Typ Kunde. Grund: dieselbe Person kann parallel angestellt UND freiberuflich taetig sein (z.B. Lehrer + abends Nachhilfe), ohne dass sich die Listen mischen',
+    'Neu: Feld "Eintragstyp" im Arbeitgeber-/Kunden-Formular ("Basisdaten") — wird beim Anlegen automatisch passend zum aktuellen Modus vorbelegt, ist aber manuell aenderbar, falls ein Eintrag versehentlich im falschen Modus angelegt wurde',
+    'Migration: bestehende Arbeitgeber/Kunden ohne diese Einordnung werden einmalig nach dem AKTUELLEN Modus zum Zeitpunkt des Updates zugeordnet; Uebersicht, Woche/Monat-Auswahl und Tracker bleiben unveraendert (zeigen weiterhin alle Eintraege kombiniert)',
+    'Regression: neue Checks (ET1-ET9) fuer Migration, automatische Zuordnung bei Neuanlage, manuelle Korrektur sowie Filterung der Arbeitgeber-/Kunden-Liste',
+  ]},
   { version: '3.9.57', items: [
     'Doku: Bedienungsanleitung (Abschnitt 7 + 12a) und Hilfe-Modal "Arbeitgeber/Kunden verwalten" aktualisiert — beschreibt jetzt Telefon, Pers.-Nr., Resturlaubstage Vorjahr, "Beschäftigt bis"/ehemalige Arbeitgeber sowie die Checkbox "Ehemalige anzeigen"; veraltete/falsche Angabe "Adresse"-Feld entfernt',
     'Fix: Hilfe-Modal-Text im Freiberufler-Modus behauptete fälschlich, Sollstunden/Pausenregelung/feste Wochenarbeitszeiten seien ausgeblendet — korrigiert (nur Urlaubsanspruch ist ausgeblendet, wie in der Anleitung Abschnitt 12a bereits korrekt beschrieben)',

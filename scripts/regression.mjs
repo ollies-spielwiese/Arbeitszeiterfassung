@@ -217,7 +217,7 @@ async function runMigrationUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('mig-M1: changed=true bei Legacy-State', m1.changed === true, `changed=${m1.changed}`);
-  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 6);
+  assertEq('mig-M1: schemaVersion nach Migration = SCHEMA_VERSION', m1.state.schemaVersion, 7);
   const tpl2 = m1.state.templates.find(t => t.id === 'tpl-2');
   const tpl9 = m1.state.templates.find(t => t.id === 'tpl-9');
   assertEq('mig-M1: tpl-2 bekommt scope=employee', tpl2?.scope, 'employee');
@@ -226,7 +226,7 @@ async function runMigrationUnits(page) {
   // Fall M2: State bereits auf aktueller Version darf nicht als changed markiert werden
   const m2 = await page.evaluate(() => {
     const currentState = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       employers: [], entries: [], archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
       settings: { state: 'HE' }, runningTimer: null,
@@ -1350,7 +1350,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state);
     return result;
   });
-  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 6);
+  assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 7);
   assertTrue('BI1: zwei Legacy-Homeoffice-Einträge am selben Tag werden beim Import zu einem zusammengeführt',
     bi1.homeofficeCount === 1, `count=${bi1.homeofficeCount}`);
   assertTrue('BI1: zusammengeführter Eintrag hat beide Segmente',
@@ -1367,8 +1367,8 @@ async function runBackupImportMigrationUnits(page) {
     const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
 
     const currentBackup = {
-      schemaVersion: 6,
-      employers: [{ id: 'e2', name: 'Aktuell GmbH', hiredSince: '2025-01-01', vacationCarryOver: 3, employmentEndDate: '', personnelNumber: '' }],
+      schemaVersion: 7,
+      employers: [{ id: 'e2', name: 'Aktuell GmbH', kind: 'employer', hiredSince: '2025-01-01', vacationCarryOver: 3, employmentEndDate: '', personnelNumber: '' }],
       entries: [{ id: 'x', employerId: 'e2', date: '2026-02-01', type: 'work', start: '09:00', end: '17:00' }],
       archives: [],
       templates: [{ id: 'tpl-1', label: 'A', text: 'a', scope: 'both' }],
@@ -1398,7 +1398,7 @@ async function runBackupImportMigrationUnits(page) {
     setState(window.state); // Resync: siehe Kommentar in BI1.
     return result;
   });
-  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=6', bi2.schemaVersion, 6);
+  assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=7', bi2.schemaVersion, 7);
   assertEq('BI2: unveränderte Felder bleiben beim Import unverändert', bi2.employerVacationCarryOver, 3);
   assertEq('BI2: Einträge werden beim Import nicht verdoppelt/verloren', bi2.entryCount, 1);
 }
@@ -1930,7 +1930,7 @@ async function runEmploymentEndUnits(page) {
     return runMigrations(legacy);
   });
   assertTrue('EE3a: changed=true, da employmentEndDate fehlte', ee3.changed === true, `changed=${ee3.changed}`);
-  assertEq('EE3b: schemaVersion nach Migration = 6', ee3.state.schemaVersion, 6);
+  assertEq('EE3b: schemaVersion nach Migration = 7', ee3.state.schemaVersion, 7);
   assertEq('EE3c: employmentEndDate defaultet auf leeren String', ee3.state.employers[0].employmentEndDate, '');
 
   // EE4: computeVacationRemaining — anteilige Kürzung bei Beschäftigungsende
@@ -2160,6 +2160,155 @@ async function runPersonnelNumberUnits(page) {
   // Aufräumen des Test-Arbeitgebers
   await page.evaluate(() => {
     state.employers = state.employers.filter((e) => e.name !== 'PN-Neu-Test');
+    saveState();
+  });
+}
+
+// ---------- 1p) Arbeitgeber/Kunden-Trennung ueber `kind` (v3.9.58) ----------
+// Ein Arbeitnehmer kann parallel Freelancer sein (z.B. Lehrer + abends Nachhilfe). Da
+// state.employers eine gemeinsame Liste fuer beide Erwerbsformen ist, muss jeder Eintrag
+// per `kind` ('employer'|'client') fest einem Reiter zugeordnet sein, damit sich Arbeitgeber-
+// und Kundenliste nicht mischen. Siehe modules/migrations.js (6->7) und modules/ui/employer-modal.js.
+
+async function runEmployerKindUnits(page) {
+  console.log('\n=== 1p) Arbeitgeber/Kunden-Trennung (kind) Unit- + Integrationstests (v3.9.58) ===');
+
+  // ET1: Migration 6->7 -- appMode='employee' zum Migrationszeitpunkt -> kind='employer'
+  const et1 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Alt-AG', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', personnelNumber: '' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'employee' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertTrue('ET1a: changed=true, da kind fehlte', et1.changed === true, `changed=${et1.changed}`);
+  assertEq('ET1b: schemaVersion nach Migration = 7', et1.state.schemaVersion, 7);
+  assertEq('ET1c: appMode=employee zum Migrationszeitpunkt -> kind=employer', et1.state.employers[0].kind, 'employer');
+
+  // ET2: Migration 6->7 -- appMode='freelance' zum Migrationszeitpunkt -> kind='client'
+  const et2 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Alt-Kunde', hoursMode: 'week', weeklyHours: 0, breakMode: 'none', personnelNumber: '' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'freelance' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertEq('ET2: appMode=freelance zum Migrationszeitpunkt -> kind=client', et2.state.employers[0].kind, 'client');
+
+  // ET3: Migration ist idempotent -- bereits gueltiges kind bleibt unangetastet, auch wenn
+  // appMode zum (erneuten) Migrationszeitpunkt vom gespeicherten kind abweicht.
+  const et3 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Bereits klassifiziert', kind: 'client', hoursMode: 'week', weeklyHours: 0, breakMode: 'none' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'employee' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertEq('ET3: bereits gesetztes kind bleibt bei erneuter Migration unveraendert', et3.state.employers[0].kind, 'client');
+
+  // ET4: Neuanlage per UI im Angestellt-Modus -> kind wird automatisch auf 'employer' gesetzt.
+  const et4 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    document.getElementById('btn-add-employer').click();
+    const kindSelectValue = document.getElementById('employer-kind').value;
+    document.getElementById('employer-name').value = 'ET-Neu-AG';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'ET-Neu-AG');
+    return { kindSelectValue, saved };
+  });
+  assertEq('ET4a: Select im Modal steht bei Neuanlage (Angestellt) auf "employer"', et4.kindSelectValue, 'employer');
+  assertTrue('ET4b: neuer Arbeitgeber wird gespeichert', !!et4.saved, JSON.stringify(et4.saved));
+  assertEq('ET4c: neuer Eintrag bekommt automatisch kind=employer', et4.saved?.kind, 'employer');
+
+  // ET5: Neuanlage per UI im Freiberufler-Modus -> kind wird automatisch auf 'client' gesetzt.
+  const et5 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'freelance';
+    document.getElementById('btn-add-employer').click();
+    const kindSelectValue = document.getElementById('employer-kind').value;
+    document.getElementById('employer-name').value = 'ET-Neu-Kunde';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'ET-Neu-Kunde');
+    state.settings.appMode = 'employee'; // zurueck auf Ausgangsmodus
+    return { kindSelectValue, saved };
+  });
+  assertEq('ET5a: Select im Modal steht bei Neuanlage (Freiberuflich) auf "client"', et5.kindSelectValue, 'client');
+  assertEq('ET5b: neuer Eintrag bekommt automatisch kind=client', et5.saved?.kind, 'client');
+
+  // ET6: Manuelle Korrektur -- im Formular kann der Eintragstyp unabhaengig vom aktuellen
+  // Modus geaendert werden (z.B. versehentlich im falschen Modus angelegter Eintrag).
+  const et6 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    document.getElementById('btn-add-employer').click();
+    document.getElementById('employer-name').value = 'ET-Manuell-Korrigiert';
+    document.getElementById('employer-kind').value = 'client'; // manuelle Umkehr trotz Angestellt-Modus
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'ET-Manuell-Korrigiert');
+    return { saved };
+  });
+  assertEq('ET6a: manuell auf "client" umgestellter Eintrag wird trotz Angestellt-Modus als kind=client gespeichert', et6.saved?.kind, 'client');
+
+  // ET6b: beim erneuten Bearbeiten zeigt das Formular den zuvor manuell gesetzten Wert an
+  // (kein stillschweigendes Zuruecksetzen auf den aktuellen Modus).
+  const et6b = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const emp = state.employers.find((e) => e.name === 'ET-Manuell-Korrigiert');
+    const card = document.querySelector(`.employer-card[data-id="${emp.id}"]`);
+    // Angestellt-Modus zeigt nur kind=employer -- der manuell auf 'client' gesetzte Eintrag
+    // ist im Angestellt-Modus daher absichtlich NICHT in der Liste/DOM vorhanden.
+    return { cardFoundDespiteWrongTab: !!card, storedKind: emp.kind };
+  });
+  assertTrue('ET6b: manuell auf client gesetzter Eintrag erscheint im Angestellt-Modus (Reiter Arbeitgeber) nicht mehr', !et6b.cardFoundDespiteWrongTab, '');
+  assertEq('ET6c: gespeicherter kind-Wert bleibt client', et6b.storedKind, 'client');
+
+  // ET7: renderEmployers() im Angestellt-Modus zeigt nur kind=employer, kind=client wird ausgeblendet.
+  const et7 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    renderEmployers();
+    const ids = Array.from(document.querySelectorAll('#employers-list .employer-card')).map((c) => c.dataset.id);
+    const agId = state.employers.find((e) => e.name === 'ET-Neu-AG')?.id;
+    const kdId = state.employers.find((e) => e.name === 'ET-Neu-Kunde')?.id;
+    return { hasAg: ids.includes(agId), hasKd: ids.includes(kdId) };
+  });
+  assertTrue('ET7a: Reiter "Arbeitgeber" (Angestellt-Modus) zeigt den kind=employer Eintrag', et7.hasAg, '');
+  assertTrue('ET7b: Reiter "Arbeitgeber" (Angestellt-Modus) blendet den kind=client Eintrag aus', !et7.hasKd, '');
+
+  // ET8: renderEmployers() im Freiberufler-Modus zeigt nur kind=client, kind=employer wird ausgeblendet.
+  const et8 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'freelance';
+    renderEmployers();
+    const ids = Array.from(document.querySelectorAll('#employers-list .employer-card')).map((c) => c.dataset.id);
+    const agId = state.employers.find((e) => e.name === 'ET-Neu-AG')?.id;
+    const kdId = state.employers.find((e) => e.name === 'ET-Neu-Kunde')?.id;
+    state.settings.appMode = 'employee'; // zurueck auf Ausgangsmodus
+    renderEmployers();
+    return { hasAg: ids.includes(agId), hasKd: ids.includes(kdId) };
+  });
+  assertTrue('ET8a: Reiter "Kunde" (Freiberufler-Modus) zeigt den kind=client Eintrag', et8.hasKd, '');
+  assertTrue('ET8b: Reiter "Kunde" (Freiberufler-Modus) blendet den kind=employer Eintrag aus', !et8.hasAg, '');
+
+  // ET9: Uebersicht (computeMonthOverview) bleibt unveraendert -- zeigt weiterhin ALLE
+  // Eintraege kombiniert, unabhaengig von kind und aktuellem Modus.
+  const et9 = await page.evaluate(() => {
+    const agId = state.employers.find((e) => e.name === 'ET-Neu-AG')?.id;
+    const kdId = state.employers.find((e) => e.name === 'ET-Neu-Kunde')?.id;
+    const ov = computeMonthOverview('2026-06');
+    const rowIds = ov.rows.map((r) => r.employer.id);
+    return { hasAg: rowIds.includes(agId), hasKd: rowIds.includes(kdId) };
+  });
+  assertTrue('ET9a: Uebersicht enthaelt weiterhin den kind=employer Eintrag', et9.hasAg, '');
+  assertTrue('ET9b: Uebersicht enthaelt weiterhin den kind=client Eintrag (kombinierte Ansicht unveraendert)', et9.hasKd, '');
+
+  // Aufräumen der Test-Arbeitgeber/-Kunden.
+  await page.evaluate(() => {
+    state.employers = state.employers.filter((e) => !['ET-Neu-AG', 'ET-Neu-Kunde', 'ET-Manuell-Korrigiert'].includes(e.name));
     saveState();
   });
 }
@@ -2570,6 +2719,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runGleitzeitkontoUnits(page);
     await runEmploymentEndUnits(page);
     await runPersonnelNumberUnits(page);
+    await runEmployerKindUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {
