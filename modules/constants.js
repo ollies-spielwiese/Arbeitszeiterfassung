@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.60';
+export const APP_VERSION = '3.9.61';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.61', items: [
+    'CI: zweiter Regressions-Job führt die komplette Testsuite zusätzlich unter WebKit (Safari-Engine) aus, nicht nur unter Chromium — fängt Rendering-/API-Unterschiede ab, die auf iPhone/iPad relevant sind. scripts/regression.mjs unterstützt jetzt ENGINE=webkit (npm run qa:webkit)',
+  ]},
   { version: '3.9.60', items: [
     'Regression: konsolidierter Migrationsketten-Test (mig-chain-1 bis mig-chain-9) — fährt einen realistischen Alt-Backup-Zustand einmal durch die GESAMTE Migrationskette (schemaVersion 1→7) statt nur einzelne Schritte isoliert zu prüfen; deckt Wechselwirkungen zwischen aufeinanderfolgenden Schritten sowie Idempotenz der kompletten Kette und den Einstieg aus der Mitte der Kette (z. B. ab v4) ab',
   ]},

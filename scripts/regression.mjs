@@ -9,16 +9,18 @@
  *   3) E2E Employee-Sweep    — dito mit target + balance
  *
  * Ausführung:
- *   node scripts/regression.mjs                 # gegen http://localhost:8765
+ *   node scripts/regression.mjs                 # gegen http://localhost:8765, Chromium
  *   BASE_URL=http://x:8000 node scripts/regression.mjs
+ *   ENGINE=webkit node scripts/regression.mjs    # gegen WebKit/Safari-Engine statt Chromium
  *
  * Voraussetzung: lokaler HTTP-Server auf BASE_URL, playwright installiert
- * (systemweit oder als dev-dep via `npm i -D playwright`).
+ * (systemweit oder als dev-dep via `npm i -D playwright`). Für ENGINE=webkit
+ * vorher `npx playwright install --with-deps webkit` ausführen.
  *
  * Exit-Code: 0 = alles grün, 1 = mindestens ein Fehler.
  */
 
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
@@ -30,6 +32,13 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8765';
 const HEADLESS = process.env.HEADLESS !== '0';
+const ENGINES = { chromium, webkit };
+const ENGINE_NAME = (process.env.ENGINE || 'chromium').toLowerCase();
+const ENGINE = ENGINES[ENGINE_NAME];
+if (!ENGINE) {
+  console.error(`Unbekannte ENGINE="${ENGINE_NAME}" — erlaubt: ${Object.keys(ENGINES).join(', ')}`);
+  process.exit(1);
+}
 
 const results = [];
 let failed = 0;
@@ -66,7 +75,7 @@ function assertAtLeast(name, actual, min) {
 // ---------- Boot ----------
 
 async function boot() {
-  const browser = await chromium.launch({ headless: HEADLESS });
+  const browser = await ENGINE.launch({ headless: HEADLESS });
   const context = await browser.newContext();
   const page = await context.newPage();
   page.on('pageerror', err => record('page-error: ' + err.message, false));
@@ -2921,7 +2930,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
 // ---------- Runner ----------
 
 (async () => {
-  console.log(`Regression-Sweep gegen ${BASE_URL}`);
+  console.log(`Regression-Sweep gegen ${BASE_URL} (Engine: ${ENGINE_NAME})`);
   const t0 = Date.now();
   runServiceWorkerPrecacheCheck();
   runVersionBadgeSyncCheck();
