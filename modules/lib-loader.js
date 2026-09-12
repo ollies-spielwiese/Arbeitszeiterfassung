@@ -13,6 +13,19 @@ const URLS = {
   docx:     'https://unpkg.com/docx@8.5.0/build/index.umd.js',
 };
 
+// Subresource Integrity (SRI): seit v3.9.49 gepinnt gegen genau die oben verlinkten
+// Versionen. Verhindert, dass eine (z.B. durch einen Supply-Chain-Angriff auf unpkg.com)
+// veränderte Datei ungeprüft im Browser ausgeführt wird — mit vollem Zugriff auf
+// localStorage und das DOM der App. Hash-Mismatch löst den nativen onerror-Pfad des
+// <script>-Tags aus (siehe loadScript unten), also kontrolliertes Fehlschlagen statt
+// stillem Ausführen manipulierten Codes.
+// Ermittelt via: curl -sL <url> | openssl dgst -sha384 -binary | openssl base64 -A
+const INTEGRITY = {
+  jspdf:    'sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/',
+  autotable:'sha384-Xl/CUCfJbzsngMp0CFxkmF0VW/8C160IsGujqeQlIhaGxKz2+JsIGORFqtCPeldF',
+  docx:     'sha384-4xaIisuLEy2lo2HkB2C4rEf7v8jbTb2kuogX6TkuEt9feTWKBSFSOzsqNNbV+sKh',
+};
+
 /** @type {Map<string, Promise<void>>} */
 const _pending = new Map();
 
@@ -36,8 +49,15 @@ function loadScript(key) {
     s.src = url;
     s.async = true;
     s.dataset.lib = key;
+    const integrity = INTEGRITY[key];
+    if (integrity) {
+      // crossorigin ist Pflicht, sonst verweigert der Browser die Integritätsprüfung
+      // (CORS-Antworten ohne Origin-Header liefern kein prüfbares Response-Body-Hash).
+      s.integrity = integrity;
+      s.crossOrigin = 'anonymous';
+    }
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Fehler beim Laden von ' + key));
+    s.onerror = () => reject(new Error('Fehler beim Laden von ' + key + ' (Netzwerkfehler oder Integritätsprüfung fehlgeschlagen)'));
     document.head.appendChild(s);
   });
   _pending.set(key, p);

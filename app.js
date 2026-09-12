@@ -1601,9 +1601,17 @@ function renderArchive() {
           workedMin: s.workedMin, targetMin: s.targetMin, balance: s.balance,
           holidays: s.holidays || [], creditedAbsenceMin: 0,
         };
-        const blob = action === 'word' ? await generateWordBlob(report) : await generatePdfBlob(report);
-        downloadBlob(blob, fileNameForReport(report, action === 'word' ? 'docx' : 'pdf'));
-        toast('Datei heruntergeladen');
+        // Seit v3.9.49: explizites try/catch, damit ein Ladefehler der CDN-Libraries
+        // (Netzwerk oder SRI-Hash-Mismatch, siehe modules/lib-loader.js) hier nicht als
+        // unbehandelte Promise-Rejection verschwindet, sondern sichtbar als Toast landet.
+        try {
+          const blob = action === 'word' ? await generateWordBlob(report) : await generatePdfBlob(report);
+          downloadBlob(blob, fileNameForReport(report, action === 'word' ? 'docx' : 'pdf'));
+          toast('Datei heruntergeladen');
+        } catch (err) {
+          console.error(err);
+          toast((action === 'word' ? 'Word' : 'PDF') + '-Export fehlgeschlagen: ' + err.message);
+        }
       }
     });
   });

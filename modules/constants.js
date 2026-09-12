@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.49';
+export const APP_VERSION = '3.9.50';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.50', items: [
+    'Sicherheit: Dependabot-Security-Updates aktiviert und offene Advisories geschlossen (mammoth, @xmldom/xmldom aktualisiert, 0 Schwachstellen laut npm audit)',
+    'Sicherheit: CDN-geladene Bibliotheken (jsPDF, jsPDF-AutoTable, docx) sind jetzt per Subresource Integrity (SRI) gegen die exakt geprüften Versionen abgesichert — eine manipulierte Datei würde kontrolliert mit Fehlermeldung abgelehnt statt stillschweigend ausgeführt',
+    'Fehlerbehebung: Word-/PDF-Export aus dem Archiv war der einzige Exportpfad ohne Fehlerbehandlung bei fehlgeschlagenem Bibliotheks-Ladevorgang; zeigt jetzt wie die anderen Exporte eine Fehlermeldung statt eines stillen Hängers',
+    'Sicherheit: CodeQL-Standardanalyse in GitHub Actions aktiviert (automatisches Scannen auf Sicherheitslücken im Code)',
+    'Regression: 3 neue Checks (SRI1–SRI2 für echtes Laden/Ablehnen der CDN-Bibliotheken, SW4 für die Integritäts-Hashes im Quellcode)',
+  ]},
   { version: '3.9.49', items: [
     'Fehlerbehebung: Backup-Import ("Wiederherstellen") führte importierte Daten nicht durch die Schema-Migrationen — ein auf einem älteren App-Stand oder anderen Gerät exportiertes Backup konnte dadurch mit veraltetem Datenformat eingespielt werden, obwohl der normale App-Start dieselben Daten korrekt migriert hätte; importBackup() ruft jetzt dieselben Migrationen wie loadState() auf',
     'Fehlerbehebung: War der gespeicherte Datenbestand beschädigt (z. B. durch einen abgebrochenen Schreibvorgang), wurden die Daten bisher stillschweigend durch einen leeren Ausgangszustand ersetzt — ohne jeden Hinweis. Jetzt wird eine Rettungskopie der beschädigten Rohdaten unter einem separaten Schlüssel gesichert und ein deutlich sichtbares Warnbanner eingeblendet',

@@ -139,6 +139,69 @@ async function runSelectorUnits(page) {
     `keys=${eKeys.join(',')}`);
 }
 
+// ---------- 1c) CDN-Library-Ladung: Subresource-Integrity (SRI) (v3.9.49) ----------
+// modules/lib-loader.js pinnt seit v3.9.49 SRI-Hashes (integrity + crossorigin) fuer die drei
+// per <script>-Tag nachgeladenen CDN-Libraries (jsPDF, jspdf-autotable, docx).
+// SRI1 prueft, dass die aktuell hinterlegten Hashes tatsaechlich zu den ausgelieferten Dateien
+// passen (sonst waere die App durch einen simplen Tippfehler im Hash dauerhaft kaputt) — und ist
+// damit zugleich der ERSTE reale Aufruf von ensurePdfLibs()/ensureDocxLib() im gesamten Lauf.
+// Muss deshalb vor 1e-2 (dem ersten PDF/Word-Export-Test) laufen, sonst greift bereits der
+// DOM-Cache-Kurzschluss in loadScript() (script[data-lib=...] existiert schon) und der echte
+// Netzwerk-Ladepfad mit Integritaetspruefung wird gar nicht mehr durchlaufen.
+// SRI2 simuliert einen Hash-Mismatch direkt ueber denselben <script integrity crossorigin>-
+// Mechanismus, den loadScript() verwendet, und prueft, dass der Browser den Ladevorgang
+// kontrolliert ueber onerror abbricht statt den Code stillschweigend auszufuehren oder die
+// App haengen zu lassen. Der exportierte Pfad selbst laesst sich fuer den negativen Fall nicht
+// nochmal mit demselben Key testen (DOM-Cache + Modul-Singleton in loadScript), daher wird hier
+// bewusst derselbe Mechanismus nachgebaut statt die Funktion ein zweites Mal aufzurufen.
+async function runLibIntegrityUnits(page) {
+  console.log('\n=== 1c) CDN-Library SRI ===');
+
+  // SRI1: reale Hashes gegen reale CDN-Antwort — muss ohne Fehler durchlaufen.
+  const positive = await page.evaluate(async () => {
+    try {
+      const mod = await import('/modules/lib-loader.js');
+      await mod.ensurePdfLibs();
+      await mod.ensureDocxLib();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
+  });
+  assertTrue(
+    'SRI1: ensurePdfLibs()/ensureDocxLib() laden mit den hinterlegten SRI-Hashes erfolgreich',
+    positive.ok,
+    positive.ok ? '' : positive.message
+  );
+
+  // SRI2: absichtlich falscher Hash auf einer echten, erreichbaren CDN-URL. Der native
+  // Browser-Blockierungshinweis dafuer landet als Konsolenfehler — den globalen
+  // console-error-Listener aus boot() dafuer kurz abhaengen (analog zur console.error-
+  // Unterdrueckung in CS1), sonst wuerde dieser erwuenschte, provozierte Fehler selbst
+  // als Regressions-Fehler gezaehlt werden.
+  page.removeAllListeners('console');
+  const negative = await page.evaluate(async () => {
+    return await new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve({ settled: false }), 8000);
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js';
+      s.integrity = 'sha384-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
+      s.crossOrigin = 'anonymous';
+      s.onload = () => { clearTimeout(timeout); resolve({ settled: true, rejected: false }); };
+      s.onerror = () => { clearTimeout(timeout); resolve({ settled: true, rejected: true }); };
+      document.head.appendChild(s);
+    });
+  });
+  page.on('console', msg => {
+    if (msg.type() === 'error') record('console-error: ' + msg.text(), false);
+  });
+  assertTrue(
+    'SRI2: absichtlich falscher Integrity-Hash laesst den Ladevorgang kontrolliert ueber onerror fehlschlagen (kein Hang, kein ungeprueftes Ausfuehren)',
+    negative.settled && negative.rejected,
+    JSON.stringify(negative)
+  );
+}
+
 // ---------- 1b) Migrations-Unit-Tests ----------
 
 async function runMigrationUnits(page) {
@@ -1863,6 +1926,39 @@ function runActiveUpdateCheckOnLoadCheck() {
   );
 }
 
+// ---------- SW4: CDN-Library SRI-Hashes vollstaendig + korrekt verdrahtet (v3.9.49) ----------
+// Statische Absicherung dafuer, dass modules/lib-loader.js fuer jede in URLS gelistete Library
+// tatsaechlich einen sha384-Hash hinterlegt hat und loadScript() ihn (inkl. crossorigin) auch
+// tatsaechlich am <script>-Element setzt — ein zukuenftiger Refactor, der eine neue Library in
+// URLS aufnimmt, aber INTEGRITY vergisst, wuerde diese Pruefung reissen lassen statt unbemerkt
+// zu bleiben.
+function runLibIntegritySourceCheck() {
+  const libPath = path.join(REPO_ROOT, 'modules/lib-loader.js');
+  const src = fs.readFileSync(libPath, 'utf8');
+
+  const urlsMatch = src.match(/const URLS = \{([\s\S]*?)\};/);
+  assertTrue('SW4: URLS-Map in lib-loader.js gefunden', !!urlsMatch, libPath);
+  const integrityMatch = src.match(/const INTEGRITY = \{([\s\S]*?)\};/);
+  assertTrue('SW4: INTEGRITY-Map in lib-loader.js gefunden', !!integrityMatch, libPath);
+  if (!urlsMatch || !integrityMatch) return;
+
+  const urlKeys = Array.from(urlsMatch[1].matchAll(/^\s*(\w+):\s*'/gm)).map((m) => m[1]);
+  const integrityEntries = Object.fromEntries(
+    Array.from(integrityMatch[1].matchAll(/(\w+):\s*'([^']+)'/g)).map((m) => [m[1], m[2]])
+  );
+  assertTrue(
+    'SW4: jede URL in URLS hat einen zugehoerigen sha384-Hash in INTEGRITY',
+    urlKeys.length > 0 && urlKeys.every((k) => (integrityEntries[k] || '').startsWith('sha384-')),
+    `urlKeys=${JSON.stringify(urlKeys)} integrityKeys=${JSON.stringify(Object.keys(integrityEntries))}`
+  );
+
+  assertTrue(
+    'SW4: loadScript() setzt integrity und crossOrigin am <script>-Element',
+    /s\.integrity\s*=\s*integrity/.test(src) && /s\.crossOrigin\s*=\s*'anonymous'/.test(src),
+    libPath
+  );
+}
+
 // ---------- Runner ----------
 
 (async () => {
@@ -1871,9 +1967,11 @@ function runActiveUpdateCheckOnLoadCheck() {
   runServiceWorkerPrecacheCheck();
   runVersionBadgeSyncCheck();
   runActiveUpdateCheckOnLoadCheck();
+  runLibIntegritySourceCheck();
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);
+    await runLibIntegrityUnits(page);
     await runMigrationUnits(page);
     await runVacationRemainingUnits(page);
     await runVacationPlanningUnits(page);
