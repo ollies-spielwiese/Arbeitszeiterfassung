@@ -63,7 +63,7 @@ export function wireEvents(ctx) {
     // Week-Input Fallback
     installWeekInputFallback,
     // Lifecycle
-    maybeShowWhatsNew, initServiceWorkerUpdates,
+    maybeShowWhatsNew, maybeShowKindMigrationNotice, initServiceWorkerUpdates,
   } = ctx;
 
   // Tab nav
@@ -345,6 +345,9 @@ export function wireEvents(ctx) {
 
     // Show what's new on first start of a new version
     maybeShowWhatsNew();
+    // Einmaliger Hinweis, falls die kind-Migration (Arbeitgeber/Kunde) automatisch
+    // anhand des aktiven Modus zugeordnet hat (siehe modules/kind-migration-notice.js).
+    if (typeof maybeShowKindMigrationNotice === 'function') maybeShowKindMigrationNotice();
 
   initServiceWorkerUpdates();
 }

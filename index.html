@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.58</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.59</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -1037,6 +1037,21 @@
         <div id="whatsnew-content"></div>
         <div class="modal-footer">
           <button type="button" class="btn-primary" data-close-modal data-testid="button-whatsnew-ok">Verstanden</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-kind-migration-notice" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-kind-migration-notice-title">Bitte prüfen: Arbeitgeber/Kunde-Zuordnung</h3>
+        <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="kind-migration-notice-content"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn-primary" data-close-modal data-testid="button-kind-migration-notice-ok">Verstanden</button>
         </div>
       </div>
     </div>

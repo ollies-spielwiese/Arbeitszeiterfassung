@@ -136,13 +136,29 @@ export const migrations = [
     // Erwerbsformen eine gemeinsame Liste ist. Bestehende Einträge ohne kind bekommen einmalig den Wert,
     // der zum AKTUELLEN Modus (zum Zeitpunkt dieses Updates) passt — spätere manuelle Korrektur pro
     // Eintrag im Formular möglich. Bereits vorhandenes gültiges kind bleibt unberührt (idempotent).
+    //
+    // v3.9.59: Da diese Zuordnung nur eine Vermutung ist (abhängig davon, welcher Modus zum exakten
+    // Zeitpunkt der Migration gerade aktiv war — z.B. auf einem Gerät, das zwischen beiden Modi
+    // wechselt), wird zusätzlich ein einmaliger Hinweis (pendingMigrationNotice) hinterlegt, wenn
+    // mindestens ein Employer betroffen war. modules/kind-migration-notice.js zeigt ihn nach dem
+    // nächsten App-Start an und löscht ihn danach wieder (siehe dort).
     fn: (s) => {
       const fallbackKind = (s.settings && s.settings.appMode === 'freelance') ? 'client' : 'employer';
-      const employers = (s.employers || []).map(e => ({
-        ...e,
-        kind: (e.kind === 'employer' || e.kind === 'client') ? e.kind : fallbackKind,
-      }));
-      return { ...s, employers };
+      const autoAssignedNames = [];
+      const employers = (s.employers || []).map(e => {
+        const hasValidKind = (e.kind === 'employer' || e.kind === 'client');
+        if (!hasValidKind && e.name) autoAssignedNames.push(e.name);
+        return { ...e, kind: hasValidKind ? e.kind : fallbackKind };
+      });
+      const result = { ...s, employers };
+      if (autoAssignedNames.length) {
+        result.pendingMigrationNotice = {
+          type: 'kindAutoAssigned',
+          toKind: fallbackKind,
+          names: autoAssignedNames,
+        };
+      }
+      return result;
     },
   },
 ];

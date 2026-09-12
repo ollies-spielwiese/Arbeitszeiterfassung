@@ -2313,6 +2313,133 @@ async function runEmployerKindUnits(page) {
   });
 }
 
+// ---------- 1q) Einmal-Hinweis nach automatischer kind-Zuordnung (v3.9.59) ----------
+// Die kind-Migration (6->7) rät die Zuordnung Arbeitgeber/Kunde anhand des zum
+// Migrationszeitpunkt aktiven Modus. Damit eine falsche Vermutung (z.B. Modus stand
+// gerade auf "Freiberuflich", obwohl es sich um einen Arbeitgeber handelt) nicht
+// unbemerkt bleibt, hinterlegt die Migration state.pendingMigrationNotice, und
+// modules/kind-migration-notice.js zeigt beim nächsten Start einen Hinweis-Modal.
+
+async function runKindMigrationNoticeUnits(page) {
+  console.log('\n=== 1q) Einmal-Hinweis nach automatischer kind-Zuordnung (v3.9.59) ===');
+
+  // KN1: Migration setzt pendingMigrationNotice, wenn kind fehlte (appMode=employee -> 'employer').
+  const kn1 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Migrations-AG', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'employee' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertTrue('KN1a: pendingMigrationNotice ist gesetzt', !!kn1.state.pendingMigrationNotice, JSON.stringify(kn1.state.pendingMigrationNotice));
+  assertEq('KN1b: type=kindAutoAssigned', kn1.state.pendingMigrationNotice?.type, 'kindAutoAssigned');
+  assertEq('KN1c: toKind=employer (appMode war employee)', kn1.state.pendingMigrationNotice?.toKind, 'employer');
+  assertEq('KN1d: names enthält den betroffenen Arbeitgeber', kn1.state.pendingMigrationNotice?.names?.[0], 'Migrations-AG');
+
+  // KN2: Migration setzt KEIN pendingMigrationNotice, wenn alle Einträge bereits ein gültiges kind hatten.
+  const kn2 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Bereits klassifiziert', kind: 'employer', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'employee' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertTrue('KN2: kein pendingMigrationNotice, da kind bereits gültig war', !kn2.state.pendingMigrationNotice, JSON.stringify(kn2.state.pendingMigrationNotice));
+
+  // KN3: Mehrere betroffene Einträge -> alle Namen landen in der Liste (appMode=freelance -> 'client').
+  const kn3 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [
+        { id: 'e1', name: 'Kunde Eins', hoursMode: 'week', weeklyHours: 0, breakMode: 'none' },
+        { id: 'e2', name: 'Kunde Zwei', kind: 'client', hoursMode: 'week', weeklyHours: 0, breakMode: 'none' },
+        { id: 'e3', name: 'Kunde Drei', hoursMode: 'week', weeklyHours: 0, breakMode: 'none' },
+      ],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'freelance' }, runningTimer: null,
+    };
+    return runMigrations(legacy);
+  });
+  assertEq('KN3a: toKind=client (appMode war freelance)', kn3.state.pendingMigrationNotice?.toKind, 'client');
+  assertEq('KN3b: nur die beiden Einträge ohne vorheriges kind werden gemeldet', kn3.state.pendingMigrationNotice?.names?.length, 2);
+  assertTrue('KN3c: "Kunde Eins" ist gemeldet', kn3.state.pendingMigrationNotice?.names?.includes('Kunde Eins'), '');
+  assertTrue('KN3d: "Kunde Drei" ist gemeldet', kn3.state.pendingMigrationNotice?.names?.includes('Kunde Drei'), '');
+  assertTrue('KN3e: bereits klassifiziertes "Kunde Zwei" wird NICHT gemeldet', !kn3.state.pendingMigrationNotice?.names?.includes('Kunde Zwei'), '');
+
+  // KN4: Idempotenz -- erneutes Anwenden von runMigrations auf den bereits migrierten
+  // (schemaVersion=7) State darf pendingMigrationNotice nicht erneut setzen/verändern,
+  // da die 6->7-Migration nur bei schemaVersion=6 greift (siehe runMigrations: m.from===version).
+  const kn4 = await page.evaluate(() => {
+    const legacy = {
+      schemaVersion: 6,
+      employers: [{ id: 'e1', name: 'Idempotenz-AG', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' }],
+      entries: [], archives: [], templates: [], settings: { state: 'HE', appMode: 'employee' }, runningTimer: null,
+    };
+    const first = runMigrations(legacy);
+    // Hinweis wie in der App konsumieren (wird nach Anzeige gelöscht) und danach erneut migrieren.
+    const consumed = { ...first.state };
+    delete consumed.pendingMigrationNotice;
+    const second = runMigrations(consumed);
+    return { firstNotice: first.state.pendingMigrationNotice, secondNotice: second.state.pendingMigrationNotice, secondChanged: second.changed };
+  });
+  assertTrue('KN4a: erster Durchlauf setzt den Hinweis', !!kn4.firstNotice, JSON.stringify(kn4.firstNotice));
+  assertTrue('KN4b: zweiter Durchlauf auf bereits migriertem State setzt den Hinweis NICHT erneut', !kn4.secondNotice, JSON.stringify(kn4.secondNotice));
+
+  // KN5: maybeShowKindMigrationNotice() zeigt das Modal mit den betroffenen Namen an und
+  // löscht danach den State-Eintrag, damit der Hinweis nicht erneut erscheint.
+  const kn5 = await page.evaluate(async () => {
+    const { maybeShowKindMigrationNotice } = await import('/modules/kind-migration-notice.js');
+    document.getElementById('__kmntest')?.remove();
+    const host = document.createElement('div');
+    host.id = '__kmntest';
+    host.innerHTML = '<div id="kmn-modal" class="modal hidden"><div id="kmn-body"></div></div>';
+    document.body.appendChild(host);
+
+    const fakeState = { pendingMigrationNotice: { type: 'kindAutoAssigned', toKind: 'employer', names: ['KN5-Testfirma'] } };
+    let saveCalls = 0;
+    maybeShowKindMigrationNotice({
+      state: fakeState,
+      saveState: () => { saveCalls += 1; },
+      escapeHtml: (s) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])),
+    }, { modalId: 'kmn-modal', containerId: 'kmn-body' });
+
+    const html = document.getElementById('kmn-body').innerHTML;
+    const visible = !document.getElementById('kmn-modal').classList.contains('hidden');
+    const noticeCleared = !fakeState.pendingMigrationNotice;
+    host.remove();
+    return { html, visible, noticeCleared, saveCalls };
+  });
+  assertTrue('KN5a: Modal wird sichtbar', kn5.visible, `visible=${kn5.visible}`);
+  assertContains('KN5b: Name des betroffenen Eintrags im Modal-Text', kn5.html, 'KN5-Testfirma');
+  assertContains('KN5c: kindLabel "Arbeitgeber" im Modal-Text', kn5.html, 'Arbeitgeber');
+  assertTrue('KN5d: pendingMigrationNotice wird nach Anzeige gelöscht', kn5.noticeCleared, '');
+  assertEq('KN5e: saveState wird genau einmal aufgerufen', kn5.saveCalls, 1);
+
+  // KN6: Ohne pendingMigrationNotice bleibt das Modal hidden (No-Op).
+  const kn6 = await page.evaluate(async () => {
+    const { maybeShowKindMigrationNotice } = await import('/modules/kind-migration-notice.js');
+    document.getElementById('__kmntest2')?.remove();
+    const host = document.createElement('div');
+    host.id = '__kmntest2';
+    host.innerHTML = '<div id="kmn-modal2" class="modal hidden"><div id="kmn-body2"></div></div>';
+    document.body.appendChild(host);
+
+    const fakeState = { pendingMigrationNotice: null };
+    let saveCalls = 0;
+    maybeShowKindMigrationNotice({
+      state: fakeState,
+      saveState: () => { saveCalls += 1; },
+      escapeHtml: (s) => String(s),
+    }, { modalId: 'kmn-modal2', containerId: 'kmn-body2' });
+    const hidden = document.getElementById('kmn-modal2').classList.contains('hidden');
+    host.remove();
+    return { hidden, saveCalls };
+  });
+  assertTrue('KN6a: Modal bleibt hidden ohne pendingMigrationNotice', kn6.hidden, '');
+  assertEq('KN6b: saveState wird nicht aufgerufen', kn6.saveCalls, 0);
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -2720,6 +2847,7 @@ function runServiceWorkerHostnameCheckSourceCheck() {
     await runEmploymentEndUnits(page);
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);
+    await runKindMigrationNoticeUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

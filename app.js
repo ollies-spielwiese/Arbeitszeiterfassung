@@ -142,6 +142,7 @@ import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
+import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
 import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw } from './modules/backup.js';
 import {
   openShareModal as _openShareModalRaw,
@@ -1928,7 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   toast, closeModals, escapeHtml,
   getEmployer, computeSuggestedBreak,
   installWeekInputFallback,
-  maybeShowWhatsNew, initServiceWorkerUpdates,
+  maybeShowWhatsNew, maybeShowKindMigrationNotice, initServiceWorkerUpdates,
 }));
 
 
@@ -1941,6 +1942,10 @@ function maybeShowWhatsNew() {
     changelog: CHANGELOG,
     escapeHtml,
   });
+}
+
+function maybeShowKindMigrationNotice() {
+  return _maybeShowKindMigrationNoticeRaw({ state, saveState, escapeHtml });
 }
 
 /* ---------- Service Worker with Update Prompt ---------- */

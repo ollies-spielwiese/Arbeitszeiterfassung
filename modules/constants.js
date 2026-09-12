@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.58';
+export const APP_VERSION = '3.9.59';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.59', items: [
+    'Neu: Einmal-Hinweis nach dem Update, falls bei bestehenden Arbeitgebern/Kunden die neue Unterscheidung "Arbeitgeber"/"Kunde" automatisch anhand des zum Zeitpunkt der Umstellung aktiven Modus zugeordnet wurde — zeigt die betroffenen Namen und erklärt, wie man das im Feld „Eintragstyp“ korrigiert, falls die Vermutung falsch war',
+    'Regression: neue Checks (KN1–KN6) für Migration-Hinweis-Erzeugung, Idempotenz und Modal-Anzeige/-Abbau',
+  ]},
   { version: '3.9.58', items: [
     'Neu: Arbeitgeber (Modus "Angestellt") und Kunden (Modus "Freiberuflich") werden jetzt strikt getrennt gefuehrt — der Reiter "Arbeitgeber verwalten" zeigt nur noch Eintraege vom Typ Arbeitgeber, der Reiter "Kunden verwalten" nur noch Eintraege vom Typ Kunde. Grund: dieselbe Person kann parallel angestellt UND freiberuflich taetig sein (z.B. Lehrer + abends Nachhilfe), ohne dass sich die Listen mischen',
     'Neu: Feld "Eintragstyp" im Arbeitgeber-/Kunden-Formular ("Basisdaten") — wird beim Anlegen automatisch passend zum aktuellen Modus vorbelegt, ist aber manuell aenderbar, falls ein Eintrag versehentlich im falschen Modus angelegt wurde',

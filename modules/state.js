@@ -76,6 +76,10 @@ export const DEFAULT_STATE = {
   },
   activeEmployerId: null,
   runningTimer: null,
+  // Einmal-Hinweis (seit v3.9.59), wird von der kind-Migration (Schema 6→7) gesetzt, wenn
+  // Arbeitgeber/Kunde-Zuordnung automatisch anhand des aktiven Modus vorgenommen wurde.
+  // Additives Feld, kein eigener Migrations-Eintrag nötig — siehe modules/kind-migration-notice.js.
+  pendingMigrationNotice: null,
 };
 
 /* ---------- State-Handle ---------- */
