@@ -1,6 +1,6 @@
 {
   "name": "arbeitszeiterfassung",
-  "version": "3.9.61",
+  "version": "3.9.62",
   "private": true,
   "type": "module",
   "description": "Zeiterfassung — statische PWA. Playwright-Regression-Skript für QA vor jedem Version-Bump.",
@@ -11,12 +11,16 @@
     "qa:ci": "node scripts/regression.mjs",
     "qa:webkit": "ENGINE=webkit node scripts/regression.mjs",
     "qa:webkit:ci": "ENGINE=webkit node scripts/regression.mjs",
+    "visual:test": "node scripts/visual-regression.mjs",
+    "visual:update": "node scripts/visual-regression.mjs --update",
     "typecheck": "node scripts/typecheck.mjs"
   },
   "devDependencies": {
     "mammoth": "^1.12.0",
     "pdf-parse": "^1.1.1",
+    "pixelmatch": "^7.2.0",
     "playwright": "1.59.0",
+    "pngjs": "^7.0.0",
     "typescript": "5.4"
   }
 }

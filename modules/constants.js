@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.61';
+export const APP_VERSION = '3.9.62';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.62', items: [
+    'CI: feste visuelle Regressionstests (Playwright-Screenshots + pixelmatch) statt Wegwerf-Skripte — 6 Baselines (Tracker Angestellt/Freiberuflich, Woche, Monatsbericht, Monatsübersicht, Hilfe-Modal) unter scripts/visual-regression.mjs (npm run visual:test / visual:update); eigener CI-Job lädt Diff-Bilder bei Fehlschlag als Artefakt hoch',
+  ]},
   { version: '3.9.61', items: [
     'CI: zweiter Regressions-Job führt die komplette Testsuite zusätzlich unter WebKit (Safari-Engine) aus, nicht nur unter Chromium — fängt Rendering-/API-Unterschiede ab, die auf iPhone/iPad relevant sind. scripts/regression.mjs unterstützt jetzt ENGINE=webkit (npm run qa:webkit)',
   ]},
