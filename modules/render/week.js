@@ -36,7 +36,7 @@ export function buildWeekHTML(data, ctx) {
   return `
     <div class="report-header">
       <h3>${escapeHtml(emp.name)}</h3>
-      <div class="subtitle">${isoWeek} • ${formatDate(dates[0])} – ${formatDate(dates[6])}</div>
+      <div class="subtitle">${escapeHtml(isoWeek)} • ${formatDate(dates[0])} – ${formatDate(dates[6])}</div>
     </div>
     <div class="summary-grid">
       ${renderSummaryHTML(weekFields)}

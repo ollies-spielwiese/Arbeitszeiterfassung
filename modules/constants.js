@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.51';
+export const APP_VERSION = '3.9.52';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.52', items: [
+    'Sicherheit: Wochen-Label (isoWeek) in der Wochenansicht wird jetzt ebenfalls per escapeHtml() escaped — derselbe CodeQL-Fund wie in 3.9.51 (js/xss-through-dom, app.js/week.js) hatte neben den Zeit-Einträgen noch einen zweiten, zunaechst uebersehenen Einschleusungsweg ueber das Wochen-Eingabefeld',
+    'Regression: buildWeekHTML() wird jetzt zusaetzlich direkt mit praepariertem isoWeek getestet (SEC1b)',
+  ]},
   { version: '3.9.51', items: [
     'Sicherheit: Stored-XSS-Absicherung im Wochenbericht — Zeit-Einträge (Beginn/Ende) werden vor der Anzeige jetzt per escapeHtml() escaped; ein präparierter Backup-Import konnte zuvor unescapten HTML-Code in die Wochenansicht einschleusen (CodeQL-Fund)',
     'Sicherheit: Urlaubskonto-Infofeld im Zeitraum-Modal escaped jetzt alle angezeigten Werte (Verteidigung in der Tiefe, CodeQL-Fund)',

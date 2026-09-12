@@ -771,6 +771,35 @@ async function runWeekViewXssHardeningUnits(page) {
     sec1.hasRawImgTag === false, JSON.stringify(sec1));
   assertTrue('SEC1: Payload erscheint als escapeter Text (&lt;img ...) statt als HTML',
     sec1.containsEscapedPayload === true, JSON.stringify(sec1));
+
+  // SEC1b: buildWeekHTML() ist der reine Builder, den renderWeek() fuer den Sink nutzt
+  // (container.innerHTML = _buildWeekHTMLRaw(...) in app.js). CodeQL hat als Quelle dafuer
+  // wkInput.value (isoWeek) markiert -- das <input type="week"> im echten UI lehnt zwar
+  // ungueltige Werte selbst ab, aber der Builder selbst darf sich nicht allein darauf
+  // verlassen. Direkter Aufruf mit praepariertem isoWeek umgeht die Input-Validierung des
+  // Browsers und prueft die Absicherung im Builder selbst.
+  const sec1b = await page.evaluate(async () => {
+    const { buildWeekHTML } = await import('/modules/render/week.js');
+    const { escapeHtml } = await import('/modules/util-format.js');
+    const { formatDate } = await import('/modules/util-time.js');
+    const { renderSummaryHTML } = await import('/modules/render/summary.js');
+    const { DAY_LABELS_LONG } = await import('/modules/compute.js');
+    const html = buildWeekHTML(
+      {
+        emp: { name: 'XSS-Check' },
+        isoWeek: '<img src=x onerror="window.__az_xss_fired__=true">',
+        dates: ['2026-06-08', '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12', '2026-06-13', '2026-06-14'],
+        dayModels: Array.from({ length: 7 }, () => ({ workMin: 0, hoursDisplay: '–', detail: '', isToday: false, holiday: null })),
+        weekFields: [],
+      },
+      { escapeHtml, formatDate, renderSummaryHTML, DAY_LABELS_LONG },
+    );
+    return { html, containsRawImgTag: html.includes('<img src=x onerror='), containsEscapedPayload: html.includes('&lt;img') };
+  });
+  assertTrue('SEC1b: buildWeekHTML() escaped ein praepariertes isoWeek (kein rohes <img>-Tag im HTML)',
+    sec1b.containsRawImgTag === false, sec1b.html.slice(0, 300));
+  assertTrue('SEC1b: praepariertes isoWeek erscheint escaped (&lt;img ...) statt als HTML',
+    sec1b.containsEscapedPayload === true, sec1b.html.slice(0, 300));
 }
 
 async function runRangeVacationStatsUnits(page) {
