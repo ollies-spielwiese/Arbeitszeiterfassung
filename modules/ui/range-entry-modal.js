@@ -53,6 +53,7 @@ export function openRangeEntryModal(ctx) {
  * Urlaubstage im selben Jahr mitgezählt werden (nicht nur Tage bis heute).
  */
 export function updateRangeVacationStats(ctx) {
+  const { escapeHtml } = ctx;
   const box = document.getElementById('range-vacation-stats');
   if (!box) return;
   const empSel = document.getElementById('range-employer');
@@ -82,12 +83,12 @@ export function updateRangeVacationStats(ctx) {
 
   box.hidden = false;
   box.innerHTML =
-    `<div class="range-vacation-stats-line">Bereits genommen: <strong>${vr.taken}</strong> Tage · ` +
-    `Urlaubsanspruch: <strong>${planned}</strong> Tage · ` +
-    `Noch nicht erfasst: <strong>${vr.remaining}</strong> Tage</div>` +
-    `<div class="range-vacation-stats-hint">Urlaubsjahr ${year}` +
+    `<div class="range-vacation-stats-line">Bereits genommen: <strong>${escapeHtml(String(vr.taken))}</strong> Tage · ` +
+    `Urlaubsanspruch: <strong>${escapeHtml(String(planned))}</strong> Tage · ` +
+    `Noch nicht erfasst: <strong>${escapeHtml(String(vr.remaining))}</strong> Tage</div>` +
+    `<div class="range-vacation-stats-hint">Urlaubsjahr ${escapeHtml(String(year))}` +
     `${vr.prorated ? ' · anteilig ab Eintritt' : ''}` +
-    `${vr.carryOver ? ` · davon ${vr.carryOver} Tage Resturlaub Vorjahr` : ''}</div>`;
+    `${vr.carryOver ? ` · davon ${escapeHtml(String(vr.carryOver))} Tage Resturlaub Vorjahr` : ''}</div>`;
 }
 
 export function saveRangeEntry(e, ctx) {

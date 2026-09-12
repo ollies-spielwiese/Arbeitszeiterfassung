@@ -729,6 +729,50 @@ async function runDayExactCreditUnits(page) {
   });
 }
 
+// ---------- 1e-5) XSS-Haertung: Zeitraum-Details in der Wochenansicht werden escaped (v3.9.51) ----------
+// CodeQL (js/xss-through-dom) hat gemeldet, dass modules/render/week.js den Tages-Detailtext
+// (u.a. `${e.start}-${e.end}` aus den gespeicherten Zeiteintraegen) unescaped per innerHTML
+// rendert. Der Backup-Import (modules/backup.js) validiert den Inhalt einzelner Eintraege nicht
+// inhaltlich -- eine praeparierte Backup-Datei koennte also z.B. start="<img src=x onerror=...>"
+// enthalten. SEC1 simuliert genau diesen Weg: Eintrag mit HTML-Payload direkt in state.entries,
+// dann echte Wochenansicht rendern -- der Payload darf weder als Element im DOM landen noch
+// ausgefuehrt werden, sondern muss als reiner (escaped) Text erscheinen.
+async function runWeekViewXssHardeningUnits(page) {
+  console.log('\n=== 1e-5) XSS-Haertung: Wochenansicht-Details ===');
+
+  const sec1 = await page.evaluate(() => {
+    window.__az_xss_fired__ = false;
+    const empId = '__xss-week-check__';
+    state.employers.push({ id: empId, name: 'XSS-Check', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' });
+    state.entries.push({
+      id: 'xss-1', employerId: empId, date: '2026-06-08', type: 'work',
+      start: '<img src=x onerror="window.__az_xss_fired__=true">', end: '10:00',
+    });
+    state.activeEmployerId = empId;
+    document.getElementById('week-employer').innerHTML = `<option value="${empId}">XSS-Check</option>`;
+    document.getElementById('week-employer').value = empId;
+    document.getElementById('week-input').value = '2026-W24';
+    renderWeek();
+    const container = document.getElementById('week-content');
+    const result = {
+      xssFired: window.__az_xss_fired__,
+      hasRawImgTag: !!container.querySelector('img'),
+      containsEscapedPayload: container.innerHTML.includes('&lt;img'),
+    };
+    // Aufraeumen
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    delete window.__az_xss_fired__;
+    return result;
+  });
+  assertTrue('SEC1: HTML-Payload in Eintrags-Zeiten wird NICHT ausgefuehrt (kein onerror-Trigger)',
+    sec1.xssFired === false, JSON.stringify(sec1));
+  assertTrue('SEC1: kein echtes <img>-Element im gerenderten Wochenbericht-DOM',
+    sec1.hasRawImgTag === false, JSON.stringify(sec1));
+  assertTrue('SEC1: Payload erscheint als escapeter Text (&lt;img ...) statt als HTML',
+    sec1.containsEscapedPayload === true, JSON.stringify(sec1));
+}
+
 async function runRangeVacationStatsUnits(page) {
   console.log('\n=== 1f) Urlaubskonto-Anzeige im Zeitraum-Modal ===');
 
@@ -736,6 +780,7 @@ async function runRangeVacationStatsUnits(page) {
   // (genommen=2 aus zwei Urlaubseinträgen im selben Jahr, geplant=30+5=35, offen=35-2=33).
   const rv1 = await page.evaluate(async () => {
     const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    const { escapeHtml } = await import('/modules/util-format.js');
     document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
     const emp = { id: '__rvtest__', annualVacation: 30, vacationCarryOver: 5, hiredSince: '' };
     const entries = [
@@ -748,7 +793,7 @@ async function runRangeVacationStatsUnits(page) {
     empSel.value = emp.id;
     document.getElementById('range-type').value = 'vacation';
     document.getElementById('range-start').value = '2026-06-08';
-    const ctx = { getState: () => ({ employers: [emp], entries }) };
+    const ctx = { getState: () => ({ employers: [emp], entries }), escapeHtml };
     updateRangeVacationStats(ctx);
     const box = document.getElementById('range-vacation-stats');
     return { hidden: box.hidden, html: box.innerHTML };
@@ -763,9 +808,10 @@ async function runRangeVacationStatsUnits(page) {
   // RV2: Box wird bei Typ=Krankheit ausgeblendet (kein Urlaubskonto relevant).
   const rv2Hidden = await page.evaluate(async () => {
     const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    const { escapeHtml } = await import('/modules/util-format.js');
     const emp = { id: '__rvtest__', annualVacation: 30, vacationCarryOver: 5, hiredSince: '' };
     document.getElementById('range-type').value = 'sick';
-    const ctx = { getState: () => ({ employers: [emp], entries: [] }) };
+    const ctx = { getState: () => ({ employers: [emp], entries: [] }), escapeHtml };
     updateRangeVacationStats(ctx);
     return document.getElementById('range-vacation-stats').hidden;
   });
@@ -774,9 +820,10 @@ async function runRangeVacationStatsUnits(page) {
   // RV3: Box wird ausgeblendet, wenn kein Arbeitgeber gewählt ist.
   const rv3Hidden = await page.evaluate(async () => {
     const { updateRangeVacationStats } = await import('/modules/ui/range-entry-modal.js');
+    const { escapeHtml } = await import('/modules/util-format.js');
     document.getElementById('range-type').value = 'vacation';
     document.getElementById('range-employer').innerHTML = '';
-    const ctx = { getState: () => ({ employers: [], entries: [] }) };
+    const ctx = { getState: () => ({ employers: [], entries: [] }), escapeHtml };
     updateRangeVacationStats(ctx);
     return document.getElementById('range-vacation-stats').hidden;
   });
@@ -1959,6 +2006,65 @@ function runLibIntegritySourceCheck() {
   );
 }
 
+// ---------- SEC2: Urlaubskonto-Infofeld im Zeitraum-Modal escaped alle Werte (v3.9.51) ----------
+// CodeQL (js/xss-through-dom) hat modules/ui/range-entry-modal.js Zeile 85 gemeldet:
+// updateRangeVacationStats() schrieb vr.taken/planned/vr.remaining/year/vr.carryOver unescaped
+// per innerHTML. Aktuell sind das immer Zahlen aus computeVacationRemaining() (kein realer
+// Angriffsweg), aber als Verteidigung-in-der-Tiefe muessen alle fuenf Werte trotzdem durch
+// escapeHtml(String(...)) laufen — diese statische Pruefung verhindert, dass ein zukuenftiger
+// Refactor die Absicherung stillschweigend wieder entfernt.
+function runRangeVacationStatsEscapingSourceCheck() {
+  const modPath = path.join(REPO_ROOT, 'modules/ui/range-entry-modal.js');
+  const src = fs.readFileSync(modPath, 'utf8');
+
+  assertTrue(
+    'SEC2: updateRangeVacationStats() bezieht escapeHtml aus ctx',
+    /const\s*\{\s*escapeHtml\s*\}\s*=\s*ctx/.test(src),
+    modPath
+  );
+
+  const fnMatch = src.match(/function updateRangeVacationStats\(ctx\)\s*{([\s\S]*?)\n}/);
+  assertTrue('SEC2: updateRangeVacationStats() in range-entry-modal.js gefunden', !!fnMatch, modPath);
+  if (!fnMatch) return;
+  const body = fnMatch[1];
+  for (const expr of ['vr.taken', 'planned', 'vr.remaining', 'year', 'vr.carryOver']) {
+    const needle = `escapeHtml(String(${expr}))`;
+    assertTrue(
+      `SEC2: ${expr} wird vor der innerHTML-Ausgabe mit escapeHtml() geschuetzt`,
+      body.includes(needle),
+      body.slice(0, 400)
+    );
+  }
+}
+
+// ---------- SEC3: Service-Worker-Cache prueft Hostname statt Teilstring (v3.9.51) ----------
+// CodeQL (js/incomplete-url-substring-sanitization) hat sw.js Zeile 120 gemeldet: die alte
+// Bedingung request.url.includes('unpkg.com') liesse sich durch eine praeparierte URL wie
+// https://evil.example.com/unpkg.com/x oder https://unpkg.com.evil.example.com umgehen bzw.
+// fehlklassifizieren. isCacheableResponseUrl() ersetzt das durch einen echten new URL(...)
+// .hostname-Vergleich. Diese Pruefung stellt sicher, dass die unsichere .includes()-Variante
+// nicht versehentlich wieder auftaucht.
+function runServiceWorkerHostnameCheckSourceCheck() {
+  const swPath = path.join(REPO_ROOT, 'sw.js');
+  const src = fs.readFileSync(swPath, 'utf8');
+
+  assertTrue(
+    'SEC3: isCacheableResponseUrl() ist definiert und nutzt new URL(...).hostname',
+    /function isCacheableResponseUrl\(url\)/.test(src) && /new URL\(url\)\.hostname\s*===\s*'unpkg\.com'/.test(src),
+    swPath
+  );
+  assertTrue(
+    'SEC3: fetch-Handler ruft isCacheableResponseUrl() auf statt der alten Teilstring-Pruefung',
+    /isCacheableResponseUrl\(request\.url\)/.test(src),
+    swPath
+  );
+  assertTrue(
+    'SEC3: die unsichere Teilstring-Pruefung request.url.includes(\'unpkg.com\') kommt nicht mehr vor',
+    !/request\.url\.includes\('unpkg\.com'\)/.test(src),
+    swPath
+  );
+}
+
 // ---------- Runner ----------
 
 (async () => {
@@ -1968,6 +2074,8 @@ function runLibIntegritySourceCheck() {
   runVersionBadgeSyncCheck();
   runActiveUpdateCheckOnLoadCheck();
   runLibIntegritySourceCheck();
+  runRangeVacationStatsEscapingSourceCheck();
+  runServiceWorkerHostnameCheckSourceCheck();
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);
@@ -1979,6 +2087,7 @@ function runLibIntegritySourceCheck() {
     await runOvertimeReductionUnits(page);
     await runAbsenceDuplicateGuardUnits(page);
     await runDayExactCreditUnits(page);
+    await runWeekViewXssHardeningUnits(page);
     await runRangeVacationStatsUnits(page);
     await runOffDayUnits(page);
     await runAuditLogUnits(page);

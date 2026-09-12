@@ -27,7 +27,7 @@ export function buildWeekHTML(data, ctx) {
       <div class="week-day-card ${dm.isToday ? 'today' : ''}">
         <div>
           <div class="day-name">${DAY_LABELS_LONG[idx]}, ${formatDate(dates[idx])}${dm.holiday ? `<span class="holiday-badge">${escapeHtml(dm.holiday.name)}</span>` : ''}</div>
-          <div class="day-detail">${dm.detail || '—'}</div>
+          <div class="day-detail">${escapeHtml(dm.detail || '—')}</div>
         </div>
         <div class="day-hours">${dm.hoursDisplay}</div>
       </div>

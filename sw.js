@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-50';
+const CACHE_NAME = 'arbeitszeit-v3-9-51';
 const ASSETS = [
   './',
   './index.html',
@@ -107,6 +107,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Prueft die tatsaechliche Origin/den tatsaechlichen Hostnamen einer Anfrage, statt nur
+// einen Teilstring zu suchen (v3.9.51): 'url.includes("unpkg.com")' wuerde auch auf
+// z.B. 'https://evil-unpkg.com.angreifer.io/...' zutreffen und diese Antwort dauerhaft
+// im Offline-Cache ablegen. Exakter Hostname-Vergleich schliesst das aus.
+function isCacheableResponseUrl(url) {
+  if (url.startsWith(self.location.origin)) return true;
+  try {
+    return new URL(url).hostname === 'unpkg.com';
+  } catch {
+    return false;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -117,7 +130,7 @@ self.addEventListener('fetch', (event) => {
       return fetch(request)
         .then((response) => {
           // Cache successful GET responses for future offline use
-          if (response && response.status === 200 && (request.url.startsWith(self.location.origin) || request.url.includes('unpkg.com'))) {
+          if (response && response.status === 200 && isCacheableResponseUrl(request.url)) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }

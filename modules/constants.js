@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.50';
+export const APP_VERSION = '3.9.51';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.51', items: [
+    'Sicherheit: Stored-XSS-Absicherung im Wochenbericht — Zeit-Einträge (Beginn/Ende) werden vor der Anzeige jetzt per escapeHtml() escaped; ein präparierter Backup-Import konnte zuvor unescapten HTML-Code in die Wochenansicht einschleusen (CodeQL-Fund)',
+    'Sicherheit: Urlaubskonto-Infofeld im Zeitraum-Modal escaped jetzt alle angezeigten Werte (Verteidigung in der Tiefe, CodeQL-Fund)',
+    'Sicherheit: Service-Worker-Cache prüft bei CDN-Antworten jetzt den exakten Hostnamen statt einer Teilstring-Suche, die sich durch eine präparierte URL hätte umgehen lassen (CodeQL-Fund)',
+    'Regression: 13 neue Checks (SEC1 für die Escaping-Absicherung im Wochenbericht, SEC2 für das Urlaubskonto-Infofeld, SEC3 für die Hostname-Prüfung im Service Worker)',
+  ]},
   { version: '3.9.50', items: [
     'Sicherheit: Dependabot-Security-Updates aktiviert und offene Advisories geschlossen (mammoth, @xmldom/xmldom aktualisiert, 0 Schwachstellen laut npm audit)',
     'Sicherheit: CDN-geladene Bibliotheken (jsPDF, jsPDF-AutoTable, docx) sind jetzt per Subresource Integrity (SRI) gegen die exakt geprüften Versionen abgesichert — eine manipulierte Datei würde kontrolliert mit Fehlermeldung abgelehnt statt stillschweigend ausgeführt',
