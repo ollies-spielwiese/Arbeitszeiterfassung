@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.78</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.79</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -244,6 +244,14 @@
 
     <!-- Overview View: Monatsauswertung über alle Arbeitgeber -->
     <section id="view-overview" class="view">
+      <div id="sollstunden-warning-banner-overview" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning-overview">
+        <span class="sw-title">Sollstunden-Warnung</span>
+        <ul id="sollstunden-warning-list-overview" class="sw-list"></ul>
+        <div class="sw-actions">
+          <button type="button" id="btn-sollwarning-goto-overview" class="btn-primary btn-small" data-testid="button-sollwarning-goto-overview">Zum Gleitzeitkonto</button>
+          <button type="button" id="btn-sollwarning-snooze-overview" class="btn-secondary btn-small" data-testid="button-sollwarning-snooze-overview">Später erinnern</button>
+        </div>
+      </div>
       <div class="filter-row">
         <input type="month" id="overview-month" data-testid="input-overview-month" />
       </div>

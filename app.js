@@ -1382,6 +1382,7 @@ function setShowFormerEmployers(value) {
 }
 
 function renderOverview() {
+  updateSollWarningBanner();
   const monthInput = document.getElementById('overview-month');
   const formerCb = document.getElementById('show-former-employers-overview');
   if (formerCb) formerCb.checked = showFormerEmployers;
@@ -1475,18 +1476,26 @@ function updateBackupReminderBanner() {
   if (show) textEl.textContent = msg;
 }
 
-// Sollstunden-Warnung-Banner (Erfassen-Ansicht, seit v3.9.78): fasst alle aktiven
-// Warnungen (Monats-Saldo + Gleitzeitkonto-Saldo, ueber alle nicht-ehemaligen Arbeitgeber)
+// Sollstunden-Warnung-Banner (Erfassen- und Übersicht-Ansicht, seit v3.9.78/v3.9.79): fasst alle
+// aktiven Warnungen (Monats-Saldo + Gleitzeitkonto-Saldo, ueber alle nicht-ehemaligen Arbeitgeber)
 // zusammen. Gleiches Snooze-/Toggle-Muster wie updateBackupReminderBanner().
+// Banner erscheint an mehreren Stellen (Erfassen + Übersicht) mit identischem Inhalt —
+// die Warnliste ist global (aktueller Monat/Jahr), unabhängig vom jeweils angezeigten View-Filter.
+const SOLL_WARNING_BANNER_TARGETS = [
+  { bannerId: 'sollstunden-warning-banner', listId: 'sollstunden-warning-list' },
+  { bannerId: 'sollstunden-warning-banner-overview', listId: 'sollstunden-warning-list-overview' },
+];
+
 function updateSollWarningBanner() {
-  const banner = document.getElementById('sollstunden-warning-banner');
-  const listEl = document.getElementById('sollstunden-warning-list');
-  if (!banner || !listEl) return;
+  const targets = SOLL_WARNING_BANNER_TARGETS
+    .map(({ bannerId, listId }) => ({ banner: document.getElementById(bannerId), listEl: document.getElementById(listId) }))
+    .filter(({ banner, listEl }) => banner && listEl);
+  if (!targets.length) return;
   const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
   const now = Date.now();
 
   if (settings.sollWarningSnoozeUntil && new Date(settings.sollWarningSnoozeUntil).getTime() > now) {
-    banner.classList.add('hidden');
+    targets.forEach(({ banner }) => banner.classList.add('hidden'));
     return;
   }
 
@@ -1501,11 +1510,14 @@ function updateSollWarningBanner() {
   );
 
   if (!warnings.length) {
-    banner.classList.add('hidden');
+    targets.forEach(({ banner }) => banner.classList.add('hidden'));
     return;
   }
-  listEl.innerHTML = _buildSollWarningListHTMLRaw(warnings, { escapeHtml, minutesToHM, formatMonthYear });
-  banner.classList.remove('hidden');
+  const listHTML = _buildSollWarningListHTMLRaw(warnings, { escapeHtml, minutesToHM, formatMonthYear });
+  targets.forEach(({ banner, listEl }) => {
+    listEl.innerHTML = listHTML;
+    banner.classList.remove('hidden');
+  });
 }
 
 // Jahre, die in den Jahr-Pulldowns von Urlaubsplanung und Gleitzeitkonto zur Auswahl stehen:

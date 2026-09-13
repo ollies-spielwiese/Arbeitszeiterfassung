@@ -1954,6 +1954,73 @@ async function runSollWarningUnits(page) {
     return renderSummaryHTML(fields);
   });
   assertTrue('SW12: keine Hervorhebung ohne aktive Warnung', !sw12.includes('sw-flagged'), '');
+
+  // SW13: updateSollWarningBanner() aktualisiert seit v3.9.79 auch die zweite Banner-Instanz
+  // in der Übersicht-Ansicht — identischer Inhalt wie im Erfassen-Banner, ehemalige Arbeitgeber
+  // bleiben auch dort ausgeschlossen.
+  const sw13 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    const savedEmployers = state.employers.slice();
+    const savedEntries = state.entries.slice();
+    const savedActive = state.activeEmployerId;
+    const empId = '__sw-overview__';
+    const formerEmpId = '__sw-overview-former__';
+    state.settings.appMode = 'employee';
+    state.settings.sollWarningMonthEnabled = true;
+    state.settings.sollWarningMonthThresholdPct = 20;
+    state.settings.sollWarningGleitzeitEnabled = false;
+    state.settings.sollWarningSnoozeUntil = null;
+    state.employers.push({ id: empId, name: 'SW-Übersicht-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+    state.employers.push({ id: formerEmpId, name: 'SW-Übersicht-Ehemalig', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2020-12-31' });
+    state.entries.push({ id: 'sw13-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
+    state.activeEmployerId = empId;
+    updateSollWarningBanner();
+    const bannerOverview = document.getElementById('sollstunden-warning-banner-overview');
+    const bannerTracker = document.getElementById('sollstunden-warning-banner');
+    const result = {
+      overviewHidden: bannerOverview.classList.contains('hidden'),
+      overviewListHTML: document.getElementById('sollstunden-warning-list-overview').innerHTML,
+      trackerListHTML: document.getElementById('sollstunden-warning-list').innerHTML,
+      trackerHidden: bannerTracker.classList.contains('hidden'),
+    };
+    state.employers = savedEmployers;
+    state.entries = savedEntries;
+    state.activeEmployerId = savedActive;
+    Object.assign(state.settings, savedSettings);
+    updateSollWarningBanner();
+    return result;
+  });
+  assertTrue('SW13: Übersicht-Banner sichtbar bei aktiver Warnung', !sw13.overviewHidden, '');
+  assertContains('SW13: Übersicht-Banner nennt den betroffenen Arbeitgeber', sw13.overviewListHTML, 'SW-Übersicht-Test');
+  assertTrue('SW13: ehemaliger Arbeitgeber wird auch im Übersicht-Banner nicht gelistet', !sw13.overviewListHTML.includes('SW-Übersicht-Ehemalig'), '');
+  assertEq('SW13: Übersicht- und Erfassen-Banner zeigen identischen Inhalt', sw13.overviewListHTML, sw13.trackerListHTML);
+  assertTrue('SW13: Erfassen-Banner bleibt weiterhin ebenfalls sichtbar', !sw13.trackerHidden, '');
+
+  // SW14: Snooze blendet BEIDE Banner-Instanzen gleichzeitig aus (globale Einstellung).
+  const sw14 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    const savedEmployers = state.employers.slice();
+    const savedEntries = state.entries.slice();
+    const empId = '__sw-overview-snooze__';
+    state.settings.appMode = 'employee';
+    state.settings.sollWarningMonthEnabled = true;
+    state.settings.sollWarningMonthThresholdPct = 20;
+    state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    state.employers.push({ id: empId, name: 'SW-Übersicht-Snooze', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+    state.entries.push({ id: 'sw14-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
+    updateSollWarningBanner();
+    const result = {
+      overviewHidden: document.getElementById('sollstunden-warning-banner-overview').classList.contains('hidden'),
+      trackerHidden: document.getElementById('sollstunden-warning-banner').classList.contains('hidden'),
+    };
+    state.employers = savedEmployers;
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    updateSollWarningBanner();
+    return result;
+  });
+  assertTrue('SW14: Übersicht-Banner bleibt während Snooze ausgeblendet', sw14.overviewHidden, '');
+  assertTrue('SW14: Erfassen-Banner bleibt während Snooze ebenfalls ausgeblendet', sw14.trackerHidden, '');
 }
 
 
