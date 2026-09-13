@@ -15,14 +15,16 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Arbeitszeitmodell pro Arbeitgeber (Beschäftigungsart wie Vollzeit/Teilzeit/Minijob/Midijob inkl. Beschäftigungsgrad, sowie Arbeitszeitorganisation wie Gleitzeit, Vertrauensarbeitszeit, Vier-Tage-Woche, Schichtarbeit u. a.) — erscheint als Zusammenfassung im PDF-, Word- und CSV-Export sowie in der Monatsübersicht; im Freiberufler-Modus ausgeblendet
 - Jahresurlaub pro Arbeitgeber inklusive Resturlaub aus dem Vorjahr — automatisches Prorating im Anstellungsjahr
 - Wöchentliche und monatliche Übersichten mit Soll/Ist/Saldo
-- Übersichts-Tab: alle Arbeitgeber im Monatsvergleich
+- Übersichts-Tab: alle Arbeitgeber im Monatsvergleich, Überschrift „Monatsübersicht (alle Arbeitgeber und Kunden)“ einheitlich in beiden Modi
 - PDF-Nachweise mit strukturierter Kopfzeile (Arbeitgeber, Zeitraum, Anstellungsdatum), farbcodiertem Saldo und Seitennummerierung „Seite N von M“ auf jeder Seite
 - Word-Export einzelner Monatsberichte
 - Feiertage für alle Bundesländer, inklusive nachträglicher Anpassung (deaktivieren, umbenennen, ergänzen)
 - Urlaubs- und Krankheitstage separat erfasst und im Saldo berücksichtigt (Gutschrift = tagesgenaues Tages-Soll bei `hoursMode='week'`, sonst Wochen-Soll ÷ Werktage als Durchschnittsprinzip, siehe [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#berechnungsregel-urlaubkrank-absence-credit) für Regel und Grenzen)
 - Freier Tag als eigener Eintragstyp: Tage ohne Vertrags-Soll (z. B. planmäßig arbeitsfrei bei unregelmäßigem Wochenmodell) werden vom Tages-/Monats-Soll ausgeschlossen, ohne wie Urlaub/Krank gutgeschrieben zu werden
 - Zeitraum-Erfassung „von … bis …“ für Urlaub/Krankheit: legt alle Tage im gewählten Zeitraum in einem Schritt an, lässt Wochenenden und Feiertage automatisch aus (abschaltbar), überschreibt nie bereits erfasste Tage und lässt sich per Toast-Aktion „Rückgängig“ sofort wieder entfernen
-- Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo im gewählten Kalenderjahr (Jan–Dez), Monat für Monat mit laufendem Saldo — startet nie vor „Angestellt seit“, läuft aber über Jahresgrenzen hinweg durch
+- Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo im gewählten Kalenderjahr (Jan–Dez), Monat für Monat mit laufendem Saldo — startet nie vor „Angestellt seit“, läuft aber über Jahresgrenzen hinweg durch; eigenständiger PDF-Export der Saldo-Tabelle
+- Urlaubsplanung und Gleitzeitkonto: Jahr wird per Pulldown gewählt (alle Jahre mit Einträgen oder Anstellungszeiträumen sowie aktuelles und kommendes Jahr) statt eines freien Zahlenfelds
+- Info-Tooltip an der Saldo-Kachel (Monat, Woche, Übersicht, Gleitzeitkonto): erklärt per Klick auf das „i“-Icon, wie viele Stunden als Urlaubs-/Krankheitsgutschrift enthalten sind
 - Änderungsprotokoll: jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel in den Einstellungen protokolliert (letzte 500 Änderungen, davon die letzten 50 sichtbar)
 - Backup-Erinnerung: Banner in den Einstellungen, wenn noch nie (ab dem Folgetag) oder seit mehr als 7 Tagen kein Backup erstellt wurde, mit Möglichkeit zum Zurückstellen (Snooze)
 - Backup-Ordner (Chrome/Edge): fester Ordner lässt sich einmalig auswählen und wird geräteweise gemerkt (File System Access API) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog; in Safari/iOS zeigt der Bereich stattdessen eine Anleitung, das Backup nach dem Export manuell über Mehr … bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abzulegen (Safari erlaubt Web-Apps aus Sicherheitsgründen keinen automatischen Ordnerzugriff)
@@ -39,6 +41,10 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 
 ![Erfassung](screenshots/desktop_erfassen.png)
 
+**Einträge**
+
+![Einträge](screenshots/desktop_eintraege.png)
+
 **Wochenübersicht**
 
 ![Woche](screenshots/desktop_woche.png)
@@ -51,6 +57,26 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 
 ![Übersicht](screenshots/desktop_uebersicht.png)
 
+**Urlaubsplanung**
+
+![Urlaubsplanung](screenshots/desktop_urlaubsplanung.png)
+
+**Gleitzeitkonto**
+
+![Gleitzeitkonto](screenshots/desktop_gleitzeitkonto.png)
+
+**Arbeitgeber verwalten**
+
+![Arbeitgeber](screenshots/desktop_arbeitgeber.png)
+
+**Archiv**
+
+![Archiv](screenshots/desktop_archiv.png)
+
+**Anleitung**
+
+![Anleitung](screenshots/desktop_anleitung.png)
+
 **Einstellungen**
 
 ![Einstellungen](screenshots/desktop_einstellungen.png)
@@ -59,13 +85,21 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 
 Auf iPhone und Android installiert als Home-Screen-App.
 
-| Erfassung | Woche | Monat |
+| Erfassung | Einträge | Woche |
 |---|---|---|
-| ![](screenshots/mobile_erfassen.png) | ![](screenshots/mobile_woche.png) | ![](screenshots/mobile_monat.png) |
+| ![](screenshots/mobile_erfassen.png) | ![](screenshots/mobile_eintraege.png) | ![](screenshots/mobile_woche.png) |
 
-| Übersicht | Einstellungen |
+| Monat | Übersicht | Urlaubsplanung |
+|---|---|---|
+| ![](screenshots/mobile_monat.png) | ![](screenshots/mobile_uebersicht.png) | ![](screenshots/mobile_urlaubsplanung.png) |
+
+| Gleitzeitkonto | Arbeitgeber | Archiv |
+|---|---|---|
+| ![](screenshots/mobile_gleitzeitkonto.png) | ![](screenshots/mobile_arbeitgeber.png) | ![](screenshots/mobile_archiv.png) |
+
+| Anleitung | Einstellungen |
 |---|---|
-| ![](screenshots/mobile_uebersicht.png) | ![](screenshots/mobile_einstellungen.png) |
+| ![](screenshots/mobile_anleitung.png) | ![](screenshots/mobile_einstellungen.png) |
 
 ## Installation
 
@@ -116,7 +150,7 @@ Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 ```bash
 npm ci
 npm run serve &          # lokaler HTTP-Server auf Port 8765
-npm run qa               # 247 Checks, ~3 s
+npm run qa               # 514 Checks, ~3 s
 ```
 
 Umgebungsvariablen:

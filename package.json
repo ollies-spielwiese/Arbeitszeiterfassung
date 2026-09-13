@@ -13,7 +13,8 @@
     "qa:webkit:ci": "ENGINE=webkit node scripts/regression.mjs",
     "visual:test": "node scripts/visual-regression.mjs",
     "visual:update": "node scripts/visual-regression.mjs --update",
-    "typecheck": "node scripts/typecheck.mjs"
+    "typecheck": "node scripts/typecheck.mjs",
+    "screenshots": "node scripts/gen_screenshots.mjs"
   },
   "devDependencies": {
     "mammoth": "^1.12.0",
