@@ -43,6 +43,10 @@ export function exportBridge(target, refs) {
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
+    // Sollstunden-Warnung (seit v3.9.78)
+    updateSollWarningBanner, computeBalanceWarningInfo, evaluateSollWarning,
+    formatSollWarningTooltipText, buildBalanceWarningInfo, computeActiveSollWarnings,
+    buildSollWarningListHTML,
     // CSV-Export (seit v3.9.47)
     generateCsvBlob,
     // Gleitzeitkonto-Ansicht (seit v3.9.47, Kalenderjahr-Logik seit v3.9.48)
@@ -135,6 +139,15 @@ export function exportBridge(target, refs) {
   if (typeof buildAuditLogHTML === 'function') target.buildAuditLogHTML = buildAuditLogHTML;
   if (typeof renderAuditLog === 'function') target.renderAuditLog = renderAuditLog;
   if (typeof updateBackupReminderBanner === 'function') target.updateBackupReminderBanner = updateBackupReminderBanner;
+
+  // Sollstunden-Warnung (seit v3.9.78, für Regression-Unit-Tests)
+  if (typeof updateSollWarningBanner === 'function') target.updateSollWarningBanner = updateSollWarningBanner;
+  if (typeof computeBalanceWarningInfo === 'function') target.computeBalanceWarningInfo = computeBalanceWarningInfo;
+  if (typeof evaluateSollWarning === 'function') target.evaluateSollWarning = evaluateSollWarning;
+  if (typeof formatSollWarningTooltipText === 'function') target.formatSollWarningTooltipText = formatSollWarningTooltipText;
+  if (typeof buildBalanceWarningInfo === 'function') target.buildBalanceWarningInfo = buildBalanceWarningInfo;
+  if (typeof computeActiveSollWarnings === 'function') target.computeActiveSollWarnings = computeActiveSollWarnings;
+  if (typeof buildSollWarningListHTML === 'function') target.buildSollWarningListHTML = buildSollWarningListHTML;
 
   // CSV-Export (seit v3.9.47)
   if (typeof generateCsvBlob === 'function') target.generateCsvBlob = generateCsvBlob;

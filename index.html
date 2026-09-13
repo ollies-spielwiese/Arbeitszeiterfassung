@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.77</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.78</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -129,6 +129,14 @@
   <main id="app">
     <!-- Tracker View -->
     <section id="view-tracker" class="view active">
+      <div id="sollstunden-warning-banner" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning">
+        <span class="sw-title">Sollstunden-Warnung</span>
+        <ul id="sollstunden-warning-list" class="sw-list"></ul>
+        <div class="sw-actions">
+          <button type="button" id="btn-sollwarning-goto" class="btn-primary btn-small" data-testid="button-sollwarning-goto">Zum Gleitzeitkonto</button>
+          <button type="button" id="btn-sollwarning-snooze" class="btn-secondary btn-small" data-testid="button-sollwarning-snooze">Später erinnern</button>
+        </div>
+      </div>
       <div class="employer-selector">
         <label for="active-employer" id="active-employer-label">Aktueller Arbeitgeber</label>
         <select id="active-employer" data-testid="select-active-employer"></select>
@@ -677,6 +685,47 @@
           </label>
         </div>
         <div id="holiday-list" class="holiday-list" data-testid="list-holidays"></div>
+      </div>
+
+      <div class="settings-block" id="settings-block-sw">
+        <h3>Sollstunden-Warnung</h3>
+        <p class="hint">Warnt dich, wenn dein Saldo deutlich über oder unter dem Soll liegt — als Banner in der Erfassen-Ansicht und als Hervorhebung der Saldo-Kachel. Getrennt einstellbar für Monats-Saldo und Gleitzeitkonto-Saldo.</p>
+
+        <div class="sw-subblock">
+          <div class="sw-toggle-row">
+            <label class="checkbox-row" for="setting-sw-month-enabled">
+              <input type="checkbox" id="setting-sw-month-enabled" data-testid="checkbox-sw-month-enabled" />
+              <span>Monats-Saldo überwachen</span>
+            </label>
+          </div>
+          <div class="sw-threshold-chips">
+            <button type="button" class="sw-chip" data-target="month" data-value="10" data-testid="chip-sw-month-10">10 %</button>
+            <button type="button" class="sw-chip" data-target="month" data-value="20" data-testid="chip-sw-month-20">20 %</button>
+            <button type="button" class="sw-chip" data-target="month" data-value="30" data-testid="chip-sw-month-30">30 %</button>
+            <span class="sw-chip-custom">
+              <label for="setting-sw-month-threshold-custom">eigene %</label>
+              <input type="number" id="setting-sw-month-threshold-custom" min="1" max="100" step="1" data-testid="input-sw-month-threshold-custom" />
+            </span>
+          </div>
+        </div>
+
+        <div class="sw-subblock">
+          <div class="sw-toggle-row">
+            <label class="checkbox-row" for="setting-sw-gleitzeit-enabled">
+              <input type="checkbox" id="setting-sw-gleitzeit-enabled" data-testid="checkbox-sw-gleitzeit-enabled" />
+              <span>Gleitzeitkonto-Saldo überwachen</span>
+            </label>
+          </div>
+          <div class="sw-threshold-chips">
+            <button type="button" class="sw-chip" data-target="gleitzeit" data-value="10" data-testid="chip-sw-gleitzeit-10">10 %</button>
+            <button type="button" class="sw-chip" data-target="gleitzeit" data-value="20" data-testid="chip-sw-gleitzeit-20">20 %</button>
+            <button type="button" class="sw-chip" data-target="gleitzeit" data-value="30" data-testid="chip-sw-gleitzeit-30">30 %</button>
+            <span class="sw-chip-custom">
+              <label for="setting-sw-gleitzeit-threshold-custom">eigene %</label>
+              <input type="number" id="setting-sw-gleitzeit-threshold-custom" min="1" max="100" step="1" data-testid="input-sw-gleitzeit-threshold-custom" />
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="settings-block">

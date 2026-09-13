@@ -632,7 +632,7 @@ export function computeMonthOverview(ym, ctx) {
  * @param {AZEmployer} emp
  * @param {number} year z.B. 2026
  * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
- * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, cumulativeTargetMin:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
  */
 export function computeGleitzeitkontoRows(emp, year, ctx) {
   const state = ctx && ctx.state;
@@ -669,6 +669,7 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
   }
 
   let cumulative = 0;
+  let cumulativeTargetMin = 0;
   let cumulativeCreditedAbsenceMin = 0;
   let cumulativeVacationDays = 0;
   let cumulativeSickDays = 0;
@@ -678,6 +679,7 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
     const r = computeMonthReport(emp.id, cursor, ctx);
     if (r) {
       cumulative += r.balance;
+      cumulativeTargetMin += r.targetMin;
       cumulativeCreditedAbsenceMin += r.creditedAbsenceMin;
       cumulativeVacationDays += r.vacationEntries.length;
       cumulativeSickDays += r.sickEntries.length;
@@ -688,6 +690,9 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
           targetMin: r.targetMin,
           balance: r.balance,
           cumulativeBalance: cumulative,
+          // Laufendes Referenz-Soll bis inkl. diesem Monat, seit v3.9.78 — Basis für die
+          // Sollstunden-Warnung (Baustein "Gleitzeitkonto-Saldo"), siehe modules/soll-warning.js.
+          cumulativeTargetMin,
           creditedAbsenceMin: r.creditedAbsenceMin,
           vacationDays: r.vacationEntries.length,
           sickDays: r.sickEntries.length,

@@ -132,6 +132,9 @@ export function getSummaryFields(input, ctx) {
       sign: bal >= 0 ? 'pos' : 'neg',
       rawMinutes: bal,
       tooltip: buildBalanceTooltipText(input.creditedAbsenceMin || 0, input.vacationDays || 0, input.sickDays || 0, minutesToHM),
+      // Sollstunden-Warnung (seit v3.9.78) — optional, siehe modules/soll-warning.js.
+      warningFlag: !!input.balanceWarning,
+      warningTooltip: input.balanceWarning ? input.balanceWarning.tooltipText : null,
     });
   }
 

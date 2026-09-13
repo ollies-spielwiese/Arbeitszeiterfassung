@@ -163,6 +163,11 @@
  * @property {string|null} [backupReminderSnoozeUntil] ISO-Timestamp, bis zu dem die Backup-Erinnerung stummgeschaltet ist (seit v3.9.47)
  * @property {string|null} [backupReminderFirstSeenAt] ISO-Timestamp, seit wann Daten ohne bisheriges Backup existieren (seit v3.9.68) —
  *   Referenzpunkt für die Ein-Tag-Schonfrist, bevor die allererste Backup-Erinnerung erscheint
+ * @property {boolean} [sollWarningMonthEnabled] Sollstunden-Warnung für den Monats-Saldo aktiv (seit v3.9.78)
+ * @property {number} [sollWarningMonthThresholdPct] Schwelle in Prozent für den Monats-Saldo-Baustein (seit v3.9.78)
+ * @property {boolean} [sollWarningGleitzeitEnabled] Sollstunden-Warnung für den Gleitzeitkonto-Saldo aktiv (seit v3.9.78)
+ * @property {number} [sollWarningGleitzeitThresholdPct] Schwelle in Prozent für den Gleitzeitkonto-Saldo-Baustein (seit v3.9.78)
+ * @property {string|null} [sollWarningSnoozeUntil] ISO-Timestamp, bis zu dem der Sollstunden-Warnung-Banner stummgeschaltet ist (seit v3.9.78)
  */
 
 /**
@@ -204,6 +209,7 @@
  * @property {string} [netLabel]
  * @property {{annual:number,carryOver:number,taken:number,remaining:number,prorated:boolean,hiredMonth:number}} [vacationRemaining]
  * @property {string} [monthLabel]
+ * @property {(import('./modules/soll-warning.js').SollWarning & {tooltipText:string})|null} [balanceWarning] Sollstunden-Warnung für die Saldo-Kachel (seit v3.9.78)
  */
 
 /**

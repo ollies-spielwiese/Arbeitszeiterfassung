@@ -27,6 +27,7 @@ export function buildReportHTML(r, ctx) {
     computeHomeofficeMinutes,
     getSummaryFields,
     renderSummaryHTML,
+    balanceWarning,
   } = ctx;
 
   // Gemeinsame, chronologisch sortierte Zeilen aus Arbeit + Home-Office
@@ -90,6 +91,8 @@ export function buildReportHTML(r, ctx) {
     currency: r.employer.currency || 'EUR',
     mode: empHasTarget ? 'employee' : 'freelance',
     creditedAbsenceMin: r.creditedAbsenceMin,
+    // Sollstunden-Warnung (seit v3.9.78), siehe modules/soll-warning.js.
+    balanceWarning,
   });
 
   return `
