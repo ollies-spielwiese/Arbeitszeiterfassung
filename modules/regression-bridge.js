@@ -43,10 +43,11 @@ export function exportBridge(target, refs) {
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
-    // Sollstunden-Warnung (seit v3.9.78)
+    // Sollstunden-Warnung (seit v3.9.78, dynamischer Mindest-Arbeitstage-Schutz seit v3.9.80)
     updateSollWarningBanner, computeBalanceWarningInfo, evaluateSollWarning,
     formatSollWarningTooltipText, buildBalanceWarningInfo, computeActiveSollWarnings,
-    buildSollWarningListHTML,
+    buildSollWarningListHTML, computeElapsedMonthProgress,
+    MONTH_THRESHOLD_MIN_PCT, MIN_ABSOLUTE_DEVIATION_MIN, clampMonthThresholdPct, computeMinElapsedWorkdaysForThreshold,
     // CSV-Export (seit v3.9.47)
     generateCsvBlob,
     // Gleitzeitkonto-Ansicht (seit v3.9.47, Kalenderjahr-Logik seit v3.9.48)
@@ -148,6 +149,11 @@ export function exportBridge(target, refs) {
   if (typeof buildBalanceWarningInfo === 'function') target.buildBalanceWarningInfo = buildBalanceWarningInfo;
   if (typeof computeActiveSollWarnings === 'function') target.computeActiveSollWarnings = computeActiveSollWarnings;
   if (typeof buildSollWarningListHTML === 'function') target.buildSollWarningListHTML = buildSollWarningListHTML;
+  if (typeof computeElapsedMonthProgress === 'function') target.computeElapsedMonthProgress = computeElapsedMonthProgress;
+  if (typeof MONTH_THRESHOLD_MIN_PCT !== 'undefined') target.MONTH_THRESHOLD_MIN_PCT = MONTH_THRESHOLD_MIN_PCT;
+  if (typeof MIN_ABSOLUTE_DEVIATION_MIN !== 'undefined') target.MIN_ABSOLUTE_DEVIATION_MIN = MIN_ABSOLUTE_DEVIATION_MIN;
+  if (typeof clampMonthThresholdPct === 'function') target.clampMonthThresholdPct = clampMonthThresholdPct;
+  if (typeof computeMinElapsedWorkdaysForThreshold === 'function') target.computeMinElapsedWorkdaysForThreshold = computeMinElapsedWorkdaysForThreshold;
 
   // CSV-Export (seit v3.9.47)
   if (typeof generateCsvBlob === 'function') target.generateCsvBlob = generateCsvBlob;

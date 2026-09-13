@@ -1851,7 +1851,7 @@ async function runSollWarningUnits(page) {
     state.settings.sollWarningMonthEnabled = false;
     state.settings.sollWarningGleitzeitEnabled = false;
     const result = computeActiveSollWarnings(
-      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), isFormerEmployer },
+      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), computeElapsedMonthProgress, isFormerEmployer },
       { ym: '2026-06', year: 2026, today: '2026-06-15' }
     );
     Object.assign(state.settings, savedSettings);
@@ -1867,7 +1867,7 @@ async function runSollWarningUnits(page) {
     state.settings.sollWarningMonthEnabled = true;
     state.settings.sollWarningGleitzeitEnabled = true;
     const result = computeActiveSollWarnings(
-      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), isFormerEmployer },
+      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), computeElapsedMonthProgress, isFormerEmployer },
       { ym: '2026-06', year: 2026, today: '2026-06-15' }
     );
     Object.assign(state.settings, savedSettings);
@@ -1893,9 +1893,12 @@ async function runSollWarningUnits(page) {
     state.employers.push({ id: empId, name: 'SW-Monat-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
     state.employers.push({ id: formerEmpId, name: 'SW-Ehemalig-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2020-12-31' });
     // Ein einziger kurzer Arbeitstag im Monat -> Ist weit unter Soll -> deutliches Minus.
+    // Fester Testzeitraum (2026-06 / Stichtag 2026-06-15) statt des echten Kalendertags: seit dem
+    // Mindest-Arbeitstage-Schutz (v3.9.80) haengt sonst ab, wie viele Arbeitstage im ECHTEN
+    // aktuellen Monat bereits vergangen sind — mit fixem Stichtag bleibt der Test deterministisch.
     state.entries.push({ id: 'sw9-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
     state.activeEmployerId = empId;
-    updateSollWarningBanner();
+    updateSollWarningBanner({ ym: '2026-06', year: 2026, today: '2026-06-15' });
     const banner = document.getElementById('sollstunden-warning-banner');
     const result = {
       hidden: banner.classList.contains('hidden'),
@@ -1924,7 +1927,8 @@ async function runSollWarningUnits(page) {
     state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     state.employers.push({ id: empId, name: 'SW-Snooze-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
     state.entries.push({ id: 'sw10-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
-    updateSollWarningBanner();
+    // Fester Testzeitraum wie SW9 (siehe dortiger Kommentar).
+    updateSollWarningBanner({ ym: '2026-06', year: 2026, today: '2026-06-15' });
     const hidden = document.getElementById('sollstunden-warning-banner').classList.contains('hidden');
     state.employers = savedEmployers;
     state.entries = savedEntries;
@@ -1974,7 +1978,8 @@ async function runSollWarningUnits(page) {
     state.employers.push({ id: formerEmpId, name: 'SW-Übersicht-Ehemalig', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2020-12-31' });
     state.entries.push({ id: 'sw13-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
     state.activeEmployerId = empId;
-    updateSollWarningBanner();
+    // Fester Testzeitraum wie SW9 (siehe dortiger Kommentar).
+    updateSollWarningBanner({ ym: '2026-06', year: 2026, today: '2026-06-15' });
     const bannerOverview = document.getElementById('sollstunden-warning-banner-overview');
     const bannerTracker = document.getElementById('sollstunden-warning-banner');
     const result = {
@@ -2008,7 +2013,8 @@ async function runSollWarningUnits(page) {
     state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     state.employers.push({ id: empId, name: 'SW-Übersicht-Snooze', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
     state.entries.push({ id: 'sw14-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
-    updateSollWarningBanner();
+    // Fester Testzeitraum wie SW9 (siehe dortiger Kommentar).
+    updateSollWarningBanner({ ym: '2026-06', year: 2026, today: '2026-06-15' });
     const result = {
       overviewHidden: document.getElementById('sollstunden-warning-banner-overview').classList.contains('hidden'),
       trackerHidden: document.getElementById('sollstunden-warning-banner').classList.contains('hidden'),
@@ -2021,6 +2027,159 @@ async function runSollWarningUnits(page) {
   });
   assertTrue('SW14: Übersicht-Banner bleibt während Snooze ausgeblendet', sw14.overviewHidden, '');
   assertTrue('SW14: Erfassen-Banner bleibt während Snooze ebenfalls ausgeblendet', sw14.trackerHidden, '');
+
+  // ---------- SW15-SW18: Mindest-Arbeitstage-Schutz, Prozent-Mindestschwelle, Betrags-Schutz (v3.9.80) ----------
+  const swGuard = await page.evaluate(() => {
+    const savedSettings2 = { ...state.settings };
+    const savedEmployers2 = state.employers.slice();
+    const savedEntries2 = state.entries.slice();
+    const savedActive2 = state.activeEmployerId;
+
+    function workdaysUpTo(ym, uptoISO) {
+      const [y, m] = ym.split('-').map(Number);
+      const holidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, 'HE').map(h => h.date));
+      const dates = [];
+      for (let day = 1; day <= 31; day++) {
+        const d = new Date(Date.UTC(y, m - 1, day));
+        if (d.getUTCMonth() !== m - 1) break;
+        const iso = d.toISOString().slice(0, 10);
+        if (iso > uptoISO) break;
+        const dow = d.getUTCDay();
+        if (dow >= 1 && dow <= 5 && !holidays.has(iso)) dates.push(iso);
+      }
+      return dates;
+    }
+
+    function resetFixtures() {
+      state.employers = savedEmployers2.slice();
+      state.entries = savedEntries2.slice();
+      state.settings = { ...savedSettings2 };
+      state.activeEmployerId = savedActive2;
+    }
+
+    const ctxFor = () => ({
+      state,
+      computeMonthReport,
+      computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }),
+      computeElapsedMonthProgress,
+      isFormerEmployer,
+    });
+
+    const results = {};
+
+    // SW15: Mindest-Arbeitstage-Schutz blockiert früh im Monat, selbst bei 100% Abweichung eines fehlenden Tages.
+    resetFixtures();
+    {
+      const ym = '2026-06';
+      state.settings.appMode = 'employee';
+      state.settings.sollWarningMonthEnabled = true;
+      state.settings.sollWarningMonthThresholdPct = 30; // minDays = floor(100/30)+1 = 4
+      state.settings.sollWarningGleitzeitEnabled = false;
+      state.settings.sollWarningSnoozeUntil = null;
+      const empId = '__sw15__';
+      state.employers.push({ id: empId, name: 'SW15-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+      const allDates = workdaysUpTo(ym, '2026-06-30');
+      const today = allDates[1]; // zweiter Arbeitstag des Monats
+      state.entries.push({ id: 'sw15-e1', employerId: empId, date: allDates[0], type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 });
+      const progress = computeElapsedMonthProgress(state.employers.find(e => e.id === empId), ym, today);
+      const minDays = computeMinElapsedWorkdaysForThreshold(30);
+      const warnings = computeActiveSollWarnings(ctxFor(), { ym, year: 2026, today });
+      results.sw15 = { elapsedWorkdays: progress.elapsedWorkdays, minDays, warningCount: warnings.filter(w => w.employer.id === empId).length };
+    }
+
+    // SW16: Nach Erreichen von minDays schützt die Prozent-Mathematik selbst vor einem einzelnen fehlenden Arbeitstag.
+    resetFixtures();
+    {
+      const ym = '2026-06';
+      state.settings.appMode = 'employee';
+      state.settings.sollWarningMonthEnabled = true;
+      state.settings.sollWarningMonthThresholdPct = 30; // minDays = 4
+      state.settings.sollWarningGleitzeitEnabled = false;
+      state.settings.sollWarningSnoozeUntil = null;
+      const empId = '__sw16__';
+      state.employers.push({ id: empId, name: 'SW16-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+      const allDates = workdaysUpTo(ym, '2026-06-30');
+      const minDays = computeMinElapsedWorkdaysForThreshold(30);
+      const elapsed = allDates.slice(0, 5); // 5 vergangene Arbeitstage (> minDays)
+      const today = elapsed[elapsed.length - 1];
+      const missing = elapsed[2];
+      elapsed.filter(d => d !== missing).forEach((d, i) => {
+        state.entries.push({ id: `sw16-e${i}`, employerId: empId, date: d, type: 'work', start: '09:00', end: '17:00', breakMinutes: 30 });
+      });
+      const progress = computeElapsedMonthProgress(state.employers.find(e => e.id === empId), ym, today);
+      const warnings = computeActiveSollWarnings(ctxFor(), { ym, year: 2026, today });
+      results.sw16 = { elapsedWorkdays: progress.elapsedWorkdays, minDays, guardPassed: progress.elapsedWorkdays >= minDays, warningCount: warnings.filter(w => w.employer.id === empId).length };
+    }
+
+    // SW17: Prozent-Mindestschwelle (10%) klemmt eine zu niedrig eingestellte Schwelle intern an.
+    results.sw17 = {
+      clamp5: clampMonthThresholdPct(5),
+      clamp0: clampMonthThresholdPct(0),
+      clamp25: clampMonthThresholdPct(25),
+      minDaysFor5: computeMinElapsedWorkdaysForThreshold(5),
+      minDaysFor10: computeMinElapsedWorkdaysForThreshold(10),
+    };
+
+    // SW18: Betrags-Mindestwert (30 Min) unterdrückt eine winzige absolute Abweichung trotz hoher Prozentzahl.
+    resetFixtures();
+    {
+      const ym = '2026-06';
+      state.settings.appMode = 'employee';
+      state.settings.sollWarningMonthEnabled = true;
+      state.settings.sollWarningMonthThresholdPct = 20; // minDays = 6
+      state.settings.sollWarningGleitzeitEnabled = false;
+      state.settings.sollWarningSnoozeUntil = null;
+      const empId = '__sw18__';
+      // Sehr kurzer Arbeitstag (10 Min/Tag) -> kleines absolutes Soll, um die Betrags-Schutzgrenze zu testen.
+      state.employers.push({ id: empId, name: 'SW18-Test', hoursMode: 'week', weeklyHours: 5 / 6, breakMode: 'none', hiredSince: '2020-01-01' });
+      const allDates = workdaysUpTo(ym, '2026-06-30');
+      const minDays = computeMinElapsedWorkdaysForThreshold(20);
+      const elapsed = allDates.slice(0, minDays);
+      const today = elapsed[elapsed.length - 1];
+      // 4 von N Tagen exakt im Soll (10 Min), 2 Tage fehlen komplett.
+      elapsed.slice(0, elapsed.length - 2).forEach((d, i) => {
+        state.entries.push({ id: `sw18-e${i}`, employerId: empId, date: d, type: 'work', start: '09:00', end: '09:10', breakMinutes: 0 });
+      });
+      const progress = computeElapsedMonthProgress(state.employers.find(e => e.id === empId), ym, today);
+      const warnings = computeActiveSollWarnings(ctxFor(), { ym, year: 2026, today });
+      const r = computeMonthReport(empId, ym);
+      results.sw18 = {
+        elapsedWorkdays: progress.elapsedWorkdays,
+        minDays,
+        balanceToDate: r.workedMin + r.creditedAbsenceMin - progress.proratedTargetMin,
+        warningCount: warnings.filter(w => w.employer.id === empId).length,
+      };
+    }
+
+    resetFixtures();
+    return results;
+  });
+
+  assertTrue('SW15: Testannahme — elapsedWorkdays liegt unterhalb minDays', swGuard.sw15.elapsedWorkdays < swGuard.sw15.minDays, `elapsed=${swGuard.sw15.elapsedWorkdays} minDays=${swGuard.sw15.minDays}`);
+  assertEq('SW15: Mindest-Arbeitstage-Schutz unterdrückt frühen Fehlalarm trotz 100% Abweichung', swGuard.sw15.warningCount, 0);
+
+  assertTrue('SW16: Testannahme — elapsedWorkdays erreicht minDays', swGuard.sw16.guardPassed, `elapsed=${swGuard.sw16.elapsedWorkdays} minDays=${swGuard.sw16.minDays}`);
+  assertEq('SW16: einzelner fehlender Arbeitstag nach minDays löst dank Prozent-Mathematik keine Warnung aus', swGuard.sw16.warningCount, 0);
+
+  assertEq('SW17a: clampMonthThresholdPct(5) wird auf 10 angehoben', swGuard.sw17.clamp5, 10);
+  assertEq('SW17b: clampMonthThresholdPct(0) bleibt deaktiviert (0)', swGuard.sw17.clamp0, 0);
+  assertEq('SW17c: clampMonthThresholdPct(25) bleibt oberhalb der Mindestschwelle unverändert', swGuard.sw17.clamp25, 25);
+  assertEq('SW17d: computeMinElapsedWorkdaysForThreshold(5) nutzt die gefloorte 10%-Schwelle', swGuard.sw17.minDaysFor5, swGuard.sw17.minDaysFor10);
+
+  assertTrue('SW18: Testannahme — absolute Abweichung liegt unterhalb MIN_ABSOLUTE_DEVIATION_MIN', Math.abs(swGuard.sw18.balanceToDate) < 30, `balance=${swGuard.sw18.balanceToDate}`);
+  assertEq('SW18: winzige absolute Abweichung löst trotz hoher Prozentzahl keine Warnung aus', swGuard.sw18.warningCount, 0);
+
+  // SW19: Hinweistext zur Mindestschwelle ist in den Einstellungen vorhanden.
+  const sw19 = await page.evaluate(() => ({
+    exists: !!document.getElementById('sw-month-threshold-hint'),
+    text: document.getElementById('sw-month-threshold-hint')?.textContent || '',
+    minAttr: document.getElementById('setting-sw-month-threshold-custom')?.getAttribute('min'),
+    gleitzeitMinAttr: document.getElementById('setting-sw-gleitzeit-threshold-custom')?.getAttribute('min'),
+  }));
+  assertTrue('SW19: Hinweistext zur Mindestschwelle ist in den Einstellungen vorhanden', sw19.exists, '');
+  assertContains('SW19: Hinweistext erwähnt die 10%-Mindestschwelle', sw19.text, '10');
+  assertEq('SW19: Eingabefeld für eigene % (Monats-Baustein) hat min=10', sw19.minAttr, '10');
+  assertEq('SW19: Eingabefeld für eigene % (Gleitzeitkonto-Baustein) bleibt bei min=1', sw19.gleitzeitMinAttr, '1');
 }
 
 

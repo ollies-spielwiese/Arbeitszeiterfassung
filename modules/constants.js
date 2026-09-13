@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.79';
+export const APP_VERSION = '3.9.80';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.80', items: [
+    'Verbessert: Die monatliche Sollstunden-Warnung berücksichtigt jetzt den bereits vergangenen Monatsanteil (anteiliges Soll statt volles Monatssoll) und warnt frühestens ab einer Mindestanzahl bereits vergangener Arbeitstage sowie erst ab einer intern nie unter 10\u00a0% fallenden Schwelle — ein einzelner fehlender Arbeitstag am Monatsanfang löst dadurch keinen Fehlalarm mehr aus. Das Gleitzeitkonto-Banner und die Kachel-Hervorhebung im Monat-Bericht sind unverändert',
+  ]},
   { version: '3.9.79', items: [
     'Erweitert: Der Sollstunden-Warnung-Banner erscheint jetzt zusätzlich zur Erfassen-Ansicht auch im Übersicht-Tab — identischer Inhalt, gleiche Direktlink- und 7-Tage-Erinnerungs-Funktion',
   ]},

@@ -16,6 +16,52 @@
 export const MIN_TARGET_MIN_FOR_EVALUATION = 60;
 
 /**
+ * Mindest-Schwelle (Prozent) fuer den Monats-Saldo-Baustein (seit v3.9.80). Eine vom Nutzer
+ * eingestellte Schwelle wird fuer die WARNBEWERTUNG nie kleiner als dieser Wert gewertet
+ * (die UI/Einstellung selbst zeigt weiterhin den eingegebenen Wert, siehe clampMonthThresholdPct).
+ * Grund: Bei sehr niedrigen Schwellen (z.B. 3 %) waere schon ein einzelner, vollstaendig fehlender
+ * Arbeitstag am Monatsanfang ein Fehlalarm, selbst mit dem Mindest-Arbeitstage-Schutz (siehe
+ * computeMinElapsedWorkdaysForThreshold) — 10 % ist die niedrigste bereits bestehende Preset-Chip
+ * und schliesst diese Luecke rechnerisch vollstaendig (siehe docs/ARCHITECTURE.md Abschnitt 11).
+ */
+export const MONTH_THRESHOLD_MIN_PCT = 10;
+
+/**
+ * Mindest-Betrags-Abweichung (Minuten) fuer den Monats-Saldo-Baustein (seit v3.9.80). Ergaenzender
+ * Schutz zusätzlich zum Mindest-Arbeitstage-Schutz und zur Prozent-Mindestschwelle: eine winzige
+ * absolute Abweichung (z. B. wenige Minuten durch Rundung) loest auch dann keine Warnung aus, wenn
+ * sie prozentual auffaellig wirkt (moeglich bei einem sehr kleinen anteiligen Soll am Monatsanfang).
+ */
+export const MIN_ABSOLUTE_DEVIATION_MIN = 30;
+
+/**
+ * Wendet MONTH_THRESHOLD_MIN_PCT auf eine eingestellte Monats-Schwelle an. 0 (deaktiviert) bleibt
+ * unveraendert 0.
+ * @param {number} thresholdPct
+ * @returns {number}
+ */
+export function clampMonthThresholdPct(thresholdPct) {
+  const v = Number(thresholdPct) || 0;
+  if (v <= 0) return v;
+  return Math.max(v, MONTH_THRESHOLD_MIN_PCT);
+}
+
+/**
+ * Mindestanzahl bereits vergangener Arbeitstage im Monat, bevor der Monats-Saldo-Baustein
+ * ueberhaupt bewertet wird ("Mindest-Arbeitstage-Schutz", seit v3.9.80). Verhindert, dass ein
+ * einzelner fehlender Arbeitstag am Monatsanfang allein schon die Schwelle ueberschreitet:
+ * ein fehlender Tag verursacht genau 100/N Prozent Abweichung bei N vergangenen Arbeitstagen,
+ * also muss N > 100/threshold sein, damit ein einzelner Tag NICHT ausreicht.
+ * @param {number} thresholdPct Bereits ggf. per clampMonthThresholdPct gefloorte Schwelle
+ * @returns {number}
+ */
+export function computeMinElapsedWorkdaysForThreshold(thresholdPct) {
+  const effective = clampMonthThresholdPct(thresholdPct);
+  if (effective <= 0) return Infinity;
+  return Math.floor(100 / effective) + 1;
+}
+
+/**
  * @typedef {Object} SollWarning
  * @property {'month'|'gleitzeitkonto'} basis
  * @property {'over'|'under'} direction
@@ -84,12 +130,13 @@ export function buildBalanceWarningInfo(balance, targetMin, thresholdPct, basis)
  * (kein Soll/Saldo-Konzept dort).
  * @param {{state:object, computeMonthReport:(empId:string, ym:string)=>any,
  *          computeGleitzeitkontoRows:(emp:any, year:number)=>{rows:Array<any>},
+ *          computeElapsedMonthProgress?:(emp:any, ym:string, today:string)=>{elapsedWorkdays:number, totalWorkdays:number, proratedTargetMin:number},
  *          isFormerEmployer?:(emp:any, today:string)=>boolean}} ctx
  * @param {{ym:string, year:number, today:string}} period aktueller Monat/Jahr/Tag
  * @returns {Array<SollWarning & {employer:any, ym:string}>}
  */
 export function computeActiveSollWarnings(ctx, period) {
-  const { state, computeMonthReport, computeGleitzeitkontoRows, isFormerEmployer } = ctx;
+  const { state, computeMonthReport, computeGleitzeitkontoRows, computeElapsedMonthProgress, isFormerEmployer } = ctx;
   const settings = (state && state.settings) || {};
   if (settings.appMode === 'freelance') return [];
   const monthOn = !!settings.sollWarningMonthEnabled;
@@ -106,8 +153,29 @@ export function computeActiveSollWarnings(ctx, period) {
     if (monthOn) {
       const r = computeMonthReport(emp.id, period.ym);
       if (r) {
-        const w = evaluateSollWarning(r.balance, r.targetMin, settings.sollWarningMonthThresholdPct, 'month');
-        if (w) results.push({ ...w, employer: emp, ym: period.ym });
+        // Mindest-Arbeitstage-Schutz + Prozent-Mindestschwelle (seit v3.9.80): ohne diese wuerde
+        // am Monatsanfang das VOLLE Monats-Soll gegen ein erst teilweise gearbeitetes Ist verglichen
+        // und schon ein einzelner fehlender Arbeitstag koennte einen Fehlalarm ausloesen.
+        let effectiveThresholdPct = settings.sollWarningMonthThresholdPct;
+        let targetForEval = r.targetMin;
+        let balanceToDate = r.balance;
+        let guardOk = true;
+        if (typeof computeElapsedMonthProgress === 'function') {
+          const progress = computeElapsedMonthProgress(emp, period.ym, period.today);
+          effectiveThresholdPct = clampMonthThresholdPct(settings.sollWarningMonthThresholdPct);
+          const minDays = computeMinElapsedWorkdaysForThreshold(effectiveThresholdPct);
+          guardOk = progress.elapsedWorkdays >= minDays;
+          if (guardOk) {
+            targetForEval = progress.proratedTargetMin;
+            balanceToDate = r.workedMin + r.creditedAbsenceMin - progress.proratedTargetMin;
+          }
+        }
+        // Zusaetzlicher Betrags-Schutz: eine winzige absolute Abweichung loest nie eine Warnung aus,
+        // selbst wenn sie bei sehr kleinem anteiligem Soll prozentual auffaellig wirken wuerde.
+        if (guardOk && Math.abs(balanceToDate) >= MIN_ABSOLUTE_DEVIATION_MIN) {
+          const w = evaluateSollWarning(balanceToDate, targetForEval, effectiveThresholdPct, 'month');
+          if (w) results.push({ ...w, employer: emp, ym: period.ym });
+        }
       }
     }
     if (gleitzeitOn) {

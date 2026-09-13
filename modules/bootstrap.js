@@ -58,8 +58,8 @@ export function wireEvents(ctx) {
     openShareModal, shareOverviewPdf, archiveCurrentMonth,
     // Backup
     exportBackup, importBackup, updateBackupReminderBanner,
-    // Sollstunden-Warnung (seit v3.9.78)
-    updateSollWarningBanner,
+    // Sollstunden-Warnung (seit v3.9.78, MONTH_THRESHOLD_MIN_PCT seit v3.9.80)
+    updateSollWarningBanner, MONTH_THRESHOLD_MIN_PCT,
     // UI-Utilities
     toast, closeModals, escapeHtml,
     // Compute-Helpers (für Entry-Form-Live-Berechnung)
@@ -341,10 +341,14 @@ export function wireEvents(ctx) {
         if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
       }));
       if (customInput) {
+        // Fuer den Monats-Baustein gilt seit v3.9.80 eine Mindestschwelle von 10 % (siehe
+        // MONTH_THRESHOLD_MIN_PCT in modules/soll-warning.js + Hinweistext in den Einstellungen):
+        // ein zu niedrig eingegebener Wert wird beim Speichern automatisch auf 10 angehoben.
+        const minPct = (basis === 'month' && typeof MONTH_THRESHOLD_MIN_PCT === 'number') ? MONTH_THRESHOLD_MIN_PCT : 1;
         customInput.addEventListener('change', (e) => {
           let v = parseInt(e.target.value, 10);
           if (!Number.isFinite(v)) v = state.settings[thresholdKey];
-          v = Math.max(1, Math.min(100, v));
+          v = Math.max(minPct, Math.min(100, v));
           state.settings[thresholdKey] = v;
           saveState();
           syncChipActive();

@@ -102,6 +102,7 @@ import {
   computeVacationRemaining,
   computeYearlyVacationPlanning,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
+  computeElapsedMonthProgress as _computeElapsedMonthProgressRaw,
   MONTH_LABELS_LONG,
   isFormerEmployer,
   filterVisibleEmployers,
@@ -114,6 +115,10 @@ import {
   formatSollWarningTooltipText as _formatSollWarningTooltipTextRaw,
   buildBalanceWarningInfo as _buildBalanceWarningInfoRaw,
   computeActiveSollWarnings as _computeActiveSollWarningsRaw,
+  MONTH_THRESHOLD_MIN_PCT,
+  MIN_ABSOLUTE_DEVIATION_MIN,
+  clampMonthThresholdPct,
+  computeMinElapsedWorkdaysForThreshold,
 } from './modules/soll-warning.js';
 import { buildSollWarningListHTML as _buildSollWarningListHTMLRaw } from './modules/render/soll-warning-banner.js';
 import {
@@ -1266,6 +1271,21 @@ function computeMonthReport(employerId, ym) {
   return _computeMonthReportRaw(employerId, ym, { state });
 }
 
+// Sollstunden-Warnung (seit v3.9.80): liefert den Monats-Fortschritt (vergangene Arbeitstage,
+// anteiliges Soll) fuer den Mindest-Arbeitstage-Schutz in computeActiveSollWarnings. Baut denselben
+// inneren ctx (stateCode/holidayOverrides/offDayDates) wie computeMonthReport weiter oben, damit
+// das anteilige Soll exakt zum vollen Monats-Soll aus computeMonthReport passt.
+function computeElapsedMonthProgressForEmployer(emp, ym, today) {
+  const stateCode = state.settings?.state || 'HE';
+  const holidayOverrides = state.settings?.holidayOverrides;
+  const offDayDates = new Set(
+    state.entries
+      .filter((e) => e.employerId === emp.id && e.date && e.date.startsWith(ym) && e.type === 'off_day')
+      .map((e) => e.date)
+  );
+  return _computeElapsedMonthProgressRaw(emp, ym, today, { stateCode, holidayOverrides, offDayDates });
+}
+
 // Sollstunden-Warnung (seit v3.9.78): liefert die Kachel-Warnung fuer EINEN Saldo/Soll-Wert,
 // unter Beruecksichtigung von Freiberufler-Modus und dem jeweiligen Enabled-Toggle. Siehe
 // modules/soll-warning.js fuer die reine Berechnung.
@@ -1486,7 +1506,10 @@ const SOLL_WARNING_BANNER_TARGETS = [
   { bannerId: 'sollstunden-warning-banner-overview', listId: 'sollstunden-warning-list-overview' },
 ];
 
-function updateSollWarningBanner() {
+// `overridePeriod` ({ym, year, today}) ist ausschliesslich fuer Regression-Unit-Tests gedacht,
+// damit Integrationstests deterministisch bleiben (unabhaengig vom echten Kalendertag, an dem die
+// Tests laufen). Produktiv-Aufrufe uebergeben nichts und verwenden weiterhin den echten Stichtag.
+function updateSollWarningBanner(overridePeriod) {
   const targets = SOLL_WARNING_BANNER_TARGETS
     .map(({ bannerId, listId }) => ({ banner: document.getElementById(bannerId), listEl: document.getElementById(listId) }))
     .filter(({ banner, listEl }) => banner && listEl);
@@ -1504,9 +1527,10 @@ function updateSollWarningBanner() {
       state,
       computeMonthReport,
       computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state }),
+      computeElapsedMonthProgress: computeElapsedMonthProgressForEmployer,
       isFormerEmployer,
     },
-    { ym: currentYearMonth(), year: new Date().getFullYear(), today: todayISO() }
+    overridePeriod || { ym: currentYearMonth(), year: new Date().getFullYear(), today: todayISO() }
   );
 
   if (!warnings.length) {
@@ -2256,7 +2280,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
   openShareModal, shareOverviewPdf, archiveCurrentMonth,
   exportBackup, importBackup, updateBackupReminderBanner,
-  updateSollWarningBanner,
+  updateSollWarningBanner, MONTH_THRESHOLD_MIN_PCT,
   toast, closeModals, escapeHtml,
   getEmployer, computeSuggestedBreak,
   installWeekInputFallback,
@@ -2302,6 +2326,8 @@ if (typeof window !== 'undefined') {
     evaluateSollWarning: _evaluateSollWarningRaw, formatSollWarningTooltipText: _formatSollWarningTooltipTextRaw,
     buildBalanceWarningInfo: _buildBalanceWarningInfoRaw, computeActiveSollWarnings: _computeActiveSollWarningsRaw,
     buildSollWarningListHTML: _buildSollWarningListHTMLRaw,
+    computeElapsedMonthProgress: computeElapsedMonthProgressForEmployer,
+    MONTH_THRESHOLD_MIN_PCT, MIN_ABSOLUTE_DEVIATION_MIN, clampMonthThresholdPct, computeMinElapsedWorkdaysForThreshold,
     generateCsvBlob,
     buildGleitzeitkontoHTML: _buildGleitzeitkontoHTMLRaw, renderGleitzeitkonto,
     getCurrentGleitzeitkonto, generateGleitzeitkontoPdfBlob,
