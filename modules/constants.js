@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.70';
+export const APP_VERSION = '3.9.71';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.71', items: [
+    'Korrigiert: Hinweistext zum Backup-Ordner auf Safari/iOS beschreibt jetzt korrekt den tatsächlichen Ablauf — Safari zeigt beim Export eine Dateivorschau, aus der das Backup manuell über „Mehr …“ bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abgelegt werden muss (kein automatisches Speichern in einen zuvor gewählten Ordner möglich, das ist eine Safari-Einschränkung für im Browser erzeugte Dateien)',
+  ]},
   { version: '3.9.70', items: [
     'Verbessert: Hinweistext zum Backup-Ordner auf Safari/iOS präzisiert — nennt jetzt explizit „Auf meinem iPhone“ bzw. „Auf meinem iPad“ sowie den alternativen Einstellungspfad auf neueren iOS-/iPadOS-Versionen (Einstellungen → Apps → Safari → Downloads)',
   ]},

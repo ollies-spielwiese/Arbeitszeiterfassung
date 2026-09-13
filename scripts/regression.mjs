@@ -2839,10 +2839,11 @@ async function runBackupFolderUnits(page) {
     return { html };
   });
   assertContains('BF9a: Safari-Hinweis nennt "Safari"', bf9.html, 'Safari');
-  assertContains('BF9b: Safari-Hinweis nennt "Downloads"', bf9.html, 'Downloads');
+  assertContains('BF9b: Safari-Hinweis nennt die Dateivorschau', bf9.html, 'Dateivorschau');
   assertContains('BF9c: Safari-Hinweis nennt "Auf meinem iPhone"', bf9.html, 'Auf meinem iPhone');
   assertContains('BF9d: Safari-Hinweis nennt "Auf meinem iPad"', bf9.html, 'Auf meinem iPad');
-  assertContains('BF9e: Safari-Hinweis nennt den alternativen Pfad über "Apps" (neuere iOS-/iPadOS-Versionen)', bf9.html, 'Apps');
+  assertContains('BF9e: Safari-Hinweis nennt die Option "In „Dateien“ sichern"', bf9.html, 'Dateien“ sichern');
+  assertContains('BF9f: Safari-Hinweis nennt "Mehr …" als Bedienschritt', bf9.html, 'Mehr …');
 
   // BF10: Integration — exportBackup() schreibt bei granted Handle direkt in den Ordner
   // (kein Download-Dialog) und aktualisiert lastBackupAt wie beim regulären Export.
