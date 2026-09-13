@@ -312,6 +312,44 @@ export function wireEvents(ctx) {
     }));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
 
+    // Info-Tooltips an Saldo-Kacheln (seit v3.9.75): nur ein Popover gleichzeitig offen,
+    // und das Popover bleibt innerhalb des Viewports (die Saldo-Kachel wandert je nach
+    // Grid-Spalte/Breakpoint zwischen linker und rechter Spalte).
+    document.addEventListener('toggle', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement) || !el.classList || !el.classList.contains('info-tooltip')) return;
+      if (el.open) {
+        document.querySelectorAll('details.info-tooltip[open]').forEach((other) => {
+          if (other !== el) other.open = false;
+        });
+        // Nach dem Rendern positionieren, damit getBoundingClientRect() den echten Zustand liefert.
+        requestAnimationFrame(() => {
+          const content = el.querySelector('.info-tooltip-content');
+          if (!content) return;
+          content.style.left = '';
+          content.style.right = '';
+          const margin = 8;
+          const rect = content.getBoundingClientRect();
+          if (rect.right > window.innerWidth - margin) {
+            const overflowRight = rect.right - (window.innerWidth - margin);
+            content.style.left = `${-overflowRight}px`;
+          }
+          const rect2 = content.getBoundingClientRect();
+          if (rect2.left < margin) {
+            const overflowLeft = margin - rect2.left;
+            content.style.left = `${parseFloat(content.style.left || '0') + overflowLeft}px`;
+          }
+        });
+      }
+    }, true);
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      document.querySelectorAll('details.info-tooltip[open]').forEach((el) => {
+        if (!el.contains(target)) el.open = false;
+      });
+    });
+
     // Warn if not persistent
     if (!storage.isPersistent) {
       const banner = document.createElement('div');

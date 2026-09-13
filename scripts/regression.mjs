@@ -808,10 +808,20 @@ async function runDayExactCreditUnits(page) {
     document.getElementById('week-employer').innerHTML = '';
     document.getElementById('week-employer').value = '';
     document.getElementById('week-input').value = '2026-W24';
+    // Woche-Tab muss sichtbar sein, bevor renderWeek() aufgerufen wird — sonst liegt
+    // #week-content in einem display:none-Ast, und innerText liefert dort (mangels
+    // Layout-Box) den rohen Textinhalt inkl. des versteckten Tooltip-Popover-Texts
+    // statt der tatsächlich sichtbaren Kachel-Texte (seit v3.9.75 relevant wegen des
+    // neuen Saldo-Info-Tooltips).
+    switchView('week');
     renderWeek();
     return document.getElementById('week-content').innerText;
   });
-  const saldoMatch = /Saldo\s*\n?\s*(-?\d{1,3}:\d{2})/.exec(weekHtml);
+  // [^\d-]* statt \s*\n?\s* seit v3.9.75: das Saldo-Label kann jetzt ein Info-Tooltip-Icon
+  // ("i") direkt hinter dem Text tragen, wenn eine Urlaubs-/Krankheitsgutschrift vorliegt.
+  // /i seit v3.9.75-Fix: bei sichtbarem Woche-Tab wendet der Browser jetzt korrekt
+  // text-transform:uppercase auf das Label an ("SALDO" statt "Saldo").
+  const saldoMatch = /Saldo[^\d-]*(-?\d{1,3}:\d{2})/i.exec(weekHtml);
   assertTrue('SCHED5: Woche zeigt Saldo −14:00 (tagesgenaue Gutschrift für Mittwoch-Urlaub)',
     !!saldoMatch && saldoMatch[1] === '-14:00', `weekHtml-Ausschnitt=${weekHtml.slice(0, 300)}`);
 

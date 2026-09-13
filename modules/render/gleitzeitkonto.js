@@ -17,13 +17,19 @@
  * @property {number} targetMin Soll-Minuten des Monats
  * @property {number} balance Saldo des Monats (Ist − Soll, inkl. angerechneter Abwesenheiten)
  * @property {number} cumulativeBalance Laufender Saldo bis inkl. diesem Monat
+ * @property {number} [creditedAbsenceMin] Gutschrift-Minuten (Urlaub/Krank) des Monats, seit v3.9.75
+ * @property {number} [vacationDays] Urlaubstage des Monats, seit v3.9.75
+ * @property {number} [sickDays] Krankheitstage des Monats, seit v3.9.75
+ * @property {number} [cumulativeCreditedAbsenceMin] Laufende Gutschrift-Minuten bis inkl. diesem Monat, seit v3.9.75
+ * @property {number} [cumulativeVacationDays] Laufende Urlaubstage bis inkl. diesem Monat, seit v3.9.75
+ * @property {number} [cumulativeSickDays] Laufende Krankheitstage bis inkl. diesem Monat, seit v3.9.75
  */
 
 /**
  * @param {GleitzeitkontoRow[]} rows Chronologisch aufsteigend (ältester Monat zuerst), bereits
  *   auf das gewählte Kalenderjahr begrenzt (siehe computeGleitzeitkontoRows in modules/compute.js)
  * @param {any} emp
- * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string}} ctx
+ * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string)=>(string|null)}} ctx
  * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean}} [meta] seit v3.9.48
  *   (Endgrenze "Beschäftigt bis" seit v3.9.55): Metadaten aus computeGleitzeitkontoRows, um
  *   Hinweise zu "Angestellt seit"/"Beschäftigt bis"/fehlenden Daten anzuzeigen (siehe
@@ -31,7 +37,7 @@
  * @returns {string}
  */
 export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
-  const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML } = ctx;
+  const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML, buildBalanceTooltipText } = ctx;
   const { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = meta || {};
 
   if (!rows || !rows.length) {
@@ -53,9 +59,12 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const truncatedByHire = !!(effectiveStartYm && yearStartYm && effectiveStartYm > yearStartYm);
   const truncatedByEnd = !!(effectiveEndYm && yearEndYm && effectiveEndYm < yearEndYm);
 
+  const balanceTooltip = typeof buildBalanceTooltipText === 'function'
+    ? buildBalanceTooltipText(last.cumulativeCreditedAbsenceMin || 0, last.cumulativeVacationDays || 0, last.cumulativeSickDays || 0, minutesToHM)
+    : null;
   const summaryFields = [
     { kind: 'count', label: 'Zeitraum', value: `${formatMonthYear(first.ym)} – ${formatMonthYear(last.ym)}` },
-    { kind: 'balance', label: 'Aktueller Gleitzeitsaldo', sign: last.cumulativeBalance >= 0 ? 'pos' : 'neg', valueHM: minutesToHM(last.cumulativeBalance) },
+    { kind: 'balance', label: 'Aktueller Gleitzeitsaldo', sign: last.cumulativeBalance >= 0 ? 'pos' : 'neg', valueHM: minutesToHM(last.cumulativeBalance), tooltip: balanceTooltip },
     { kind: 'time', label: 'Ist gesamt', valueHM: minutesToHM(totalWorked) },
     { kind: 'time', label: 'Soll gesamt', valueHM: minutesToHM(totalTarget) },
   ];

@@ -117,6 +117,7 @@ import {
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
   computeEntryRows as _computeEntryRowsRaw,
   computeFormFields as _computeFormFieldsRaw,
+  buildBalanceTooltipText as _buildBalanceTooltipTextRaw,
 } from './modules/selectors.js';
 import {
   renderSummaryHTML as _renderSummaryHTMLRaw,
@@ -1215,6 +1216,13 @@ function renderWeek() {
   const creditedAbsenceMinWeek = sumCreditedAbsenceMinWeek('vacation')
     + sumCreditedAbsenceMinWeek('sick');
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
+  // Tageszähler für den Saldo-Tooltip (nur Tage, die tatsächlich Gutschrift bringen —
+  // Urlaub/Krank am Wochenende oder Feiertag bringt 0 und wird hier nicht mitgezählt).
+  const countCreditedAbsenceDaysWeek = (type) => state.entries
+    .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
+    .length;
+  const vacationDaysWeek = countCreditedAbsenceDaysWeek('vacation');
+  const sickDaysWeek = countCreditedAbsenceDaysWeek('sick');
 
   const weekFields = getSummaryFields({
     workedMin: totalMin,
@@ -1225,6 +1233,9 @@ function renderWeek() {
     includeAbsences: false, // Woche zeigt keine Urlaub/Krank-Zähler
     includeHolidays: true,
     holidayCount: holidaysInWeek.length,
+    creditedAbsenceMin: creditedAbsenceMinWeek,
+    vacationDays: vacationDaysWeek,
+    sickDays: sickDaysWeek,
   });
 
   container.innerHTML = _buildWeekHTMLRaw(
@@ -1489,6 +1500,7 @@ function renderGleitzeitkonto() {
     minutesToHM,
     formatMonthYear,
     renderSummaryHTML,
+    buildBalanceTooltipText: _buildBalanceTooltipTextRaw,
   }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
 }
 

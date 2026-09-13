@@ -16,7 +16,10 @@
 export function renderSummaryHTML(fields) {
   return fields.map((f) => {
     if (f.kind === 'balance') {
-      return `<div class="summary-item"><div class="label">${f.label}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
+      const tooltipHTML = f.tooltip
+        ? `<details class="info-tooltip"><summary aria-label="Erklärung zu ${f.label}">i</summary><div class="info-tooltip-content">${f.tooltip}</div></details>`
+        : '';
+      return `<div class="summary-item"><div class="label">${f.label}${tooltipHTML}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
     }
     if (f.kind === 'time') {
       return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.valueHM}</div></div>`;
