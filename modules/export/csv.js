@@ -8,6 +8,7 @@
 //   formatDate, minutesToHM,
 //   computeWorkMinutes, computeHomeofficeMinutes,
 //   employeeName,   // seit v3.9.56: state.settings.employeeName (getrimmt), fuer Kopf-Metadatenzeile
+//   isFreelance, formatEmploymentModelSummary,   // seit v3.9.73: Arbeitszeitmodell-Zusammenfassung
 // }
 
 const CSV_HEADER = ['Datum', 'Typ', 'Beginn', 'Ende', 'Pause (Min)', 'Stunden', 'Grund/Bemerkung'];
@@ -36,7 +37,7 @@ function csvField(value) {
 
 /**
  * @param {any} report Ergebnis von computeMonthReport()
- * @param {{formatDate:(iso:string)=>string, minutesToHM:(m:number)=>string, computeWorkMinutes:(e:any)=>number, computeHomeofficeMinutes:(e:any)=>number, employeeName?:string}} ctx
+ * @param {{formatDate:(iso:string)=>string, minutesToHM:(m:number)=>string, computeWorkMinutes:(e:any)=>number, computeHomeofficeMinutes:(e:any)=>number, employeeName?:string, isFreelance?:()=>boolean, formatEmploymentModelSummary?:(e:any)=>string}} ctx
  * @returns {Blob}
  */
 export function generateCsvBlob(report, ctx) {
@@ -77,6 +78,13 @@ export function generateCsvBlob(report, ctx) {
   const metaRows = [];
   if (empName) metaRows.push(['Arbeitnehmer/in', empName]);
   if (personnelNumber) metaRows.push(['Pers.-Nr.', personnelNumber]);
+  // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73).
+  if (typeof ctx.isFreelance === 'function' ? !ctx.isFreelance() : true) {
+    const modelSummary = typeof ctx.formatEmploymentModelSummary === 'function'
+      ? ctx.formatEmploymentModelSummary(report.employer)
+      : '';
+    if (modelSummary) metaRows.push(['Arbeitszeitmodell', modelSummary]);
+  }
 
   const tableRows = [CSV_HEADER, ...formattedRows];
   const allRows = metaRows.length ? [...metaRows, [], ...tableRows] : tableRows;

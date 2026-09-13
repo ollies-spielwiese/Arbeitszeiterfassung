@@ -5,6 +5,7 @@
 // ctx = {
 //   jsPDF, state,
 //   formatMonthYear, minutesToHM, formatMoney, isFreelance,
+//   formatEmploymentModelSummary,   // seit v3.9.73
 // }
 
 function wrapText(doc, text, x, y, maxWidth) {
@@ -17,6 +18,7 @@ export function generateOverviewPdfBlob(ov, ctx) {
   const {
     jsPDF, state,
     formatMonthYear, minutesToHM, formatMoney, isFreelance,
+    formatEmploymentModelSummary,
   } = ctx;
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -155,6 +157,31 @@ export function generateOverviewPdfBlob(ov, ctx) {
   doc.setTextColor(90);
   y = wrapText(doc, legend, marginX, y, 180);
   doc.setTextColor(0);
+
+  // Arbeitszeitmodelle je Arbeitgeber (nur im Angestellt-Modus relevant, seit v3.9.73).
+  // Als kompakte Fußzeile statt zusätzlicher Tabellenspalte, da die Übersichtstabelle bereits
+  // 9 Spalten hat und eine Textspalte mit variabler Länge zu Umbrüchen/Überlauf führen würde.
+  if (!ovFreelance && typeof formatEmploymentModelSummary === 'function') {
+    const modelLines = ov.rows
+      .map((row) => {
+        const summary = formatEmploymentModelSummary(row.employer);
+        return summary ? `${row.employer.name}: ${summary}` : '';
+      })
+      .filter(Boolean);
+    if (modelLines.length) {
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(90);
+      doc.text('Arbeitszeitmodelle:', marginX, y);
+      doc.setFont('helvetica', 'normal');
+      y += 4.5;
+      modelLines.forEach((line) => {
+        y = wrapText(doc, `\u2022 ${line}`, marginX, y, 180) + 0.5;
+      });
+      doc.setTextColor(0);
+    }
+  }
 
   return doc.output('blob');
 }

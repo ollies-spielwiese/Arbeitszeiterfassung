@@ -8,6 +8,7 @@
 //   formatDate, formatDateLong, formatMonthYear, minutesToHM,
 //   computeWorkMinutes, computeHomeofficeMinutes,
 //   getSummaryFields, renderSummaryWordParagraphs,
+//   isFreelance, formatEmploymentModelSummary,   // seit v3.9.73
 // }
 
 export async function generateWordBlob(report, ctx) {
@@ -16,6 +17,7 @@ export async function generateWordBlob(report, ctx) {
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryWordParagraphs,
+    isFreelance, formatEmploymentModelSummary,
   } = ctx;
 
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle } = docx;
@@ -138,6 +140,16 @@ export async function generateWordBlob(report, ctx) {
       new TextRun({ text: 'Pers.-Nr.: ', bold: true }),
       new TextRun({ text: personnelNumber }),
     ] }));
+  }
+  // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73), direkt unter Pers.-Nr.
+  if ((typeof isFreelance !== 'function' || !isFreelance()) && typeof formatEmploymentModelSummary === 'function') {
+    const modelSummary = formatEmploymentModelSummary(report.employer);
+    if (modelSummary) {
+      headerLines.push(new Paragraph({ children: [
+        new TextRun({ text: 'Arbeitszeitmodell: ', bold: true }),
+        new TextRun({ text: modelSummary }),
+      ] }));
+    }
   }
   headerLines.push(new Paragraph({ children: [new TextRun({ text: `Erstellt am ${new Date().toLocaleDateString('de-DE')}`, italics: true, color: '64748B' })] }));
   headerLines.push(new Paragraph({ text: '' }));

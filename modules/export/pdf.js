@@ -7,6 +7,7 @@
 //   formatDate, formatDateLong, formatMonthYear, minutesToHM,
 //   computeWorkMinutes, computeHomeofficeMinutes,
 //   getSummaryFields, renderSummaryPdfLines, isFreelance,
+//   formatEmploymentModelSummary,   // seit v3.9.73
 // }
 
 function wrapText(doc, text, x, y, maxWidth) {
@@ -21,6 +22,7 @@ export function generatePdfBlob(report, ctx) {
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryPdfLines, isFreelance,
+    formatEmploymentModelSummary,
   } = ctx;
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -64,6 +66,21 @@ export function generatePdfBlob(report, ctx) {
     doc.setFont('helvetica', 'normal');
     doc.text(personnelNumber, marginX + labelWidth + 1, y);
     y += 6;
+  }
+
+  // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73), direkt unter Pers.-Nr.
+  if (!isFreelance() && typeof formatEmploymentModelSummary === 'function') {
+    const modelSummary = formatEmploymentModelSummary(report.employer);
+    if (modelSummary) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const label = 'Arbeitszeitmodell: ';
+      doc.setFont('helvetica', 'bold');
+      const labelWidth = doc.getTextWidth(label);
+      doc.text(label, marginX, y);
+      doc.setFont('helvetica', 'normal');
+      y = wrapText(doc, modelSummary, marginX + labelWidth + 1, y, 180 - labelWidth - 1);
+    }
   }
 
   // Angestellt seit (neu, nur wenn gesetzt und nicht freelance)

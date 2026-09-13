@@ -197,6 +197,7 @@ import {
   handleFullTimeReferenceInput as _handleFullTimeReferenceInputRaw,
   handleWeeklyHoursInputForModel as _handleWeeklyHoursInputForModelRaw,
   handleWorkTimeModelChange as _handleWorkTimeModelChangeRaw,
+  formatEmploymentModelSummary,
 } from './modules/ui/employer-modal.js';
 import {
   ensureHolidayOverrides as _ensureHolidayOverridesRaw,
@@ -1296,6 +1297,7 @@ async function generateWordBlob(report) {
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryWordParagraphs,
+    isFreelance, formatEmploymentModelSummary,
   });
 }
 
@@ -1308,7 +1310,7 @@ async function generatePdfBlob(report) {
     jsPDF, state,
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
-    getSummaryFields, renderSummaryPdfLines, isFreelance,
+    getSummaryFields, renderSummaryPdfLines, isFreelance, formatEmploymentModelSummary,
   });
 }
 
@@ -1495,7 +1497,7 @@ async function generateOverviewPdfBlob(ov) {
   const { jsPDF } = window.jspdf;
   return _generateOverviewPdfBlobRaw(ov, {
     jsPDF, state,
-    formatMonthYear, minutesToHM, formatMoney, isFreelance,
+    formatMonthYear, minutesToHM, formatMoney, isFreelance, formatEmploymentModelSummary,
   });
 }
 
@@ -1572,6 +1574,7 @@ function generateCsvBlob(report) {
   return _generateCsvBlobRaw(report, {
     formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes,
     employeeName: (state.settings.employeeName || '').trim(),
+    isFreelance, formatEmploymentModelSummary,
   });
 }
 

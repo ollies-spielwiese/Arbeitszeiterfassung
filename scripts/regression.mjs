@@ -3157,18 +3157,26 @@ async function runFreelance(page) {
     assertTrue('freelance pdf-content: 595,00 € enthalten', /595,00\s*€?/.test(t), snippet(t));
     assertTrue('freelance pdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
     assertTrue('freelance pdf-content: 7:00 (Ist-Stunden)', /7:00|07:00/.test(t), snippet(t));
+    assertTrue('AM1: freelance pdf-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
   }
   const flWord = await checkBlob(page, 'freelance', 'word');
   if (flWord) {
     const t = await extractWordText(flWord);
     assertTrue('freelance word-content: 595,00 enthalten', /595,00/.test(t), snippet(t));
     assertTrue('freelance word-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
+    assertTrue('AM2: freelance word-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
   }
   const flOv = await checkBlob(page, 'freelance', 'overviewPdf');
   if (flOv) {
     const t = await extractPdfText(flOv);
     assertTrue('freelance overviewPdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
     assertTrue('freelance overviewPdf-content: 595,00 aggregiert', /595,00/.test(t), snippet(t));
+    assertTrue('AM3: freelance overviewPdf-content: KEINE Arbeitszeitmodelle-Fußnote (Freiberufler-Modus)', !/Arbeitszeitmodelle:/.test(t), snippet(t));
+  }
+  const flCsv = await checkBlob(page, 'freelance', 'csv');
+  if (flCsv) {
+    const t = extractCsvText(flCsv);
+    assertTrue('AM4: freelance csv-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
   }
 }
 
@@ -3269,6 +3277,7 @@ async function runEmployee(page) {
     assertTrue('employee pdf-content: Footer Seite 1 von', /Seite 1 von \d+/.test(t), snippet(t));
     assertTrue('employee pdf-content: Footer enthält Arbeitgeber', /Arbeitszeitnachweis.*Arbeitgeber A.*Seite/.test(t), snippet(t));
     assertTrue('employee pdf-content: Footer enthält Monat', /Seite \d+ von \d+/.test(t), snippet(t));
+    assertTrue('AM5: employee pdf-content: Arbeitszeitmodell direkt unter Pers.-Nr.', /Pers\.-Nr\.:\s*48213\s*Arbeitszeitmodell:\s*Vollzeit\s*·\s*Klassisch/.test(t), snippet(t));
   }
   const emWord = await checkBlob(page, 'employee', 'word');
   if (emWord) {
@@ -3279,6 +3288,7 @@ async function runEmployee(page) {
     assertTrue('employee word-content: Arbeitgeber A genannt', /Arbeitgeber\s*A/i.test(t), snippet(t));
     assertTrue('PN3: employee word-content: Arbeitnehmer/in Max Mustermann', /Arbeitnehmer\/in:\s*Max Mustermann/.test(t), snippet(t));
     assertTrue('PN4: employee word-content: Pers.-Nr. 48213 direkt unter dem Namen', /Arbeitnehmer\/in:\s*Max Mustermann\s*Pers\.-Nr\.:\s*48213/.test(t), snippet(t));
+    assertTrue('AM6: employee word-content: Arbeitszeitmodell direkt unter Pers.-Nr.', /Pers\.-Nr\.:\s*48213\s*Arbeitszeitmodell:\s*Vollzeit\s*·\s*Klassisch/.test(t), snippet(t));
   }
   const emOv = await checkBlob(page, 'employee', 'overviewPdf');
   if (emOv) {
@@ -3287,6 +3297,8 @@ async function runEmployee(page) {
     assertTrue('employee overviewPdf-content: Ist gesamt sichtbar', /\bIst\b/i.test(t), snippet(t));
     assertTrue('PN5: employee overviewPdf-content: Spalte "Pers.-Nr." vorhanden', /Pers\.-Nr\./.test(t), snippet(t));
     assertTrue('PN6: employee overviewPdf-content: Wert 48213 in der Tabelle', /48213/.test(t), snippet(t));
+    assertTrue('AM7: employee overviewPdf-content: Arbeitszeitmodelle-Fußnote vorhanden', /Arbeitszeitmodelle:/.test(t), snippet(t));
+    assertTrue('AM8: employee overviewPdf-content: Fußnoten-Eintrag für Arbeitgeber A', /Arbeitgeber A:\s*Vollzeit\s*·\s*Klassisch/.test(t), snippet(t));
   }
   const emCsv = await checkBlob(page, 'employee', 'csv');
   if (emCsv) {
@@ -3297,6 +3309,7 @@ async function runEmployee(page) {
     assertTrue('PN7: employee csv-content: Kopfzeile Arbeitnehmer/in;Max Mustermann', /^Arbeitnehmer\/in;Max Mustermann$/m.test(t), snippet(t));
     assertTrue('PN8: employee csv-content: Kopfzeile Pers.-Nr.;48213', /^Pers\.-Nr\.;48213$/m.test(t), snippet(t));
     assertTrue('PN9: employee csv-content: Datenkopf "Datum;..." steht NACH den Metadatenzeilen', t.indexOf('Arbeitnehmer/in;Max Mustermann') < t.indexOf('Datum;Typ'), snippet(t));
+    assertTrue('AM9: employee csv-content: Kopfzeile Arbeitszeitmodell;Vollzeit · Klassisch', /^Arbeitszeitmodell;Vollzeit · Klassisch$/m.test(t), snippet(t));
   }
 }
 

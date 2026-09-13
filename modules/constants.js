@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.72';
+export const APP_VERSION = '3.9.73';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.73', items: [
+    'Neu: Arbeitszeitmodell-Zusammenfassung (z. B. „Teilzeit, 60 % · Gleitzeit“) erscheint jetzt auch in den Berichten/Exporten — CSV (Kopf-Metadatenzeile), PDF (unter Pers.-Nr.), Word (unter Pers.-Nr.) sowie in der Monatsübersicht über alle Arbeitgeber (kompakte Fußzeile je Arbeitgeber, im Freiberufler-Modus nicht relevant)',
+  ]},
   { version: '3.9.72', items: [
     'Neu: Arbeitszeitmodell im Arbeitgeber-Formular — Beschäftigungsart (Vollzeit/Teilzeit/Minijob/Midijob) und Arbeitszeitorganisation (Klassisch, Gleitzeit, Vertrauensarbeitszeit, Jahresarbeitszeit, Vier-Tage-Woche, Schichtarbeit, Jobsharing, Arbeit auf Abruf) getrennt wählbar, inkl. konfigurierbarer Vollzeit-Referenzstunden und automatisch berechneter Anzeige (z. B. „Teilzeit, 60 % · Gleitzeit“)',
     'Neu: Sollstunden-Eingabe um „Pro Jahr“ ergänzt — Jahresarbeitszeit wird gleichmäßig auf 12 Monate verteilt',
