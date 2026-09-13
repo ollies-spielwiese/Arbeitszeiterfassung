@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.69';
+export const APP_VERSION = '3.9.70';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.70', items: [
+    'Verbessert: Hinweistext zum Backup-Ordner auf Safari/iOS präzisiert — nennt jetzt explizit „Auf meinem iPhone“ bzw. „Auf meinem iPad“ sowie den alternativen Einstellungspfad auf neueren iOS-/iPadOS-Versionen (Einstellungen → Apps → Safari → Downloads)',
+  ]},
   { version: '3.9.69', items: [
     'Neu: Backup-Ordner in den Einstellungen — Chrome/Edge merkt sich einen fest gewählten Ordner (File System Access API) und schreibt künftige Backups automatisch dorthin, ohne erneuten Download-Dialog',
     'Neu: Auf Safari/iOS (ohne Ordner-Unterstützung) erscheint stattdessen ein Hinweistext zum manuellen Backup-Pfad über Einstellungen → Safari → Downloads',

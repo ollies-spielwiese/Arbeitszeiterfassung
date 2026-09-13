@@ -24,7 +24,7 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Gleitzeitkonto-Ansicht: kumulierter Überstunden-/Gleitzeitsaldo im gewählten Kalenderjahr (Jan–Dez), Monat für Monat mit laufendem Saldo — startet nie vor „Angestellt seit“, läuft aber über Jahresgrenzen hinweg durch
 - Änderungsprotokoll: jede Erstellung, Änderung und Löschung eines Eintrags wird mit Zeitstempel in den Einstellungen protokolliert (letzte 500 Änderungen, davon die letzten 50 sichtbar)
 - Backup-Erinnerung: Banner in den Einstellungen, wenn noch nie (ab dem Folgetag) oder seit mehr als 7 Tagen kein Backup erstellt wurde, mit Möglichkeit zum Zurückstellen (Snooze)
-- Backup-Ordner (Chrome/Edge): fester Ordner lässt sich einmalig auswählen und wird geräteweise gemerkt (File System Access API) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog; in Safari/iOS zeigt der Bereich stattdessen einen Hinweis auf die gleichwertige Bordfunktion (Einstellungen → Safari → Downloads)
+- Backup-Ordner (Chrome/Edge): fester Ordner lässt sich einmalig auswählen und wird geräteweise gemerkt (File System Access API) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog; in Safari/iOS zeigt der Bereich stattdessen einen Hinweis auf die gleichwertige Bordfunktion (Einstellungen → Safari → Downloads, auf neueren Versionen Einstellungen → Apps → Safari → Downloads) mit dem passenden Ordnernamen für iPhone bzw. iPad
 - CSV-Export eines Monatsberichts (Excel-kompatibel, UTF-8 mit BOM) zusätzlich zu PDF und Word
 - Vorlagen für häufige Überstundengründe
 - Datensicherung als JSON-Export mit Wiederherstellung

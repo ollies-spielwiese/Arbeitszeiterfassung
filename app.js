@@ -1917,7 +1917,7 @@ async function renderBackupFolderSection() {
   if (!isFolderPickerSupported()) {
     content.innerHTML = `
       <p class="hint">Ein fester Backup-Ordner lässt sich in Safari aus Sicherheitsgründen nicht direkt in der App festlegen.</p>
-      <p class="hint">Richte stattdessen einmalig unter <strong>Einstellungen → Safari → Downloads</strong> einen festen Ordner ein (z. B. „Auf meinem iPhone“). Danach landet jeder Export automatisch dort — ohne erneute Ordnerauswahl, nur noch mit kurzer Bestätigung.</p>
+      <p class="hint">Richte ihn stattdessen einmalig in den Safari-Einstellungen ein: <strong>Einstellungen → Safari → Downloads</strong> (auf neueren iOS-/iPadOS-Versionen: <strong>Einstellungen → Apps → Safari → Downloads</strong>). Wähle dort „Auf meinem iPhone“ bzw. „Auf meinem iPad“. Danach landet jeder Export automatisch dort — ohne erneute Ordnerauswahl, nur noch mit kurzer Bestätigung.</p>
     `;
     return;
   }
