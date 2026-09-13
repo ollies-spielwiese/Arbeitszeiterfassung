@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-75';
+const CACHE_NAME = 'arbeitszeit-v3-9-76';
 const ASSETS = [
   './',
   './index.html',
@@ -27,6 +27,7 @@ const ASSETS = [
   './modules/export/word.js',
   './modules/export/pdf.js',
   './modules/export/overview-pdf.js',
+  './modules/export/gleitzeitkonto-pdf.js',
   './modules/export/csv.js',
   './modules/export/download.js',
   './modules/sw-update.js',

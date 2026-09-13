@@ -54,7 +54,7 @@ export function wireEvents(ctx) {
     // Holiday Modal
     openHolidayModal, saveHoliday,
     // Export
-    exportWord, exportPdf, exportCsv, exportOverviewPdf,
+    exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
     openShareModal, shareOverviewPdf, archiveCurrentMonth,
     // Backup
     exportBackup, importBackup, updateBackupReminderBanner,
@@ -225,6 +225,10 @@ export function wireEvents(ctx) {
     // Overview actions
     document.getElementById('btn-export-overview-pdf').addEventListener('click', exportOverviewPdf);
     document.getElementById('btn-share-overview').addEventListener('click', shareOverviewPdf);
+
+    // Gleitzeitkonto actions
+    const btnExportGleitzeitkontoPdf = document.getElementById('btn-export-gleitzeitkonto-pdf');
+    if (btnExportGleitzeitkontoPdf) btnExportGleitzeitkontoPdf.addEventListener('click', exportGleitzeitkontoPdf);
 
     // Settings
     document.getElementById('setting-employee-name').addEventListener('change', (e) => {

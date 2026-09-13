@@ -115,11 +115,10 @@ export function buildOverviewHTML(ov, ym, ctx) {
           </tr>
   `;
 
-  const overviewTitle = freelanceMode ? 'Monatsübersicht – alle Kunden' : 'Monatsübersicht – alle Arbeitgeber';
-
   return `
     <div class="report-header">
-      <h3>${overviewTitle}</h3>
+      <h3>Monatsübersicht</h3>
+      <div class="scope-note">(alle Arbeitgeber und Kunden)</div>
       <div class="subtitle">${formatMonthYear(ym)}</div>
     </div>
     ${summaryGrid}

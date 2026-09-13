@@ -424,6 +424,7 @@ textarea { resize: vertical; min-height: 3rem; }
 }
 
 .report-header h3 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+.report-header .scope-note { color: var(--text-muted); font-size: 0.8rem; margin: 0 0 0.15rem; }
 .report-header .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; }
 
 /* Kontext-Hinweis innerhalb einer Report-Ansicht, z.B. Gleitzeitkonto-Truncation ab "Angestellt seit" */
