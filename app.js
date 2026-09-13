@@ -145,6 +145,13 @@ import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './m
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
 import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw } from './modules/backup.js';
 import {
+  isFolderPickerSupported,
+  getStoredFolderHandle,
+  chooseFolder as _chooseFolderRaw,
+  queryFolderPermission,
+  writeBackupToFolder,
+} from './modules/backupFolder.js';
+import {
   openShareModal as _openShareModalRaw,
   showMailtoStage2 as _showMailtoStage2Raw,
   shareReport as _shareReportRaw,
@@ -1788,6 +1795,7 @@ function renderSettings() {
   updateModeVisibility();
   renderAuditLog();
   updateBackupReminderBanner();
+  renderBackupFolderSection();
 }
 
 /**
@@ -1855,7 +1863,37 @@ function deleteTemplate() { return _deleteTemplateRaw(_tplCtx()); }
 
 /* ---------- Backup ---------- */
 
-function exportBackup() {
+/**
+ * Liefert einen nutzbaren Backup-Ordner-Handle nur dann, wenn die API
+ * unterstützt wird, ein Ordner gespeichert ist UND die Schreibberechtigung
+ * bereits erteilt ist (stille Prüfung ohne Dialog) — sonst null, damit der
+ * Aufrufer auf den normalen Download-Weg zurückfällt.
+ */
+async function getUsableBackupFolderHandle() {
+  if (!isFolderPickerSupported()) return null;
+  const handle = await getStoredFolderHandle();
+  if (!handle) return null;
+  const perm = await queryFolderPermission(handle, { request: false });
+  return perm === 'granted' ? handle : null;
+}
+
+async function exportBackup() {
+  const folderHandle = await getUsableBackupFolderHandle();
+  if (folderHandle) {
+    try {
+      if (state.settings) state.settings.lastBackupAt = new Date().toISOString();
+      saveState();
+      const filename = `arbeitszeit-backup-${todayISO()}.json`;
+      await writeBackupToFolder(folderHandle, filename, JSON.stringify(state, null, 2));
+      toast(`Backup gespeichert in „${folderHandle.name}“`);
+      updateBackupReminderBanner();
+      return;
+    } catch (e) {
+      // Ordner nicht mehr erreichbar (z.B. gelöscht, externes Laufwerk getrennt) —
+      // regulärer Download-Weg als Fallback, damit das Backup nicht verloren geht.
+      toast('Backup-Ordner nicht verfügbar — Backup wird stattdessen heruntergeladen');
+    }
+  }
   _exportBackupRaw({
     getState: _getState,
     saveState,
@@ -1864,6 +1902,87 @@ function exportBackup() {
     toast,
   });
   updateBackupReminderBanner();
+}
+
+/* ---------- Backup-Ordner (File System Access API, seit v3.9.69) ---------- */
+// Chrome/Edge: Ordner einmalig wählen, App merkt sich ihn dauerhaft (IndexedDB)
+// und schreibt künftige Backups ohne erneuten Auswahldialog dorthin.
+// Safari/iOS/Firefox: API nicht verfügbar — stattdessen Hinweis auf die
+// gleichwertige iOS-Bordfunktion (Einstellungen → Safari → Downloads).
+
+async function renderBackupFolderSection() {
+  const content = document.getElementById('backup-folder-content');
+  if (!content) return;
+
+  if (!isFolderPickerSupported()) {
+    content.innerHTML = `
+      <p class="hint">Ein fester Backup-Ordner lässt sich in Safari aus Sicherheitsgründen nicht direkt in der App festlegen.</p>
+      <p class="hint">Richte stattdessen einmalig unter <strong>Einstellungen → Safari → Downloads</strong> einen festen Ordner ein (z. B. „Auf meinem iPhone“). Danach landet jeder Export automatisch dort — ohne erneute Ordnerauswahl, nur noch mit kurzer Bestätigung.</p>
+    `;
+    return;
+  }
+
+  const handle = await getStoredFolderHandle();
+  if (!handle) {
+    content.innerHTML = `
+      <p class="hint">Noch kein fester Ordner ausgewählt. Backups werden bei jedem Export einzeln gespeichert.</p>
+      <div class="data-actions">
+        <button type="button" id="btn-choose-backup-folder" class="btn-primary btn-small" data-testid="button-choose-backup-folder">📁 Ordner auswählen</button>
+      </div>
+    `;
+    wireBackupFolderButtons();
+    return;
+  }
+
+  const perm = await queryFolderPermission(handle, { request: false });
+  if (perm !== 'granted') {
+    content.innerHTML = `
+      <p class="hint">Zugriff auf „${escapeHtml(handle.name)}“ muss erneut bestätigt werden (z. B. nach einem Browser-Neustart).</p>
+      <div class="data-actions">
+        <button type="button" id="btn-confirm-backup-folder" class="btn-primary btn-small" data-testid="button-confirm-backup-folder">Zugriff bestätigen</button>
+        <button type="button" id="btn-change-backup-folder" class="btn-secondary btn-small" data-testid="button-change-backup-folder">Anderen Ordner wählen</button>
+      </div>
+    `;
+    wireBackupFolderButtons();
+    return;
+  }
+
+  content.innerHTML = `
+    <p class="hint">Aktueller Ordner: <strong>📁 ${escapeHtml(handle.name)}</strong></p>
+    <div class="data-actions">
+      <button type="button" id="btn-change-backup-folder" class="btn-secondary btn-small" data-testid="button-change-backup-folder">Ordner ändern</button>
+    </div>
+    <p class="hint">Backups werden ab jetzt automatisch in diesem Ordner gespeichert — ohne erneute Ordnerauswahl, nur noch mit kurzer Bestätigung.</p>
+  `;
+  wireBackupFolderButtons();
+}
+
+function wireBackupFolderButtons() {
+  const btnChoose = document.getElementById('btn-choose-backup-folder');
+  if (btnChoose) btnChoose.addEventListener('click', handleChooseBackupFolder);
+  const btnChange = document.getElementById('btn-change-backup-folder');
+  if (btnChange) btnChange.addEventListener('click', handleChooseBackupFolder);
+  const btnConfirm = document.getElementById('btn-confirm-backup-folder');
+  if (btnConfirm) btnConfirm.addEventListener('click', handleConfirmBackupFolderAccess);
+}
+
+async function handleChooseBackupFolder() {
+  try {
+    await _chooseFolderRaw();
+    toast('Backup-Ordner gespeichert');
+  } catch (e) {
+    if (e && e.name === 'AbortError') { return; } // Dialog abgebrochen — kein Fehler
+    toast('Ordner konnte nicht gespeichert werden: ' + e.message);
+  }
+  renderBackupFolderSection();
+}
+
+async function handleConfirmBackupFolderAccess() {
+  const handle = await getStoredFolderHandle();
+  if (!handle) { renderBackupFolderSection(); return; }
+  const perm = await queryFolderPermission(handle, { request: true });
+  toast(perm === 'granted' ? 'Zugriff bestätigt' : 'Zugriff nicht erteilt');
+  renderBackupFolderSection();
 }
 
 function importBackup(file) {
@@ -2000,5 +2119,6 @@ if (typeof window !== 'undefined') {
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO,
     buildEmployerCardsHTML: _buildEmployerCardsHTMLRaw,
+    exportBackup, renderBackupFolderSection,
   });
 }

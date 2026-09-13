@@ -1,6 +1,6 @@
 {
   "name": "arbeitszeiterfassung",
-  "version": "3.9.68",
+  "version": "3.9.69",
   "private": true,
   "type": "module",
   "description": "Zeiterfassung — statische PWA. Playwright-Regression-Skript für QA vor jedem Version-Bump.",

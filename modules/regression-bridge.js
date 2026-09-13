@@ -49,6 +49,8 @@ export function exportBridge(target, refs) {
     buildGleitzeitkontoHTML, renderGleitzeitkonto, computeGleitzeitkontoRows,
     // Arbeitgeberwechsel / "Beschäftigt bis" (seit v3.9.55)
     isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO, buildEmployerCardsHTML,
+    // Backup-Ordner (File System Access API, seit v3.9.69)
+    exportBackup, renderBackupFolderSection,
   } = refs;
 
   // State + Persistenz
@@ -147,4 +149,8 @@ export function exportBridge(target, refs) {
   if (typeof setShowFormerEmployers === 'function') target.setShowFormerEmployers = setShowFormerEmployers;
   if (typeof todayISO === 'function') target.todayISO = todayISO;
   if (typeof buildEmployerCardsHTML === 'function') target.buildEmployerCardsHTML = buildEmployerCardsHTML;
+
+  // Backup-Ordner (File System Access API, seit v3.9.69, für Regression-Unit-Tests)
+  if (typeof exportBackup === 'function') target.exportBackup = exportBackup;
+  if (typeof renderBackupFolderSection === 'function') target.renderBackupFolderSection = renderBackupFolderSection;
 }

@@ -2632,6 +2632,300 @@ async function runKindMigrationNoticeUnits(page) {
   assertEq('KN6b: saveState wird nicht aufgerufen', kn6.saveCalls, 0);
 }
 
+// ---------- 1r) Backup-Ordner (File System Access API, v3.9.69) ----------
+// Chrome/Edge: fester Ordner wird einmalig gewählt und dauerhaft (IndexedDB)
+// gemerkt; kuenftige Backups landen ohne erneuten Dialog dort. Safari/iOS
+// unterstützen showDirectoryPicker NICHT -- die Tests stubben/entfernen das
+// API bewusst selbst, damit sie deterministisch unter Chromium UND WebKit
+// laufen, statt sich auf die reale Browser-Unterstützung zu verlassen.
+
+async function runBackupFolderUnits(page) {
+  console.log('\n=== 1r) Backup-Ordner (File System Access API) Unit-Tests ===');
+
+  // BF1: isFolderPickerSupported() spiegelt nur die An-/Abwesenheit von showDirectoryPicker.
+  const bf1 = await page.evaluate(async () => {
+    const { isFolderPickerSupported } = await import('/modules/backupFolder.js');
+    const had = 'showDirectoryPicker' in window;
+    const original = window.showDirectoryPicker;
+    window.showDirectoryPicker = async () => ({});
+    const supportedTrue = isFolderPickerSupported();
+    delete window.showDirectoryPicker;
+    const supportedFalse = isFolderPickerSupported();
+    if (had) window.showDirectoryPicker = original;
+    return { supportedTrue, supportedFalse };
+  });
+  assertTrue('BF1a: isFolderPickerSupported() liefert true, wenn showDirectoryPicker existiert', bf1.supportedTrue, '');
+  assertTrue('BF1b: isFolderPickerSupported() liefert false ohne showDirectoryPicker (Safari/iOS)', !bf1.supportedFalse, '');
+
+  // BF2: storeFolderHandle / getStoredFolderHandle / clearFolderHandle — IndexedDB-Rundlauf.
+  const bf2 = await page.evaluate(async () => {
+    const { storeFolderHandle, getStoredFolderHandle, clearFolderHandle } = await import('/modules/backupFolder.js');
+    await clearFolderHandle();
+    const before = await getStoredFolderHandle();
+    const fakeHandle = { name: 'BF2-TestOrdner', kind: 'directory' };
+    await storeFolderHandle(fakeHandle);
+    const stored = await getStoredFolderHandle();
+    await clearFolderHandle();
+    const afterClear = await getStoredFolderHandle();
+    return { before, storedName: stored ? stored.name : null, afterClear };
+  });
+  assertTrue('BF2a: Kein Handle vor dem ersten Speichern', bf2.before === null, JSON.stringify(bf2.before));
+  assertEq('BF2b: Gespeicherter Handle wird korrekt wieder gelesen', bf2.storedName, 'BF2-TestOrdner');
+  assertTrue('BF2c: clearFolderHandle() entfernt den Handle wieder', bf2.afterClear === null, JSON.stringify(bf2.afterClear));
+
+  // BF3: queryFolderPermission liefert 'granted' ohne requestPermission aufzurufen.
+  const bf3 = await page.evaluate(async () => {
+    const { queryFolderPermission } = await import('/modules/backupFolder.js');
+    let requestCalls = 0;
+    const grantedHandle = {
+      queryPermission: async () => 'granted',
+      requestPermission: async () => { requestCalls++; return 'granted'; },
+    };
+    const result = await queryFolderPermission(grantedHandle, { request: false });
+    return { result, requestCalls };
+  });
+  assertEq('BF3a: queryFolderPermission liefert "granted" ohne Nachfrage', bf3.result, 'granted');
+  assertEq('BF3b: requestPermission wird NICHT aufgerufen, wenn bereits granted', bf3.requestCalls, 0);
+
+  // BF4: bei 'prompt' wird requestPermission nur mit request:true aufgerufen (User-Geste noetig).
+  const bf4 = await page.evaluate(async () => {
+    const { queryFolderPermission } = await import('/modules/backupFolder.js');
+    let requestCalls = 0;
+    const promptHandle = {
+      queryPermission: async () => 'prompt',
+      requestPermission: async () => { requestCalls++; return 'granted'; },
+    };
+    const withoutRequest = await queryFolderPermission(promptHandle, { request: false });
+    const withRequest = await queryFolderPermission(promptHandle, { request: true });
+    return { withoutRequest, withRequest, requestCalls };
+  });
+  assertEq('BF4a: ohne request:true bleibt Ergebnis "prompt" (kein Dialog ohne Nutzeraktion)', bf4.withoutRequest, 'prompt');
+  assertEq('BF4b: mit request:true wird requestPermission aufgerufen und dessen Ergebnis geliefert', bf4.withRequest, 'granted');
+  assertEq('BF4c: requestPermission wurde genau einmal aufgerufen', bf4.requestCalls, 1);
+
+  // BF5: writeBackupToFolder schreibt Dateiname + Inhalt unveraendert und schliesst den Stream.
+  const bf5 = await page.evaluate(async () => {
+    const { writeBackupToFolder } = await import('/modules/backupFolder.js');
+    const written = { filename: null, content: null, closed: false, createOpts: null };
+    const fakeHandle = {
+      async getFileHandle(name, opts) {
+        written.filename = name;
+        written.createOpts = opts;
+        return {
+          async createWritable() {
+            return {
+              async write(data) { written.content = data; },
+              async close() { written.closed = true; },
+            };
+          },
+        };
+      },
+    };
+    await writeBackupToFolder(fakeHandle, 'bf5-test.json', '{"a":1}');
+    return written;
+  });
+  assertEq('BF5a: Dateiname wird korrekt übergeben', bf5.filename, 'bf5-test.json');
+  assertTrue('BF5b: Datei wird mit create:true angelegt', !!(bf5.createOpts && bf5.createOpts.create === true), JSON.stringify(bf5.createOpts));
+  assertEq('BF5c: Inhalt wird unverändert geschrieben', bf5.content, '{"a":1}');
+  assertTrue('BF5d: Writable-Stream wird geschlossen', bf5.closed, '');
+
+  // BF6: Settings-UI ohne gespeicherten Ordner zeigt den "Ordner auswählen"-Button.
+  const bf6 = await page.evaluate(async () => {
+    const { clearFolderHandle } = await import('/modules/backupFolder.js');
+    const had = 'showDirectoryPicker' in window;
+    const original = window.showDirectoryPicker;
+    await clearFolderHandle();
+    window.showDirectoryPicker = async () => ({});
+    await renderBackupFolderSection();
+    const html = document.getElementById('backup-folder-content').innerHTML;
+    const hasChooseBtn = !!document.getElementById('btn-choose-backup-folder');
+    if (had) window.showDirectoryPicker = original; else delete window.showDirectoryPicker;
+    return { html, hasChooseBtn };
+  });
+  assertTrue('BF6a: Ohne gespeicherten Ordner erscheint der Auswahl-Button', bf6.hasChooseBtn, '');
+  assertContains('BF6b: Hinweistext "Noch kein fester Ordner"', bf6.html, 'Noch kein fester Ordner');
+
+  // BF7/BF8: Settings-UI je nach Berechtigungsstatus des gespeicherten Handles.
+  // Echte IndexedDB kann keine Funktionswerte klonen (DataCloneError) — die
+  // Fake-Handles hier brauchen daher eine minimale In-Memory-IndexedDB, die
+  // Werte per echter JS-Referenz statt per structured clone hält.
+  const bf7and8 = await page.evaluate(async () => {
+    const { storeFolderHandle, clearFolderHandle } = await import('/modules/backupFolder.js');
+
+    function installFakeIndexedDB() {
+      const original = window.indexedDB;
+      const store = new Map();
+      function makeRequest(run) {
+        const req = {};
+        Promise.resolve().then(() => {
+          try {
+            req.result = run();
+            if (req.onsuccess) req.onsuccess({ target: req });
+          } catch (e) {
+            req.error = e;
+            if (req.onerror) req.onerror({ target: req });
+          }
+        });
+        return req;
+      }
+      const fakeStore = {
+        put(value, key) { return makeRequest(() => { store.set(key, value); }); },
+        get(key) { return makeRequest(() => store.get(key)); },
+        delete(key) { return makeRequest(() => { store.delete(key); }); },
+      };
+      const fakeIdb = {
+        open() {
+          const req = {};
+          Promise.resolve().then(() => {
+            req.result = {
+              objectStoreNames: { contains: () => true },
+              createObjectStore() {},
+              transaction() {
+                const tx = { objectStore: () => fakeStore, oncomplete: null, onerror: null };
+                Promise.resolve().then(() => Promise.resolve().then(() => { if (tx.oncomplete) tx.oncomplete(); }));
+                return tx;
+              },
+              close() {},
+            };
+            if (req.onsuccess) req.onsuccess({ target: req });
+          });
+          return req;
+        },
+      };
+      // window.indexedDB ist ein schreibgeschütztes Getter-Attribut — einfache
+      // Zuweisung wird in Modulen (immer strict mode) ignoriert/schlägt fehl.
+      // Object.defineProperty ersetzt die Eigenschaft vollständig.
+      Object.defineProperty(window, 'indexedDB', { configurable: true, writable: true, value: fakeIdb });
+      return () => { Object.defineProperty(window, 'indexedDB', { configurable: true, writable: true, value: original }); };
+    }
+
+    const hadPicker = 'showDirectoryPicker' in window;
+    const originalPicker = window.showDirectoryPicker;
+    window.showDirectoryPicker = async () => ({});
+    const restoreIdb = installFakeIndexedDB();
+
+    await clearFolderHandle();
+    await storeFolderHandle({ name: 'BF7-Ordner', queryPermission: async () => 'granted' });
+    await renderBackupFolderSection();
+    const html7 = document.getElementById('backup-folder-content').innerHTML;
+    const hasChangeBtn = !!document.getElementById('btn-change-backup-folder');
+    const hasConfirmBtn7 = !!document.getElementById('btn-confirm-backup-folder');
+
+    await clearFolderHandle();
+    await storeFolderHandle({ name: 'BF8-Ordner', queryPermission: async () => 'prompt' });
+    await renderBackupFolderSection();
+    const html8 = document.getElementById('backup-folder-content').innerHTML;
+    const hasConfirmBtn8 = !!document.getElementById('btn-confirm-backup-folder');
+
+    await clearFolderHandle();
+    restoreIdb();
+    if (hadPicker) window.showDirectoryPicker = originalPicker; else delete window.showDirectoryPicker;
+    return { html7, hasChangeBtn, hasConfirmBtn7, html8, hasConfirmBtn8 };
+  });
+  assertContains('BF7a: Ordnername wird angezeigt', bf7and8.html7, 'BF7-Ordner');
+  assertTrue('BF7b: "Ordner ändern"-Button vorhanden', bf7and8.hasChangeBtn, '');
+  assertTrue('BF7c: KEIN "Zugriff bestätigen"-Button, da bereits granted', !bf7and8.hasConfirmBtn7, '');
+  assertTrue('BF8a: "Zugriff bestätigen"-Button erscheint bei fehlender Berechtigung', bf7and8.hasConfirmBtn8, '');
+  assertContains('BF8b: Hinweistext nennt den Ordnernamen', bf7and8.html8, 'BF8-Ordner');
+
+  // BF9: Ohne showDirectoryPicker (Safari/iOS) erscheint der statische Hinweistext.
+  const bf9 = await page.evaluate(async () => {
+    const had = 'showDirectoryPicker' in window;
+    const original = window.showDirectoryPicker;
+    delete window.showDirectoryPicker;
+    await renderBackupFolderSection();
+    const html = document.getElementById('backup-folder-content').innerHTML;
+    if (had) window.showDirectoryPicker = original;
+    return { html };
+  });
+  assertContains('BF9a: Safari-Hinweis nennt "Safari"', bf9.html, 'Safari');
+  assertContains('BF9b: Safari-Hinweis nennt "Downloads"', bf9.html, 'Downloads');
+
+  // BF10: Integration — exportBackup() schreibt bei granted Handle direkt in den Ordner
+  // (kein Download-Dialog) und aktualisiert lastBackupAt wie beim regulären Export.
+  const bf10 = await page.evaluate(async () => {
+    const { storeFolderHandle, clearFolderHandle } = await import('/modules/backupFolder.js');
+
+    function installFakeIndexedDB() {
+      const original = window.indexedDB;
+      const store = new Map();
+      function makeRequest(run) {
+        const req = {};
+        Promise.resolve().then(() => {
+          try {
+            req.result = run();
+            if (req.onsuccess) req.onsuccess({ target: req });
+          } catch (e) {
+            req.error = e;
+            if (req.onerror) req.onerror({ target: req });
+          }
+        });
+        return req;
+      }
+      const fakeStore = {
+        put(value, key) { return makeRequest(() => { store.set(key, value); }); },
+        get(key) { return makeRequest(() => store.get(key)); },
+        delete(key) { return makeRequest(() => { store.delete(key); }); },
+      };
+      const fakeIdb = {
+        open() {
+          const req = {};
+          Promise.resolve().then(() => {
+            req.result = {
+              objectStoreNames: { contains: () => true },
+              createObjectStore() {},
+              transaction() {
+                const tx = { objectStore: () => fakeStore, oncomplete: null, onerror: null };
+                Promise.resolve().then(() => Promise.resolve().then(() => { if (tx.oncomplete) tx.oncomplete(); }));
+                return tx;
+              },
+              close() {},
+            };
+            if (req.onsuccess) req.onsuccess({ target: req });
+          });
+          return req;
+        },
+      };
+      // window.indexedDB ist ein schreibgeschütztes Getter-Attribut — einfache
+      // Zuweisung wird in Modulen (immer strict mode) ignoriert/schlägt fehl.
+      // Object.defineProperty ersetzt die Eigenschaft vollständig.
+      Object.defineProperty(window, 'indexedDB', { configurable: true, writable: true, value: fakeIdb });
+      return () => { Object.defineProperty(window, 'indexedDB', { configurable: true, writable: true, value: original }); };
+    }
+
+    const had = 'showDirectoryPicker' in window;
+    const original = window.showDirectoryPicker;
+    window.showDirectoryPicker = async () => ({});
+    const restoreIdb = installFakeIndexedDB();
+    await clearFolderHandle();
+    const savedLastBackupAt = state.settings.lastBackupAt;
+    const written = { filename: null, content: null };
+    const fakeHandle = {
+      name: 'BF10-Ordner',
+      queryPermission: async () => 'granted',
+      async getFileHandle(name) {
+        written.filename = name;
+        return { async createWritable() { return { async write(d) { written.content = d; }, async close() {} }; } };
+      },
+    };
+    await storeFolderHandle(fakeHandle);
+    await exportBackup();
+    let contentIsValidJson = false;
+    try { JSON.parse(written.content); contentIsValidJson = true; } catch (e) { /* bleibt false */ }
+    const lastBackupAtChanged = state.settings.lastBackupAt !== savedLastBackupAt;
+    state.settings.lastBackupAt = savedLastBackupAt;
+    saveState();
+    await clearFolderHandle();
+    restoreIdb();
+    if (had) window.showDirectoryPicker = original; else delete window.showDirectoryPicker;
+    return { filename: written.filename, contentIsValidJson, lastBackupAtChanged };
+  });
+  assertTrue('BF10a: exportBackup() schreibt eine Datei in den Ordner-Handle', !!bf10.filename, '');
+  assertContains('BF10b: Dateiname folgt dem Backup-Namensschema', bf10.filename || '', 'arbeitszeit-backup-');
+  assertTrue('BF10c: geschriebener Inhalt ist gültiges JSON', bf10.contentIsValidJson, '');
+  assertTrue('BF10d: lastBackupAt wird beim Ordner-Schreibpfad aktualisiert', bf10.lastBackupAtChanged, '');
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -3095,6 +3389,7 @@ function runServiceWorkerCacheBustCheck() {
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);
     await runKindMigrationNoticeUnits(page);
+    await runBackupFolderUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.68</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.69</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -526,6 +526,7 @@
                 </ul>
               </li>
               <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup mehr als 7 Tage vergangen sind, mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+              <li><strong>Backup-Ordner:</strong> In Chrome/Edge lässt sich unter <strong>Backup-Ordner</strong> einmalig ein fester Ordner auswählen (📁 Ordner auswählen) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog. In Safari/iOS ist das aus Sicherheitsgründen nicht möglich; hier zeigt der Bereich stattdessen einen Hinweis auf die gleichwertige Bordfunktion unter Einstellungen → Safari → Downloads.</li>
               <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
             </ul>
           </div>
@@ -693,6 +694,11 @@
           </button>
           <input type="file" id="input-backup-file" accept="application/json" hidden />
         </div>
+      </div>
+
+      <div class="settings-block" id="backup-folder-block" data-testid="block-backup-folder">
+        <h3>Backup-Ordner</h3>
+        <div id="backup-folder-content" data-testid="backup-folder-content"></div>
       </div>
 
       <div class="settings-block">
@@ -1198,6 +1204,7 @@
             </ul>
           </li>
           <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup mehr als 7 Tage vergangen sind, mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+          <li><strong>Backup-Ordner:</strong> In Chrome/Edge lässt sich unter <strong>Backup-Ordner</strong> einmalig ein fester Ordner auswählen (📁 Ordner auswählen) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog. In Safari/iOS ist das aus Sicherheitsgründen nicht möglich; hier zeigt der Bereich stattdessen einen Hinweis auf die gleichwertige Bordfunktion unter Einstellungen → Safari → Downloads.</li>
           <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
         </ul>
       </div>
