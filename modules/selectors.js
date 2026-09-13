@@ -15,6 +15,25 @@
 import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
 
 /**
+ * Baut den Erklärungstext für den Saldo-Tooltip (Urlaubs-/Krankheitsgutschrift), der als
+ * Antippbares "i"-Icon neben dem Saldo-Label erscheint — seit v3.9.75. Gibt null zurück,
+ * wenn im Zeitraum keine Gutschrift angefallen ist (dann wird kein Icon angezeigt).
+ * @param {number} creditedAbsenceMin
+ * @param {number} vacationDays
+ * @param {number} sickDays
+ * @param {(min:number)=>string} minutesToHM
+ * @returns {string|null}
+ */
+export function buildBalanceTooltipText(creditedAbsenceMin, vacationDays, sickDays, minutesToHM) {
+  if (!creditedAbsenceMin || creditedAbsenceMin <= 0) return null;
+  const parts = [];
+  if (vacationDays > 0) parts.push(`${vacationDays} Urlaubstag${vacationDays === 1 ? '' : 'e'}`);
+  if (sickDays > 0) parts.push(`${sickDays} Krankheitstag${sickDays === 1 ? '' : 'e'}`);
+  const daysPart = parts.length ? parts.join(' und ') : 'Abwesenheitstage';
+  return `Enthält ${minutesToHM(creditedAbsenceMin)} Std. Gutschrift für ${daysPart} – zählt wie gearbeitete Zeit (§ 3 EntgFG).`;
+}
+
+/**
  * Findet einen Arbeitgeber per ID.
  * @param {string} id
  * @param {{state:{employers:Array<import('../types.js').AZEmployer>}}} ctx
@@ -112,6 +131,7 @@ export function getSummaryFields(input, ctx) {
       valueDec: `${hoursDecimal(bal)} h`,
       sign: bal >= 0 ? 'pos' : 'neg',
       rawMinutes: bal,
+      tooltip: buildBalanceTooltipText(input.creditedAbsenceMin || 0, input.vacationDays || 0, input.sickDays || 0, minutesToHM),
     });
   }
 
@@ -193,7 +213,7 @@ export function getSummaryFields(input, ctx) {
 /**
  * Aggregierte Variante für Übersicht (mehrere Kunden/Arbeitgeber).
  * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
- * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, vacationDays:number, sickDays:number, overtimeReductionDays?:number}}} ov
+ * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, creditedAbsenceMin?:number, vacationDays:number, sickDays:number, overtimeReductionDays?:number}}} ov
  * @param {{isFreelance:()=>boolean, minutesToHM:(min:number)=>string,
  *          hoursDecimal:(min:number)=>string, formatMoney:(amt:number, cur:string)=>string}} ctx
  * @returns {import('../types.js').AZSummaryField[]}
@@ -248,6 +268,7 @@ export function getOverviewSummaryFields(ov, ctx) {
       valueDec: `${hoursDecimal(bal)} h`,
       sign: bal >= 0 ? 'pos' : 'neg',
       rawMinutes: bal,
+      tooltip: buildBalanceTooltipText(ov.totals.creditedAbsenceMin || 0, ov.totals.vacationDays || 0, ov.totals.sickDays || 0, minutesToHM),
     });
   }
   // Rechnungsbetrag: im Freelance immer zeigen (auch wenn 0 → '—'), im Employee nur wenn > 0

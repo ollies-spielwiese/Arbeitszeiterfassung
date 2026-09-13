@@ -191,6 +191,7 @@
  * @property {number} [vacationDays]
  * @property {number} [sickDays]
  * @property {number} [overtimeReductionDays]
+ * @property {number} [creditedAbsenceMin] Urlaubs-/Krankheitsgutschrift-Minuten für den Saldo-Tooltip, seit v3.9.75
  * @property {number} [holidayCount]
  * @property {number} [hourlyRate]
  * @property {string} [currency]
@@ -220,6 +221,7 @@
  * @property {string} [sign] Konventionell 'pos'|'neg' bei balance
  * @property {number} [rawMinutes] Roh-Minuten bei time/balance
  * @property {{amount:number,currency:string}} [rawAmount] Bei money
+ * @property {string|null} [tooltip] Erklärtext für das Info-Icon bei balance (z.B. Urlaubs-/Krankheitsgutschrift), seit v3.9.75
  */
 
 /* --- Report Types ----------------------------------------------------- */
@@ -253,6 +255,7 @@
  * @property {number} workedMin
  * @property {number} targetMin
  * @property {number} balance
+ * @property {number} creditedAbsenceMin Urlaubs-/Krankheitsgutschrift-Minuten, seit v3.9.75
  * @property {number} vacationDays
  * @property {number} sickDays
  * @property {number} overtimeReductionDays
@@ -266,6 +269,7 @@
  * @property {number} workedMin
  * @property {number} targetMin
  * @property {number} balance
+ * @property {number} creditedAbsenceMin Urlaubs-/Krankheitsgutschrift-Minuten, seit v3.9.75
  * @property {number} vacationDays
  * @property {number} sickDays
  * @property {number} overtimeReductionDays

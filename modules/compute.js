@@ -579,7 +579,7 @@ export function computeMonthReport(employerId, ym, ctx) {
  */
 export function computeMonthOverview(ym, ctx) {
   const state = ctx && ctx.state;
-  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
+  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
 
   // ctx.employers ueberschreibt state.employers als Iterationsbasis (z.B. um ehemalige
   // Arbeitgeber ausser der "Ehemalige anzeigen"-Checkbox auszublenden), ohne die Totals-Logik
@@ -594,6 +594,7 @@ export function computeMonthOverview(ym, ctx) {
       workedMin: r.workedMin,
       targetMin: r.targetMin,
       balance: r.balance,
+      creditedAbsenceMin: r.creditedAbsenceMin,
       vacationDays: r.vacationEntries.length,
       sickDays: r.sickEntries.length,
       overtimeReductionDays: r.overtimeReductionEntries.length,
@@ -606,12 +607,13 @@ export function computeMonthOverview(ym, ctx) {
     workedMin: acc.workedMin + row.workedMin,
     targetMin: acc.targetMin + row.targetMin,
     balance: acc.balance + row.balance,
+    creditedAbsenceMin: acc.creditedAbsenceMin + row.creditedAbsenceMin,
     vacationDays: acc.vacationDays + row.vacationDays,
     sickDays: acc.sickDays + row.sickDays,
     overtimeReductionDays: acc.overtimeReductionDays + row.overtimeReductionDays,
     offDayDays: acc.offDayDays + row.offDayDays,
     workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
-  }), { workedMin: 0, targetMin: 0, balance: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
+  }), { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
 
   return { ym, rows, totals };
 }
@@ -630,7 +632,7 @@ export function computeMonthOverview(ym, ctx) {
  * @param {AZEmployer} emp
  * @param {number} year z.B. 2026
  * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
- * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
  */
 export function computeGleitzeitkontoRows(emp, year, ctx) {
   const state = ctx && ctx.state;
@@ -667,14 +669,32 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
   }
 
   let cumulative = 0;
+  let cumulativeCreditedAbsenceMin = 0;
+  let cumulativeVacationDays = 0;
+  let cumulativeSickDays = 0;
   let cursor = effectiveStartYm;
   const rows = [];
   while (cursor <= effectiveEndYm) {
     const r = computeMonthReport(emp.id, cursor, ctx);
     if (r) {
       cumulative += r.balance;
+      cumulativeCreditedAbsenceMin += r.creditedAbsenceMin;
+      cumulativeVacationDays += r.vacationEntries.length;
+      cumulativeSickDays += r.sickEntries.length;
       if (cursor >= yearStartYm) {
-        rows.push({ ym: cursor, workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance, cumulativeBalance: cumulative });
+        rows.push({
+          ym: cursor,
+          workedMin: r.workedMin,
+          targetMin: r.targetMin,
+          balance: r.balance,
+          cumulativeBalance: cumulative,
+          creditedAbsenceMin: r.creditedAbsenceMin,
+          vacationDays: r.vacationEntries.length,
+          sickDays: r.sickEntries.length,
+          cumulativeCreditedAbsenceMin,
+          cumulativeVacationDays,
+          cumulativeSickDays,
+        });
       }
     }
     cursor = shiftYearMonth(cursor, 1);

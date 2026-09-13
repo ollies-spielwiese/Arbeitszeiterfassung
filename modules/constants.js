@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.74';
+export const APP_VERSION = '3.9.75';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.75', items: [
+    'Neu: Info-Tooltip an der Saldo-Kachel (Monat-, Woche-, Übersicht- und Gleitzeitkonto-Tab) — ein antippbares „i“-Icon neben dem Saldo erklärt, wie viele Stunden als Urlaubs-/Krankheitsgutschrift enthalten sind (nur sichtbar, wenn eine Gutschrift angefallen ist)',
+  ]},
   { version: '3.9.74', items: [
     'Verbessert: Hilfe-Text „Arbeitgeber verwalten“ beschreibt jetzt das Arbeitszeitmodell-Feld und wo die Zusammenfassung in Exporten erscheint; Freiberufler-Hilfetext korrigiert (Arbeitszeitmodell ist im Freiberufler-Modus ebenfalls ausgeblendet, nicht nur der Urlaubsanspruch)',
   ]},

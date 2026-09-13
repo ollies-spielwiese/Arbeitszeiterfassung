@@ -89,6 +89,7 @@ export function buildReportHTML(r, ctx) {
     hourlyRate: Number(r.employer.hourlyRate) || 0,
     currency: r.employer.currency || 'EUR',
     mode: empHasTarget ? 'employee' : 'freelance',
+    creditedAbsenceMin: r.creditedAbsenceMin,
   });
 
   return `
