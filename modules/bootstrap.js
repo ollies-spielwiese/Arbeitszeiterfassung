@@ -354,14 +354,19 @@ export function wireEvents(ctx) {
       syncChipActive();
     });
 
-    const btnSollWarningGoto = document.getElementById('btn-sollwarning-goto');
-    if (btnSollWarningGoto) btnSollWarningGoto.addEventListener('click', () => switchView('gleitzeitkonto'));
-    const btnSollWarningSnooze = document.getElementById('btn-sollwarning-snooze');
-    if (btnSollWarningSnooze) btnSollWarningSnooze.addEventListener('click', () => {
-      state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      saveState();
-      if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
-      toast('Erinnerung für 7 Tage verschoben');
+    // Beide Banner-Instanzen (Erfassen + Übersicht) teilen sich dieselbe Goto-/Snooze-Logik.
+    ['btn-sollwarning-goto', 'btn-sollwarning-goto-overview'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => switchView('gleitzeitkonto'));
+    });
+    ['btn-sollwarning-snooze', 'btn-sollwarning-snooze-overview'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => {
+        state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        saveState();
+        if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
+        toast('Erinnerung für 7 Tage verschoben');
+      });
     });
 
     // Close modal

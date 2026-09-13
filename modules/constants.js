@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.78';
+export const APP_VERSION = '3.9.79';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.79', items: [
+    'Erweitert: Der Sollstunden-Warnung-Banner erscheint jetzt zusätzlich zur Erfassen-Ansicht auch im Übersicht-Tab — identischer Inhalt, gleiche Direktlink- und 7-Tage-Erinnerungs-Funktion',
+  ]},
   { version: '3.9.78', items: [
     'Neu: Sollstunden-Warnung — warnt optional, wenn der Monats-Saldo und/oder der Gleitzeitkonto-Saldo deutlich über oder unter dem Soll liegt (Schwelle als 10/20/30\u00a0% oder eigener Wert einstellbar). Anzeige als Banner in der Erfassen-Ansicht (mit Direktlink zum Gleitzeitkonto und 7-Tage-Erinnerungs-Pause) sowie als Hervorhebung der Saldo-Kachel im Monats- und Gleitzeitkonto-Tab. Beide Bausteine sind standardmäßig deaktiviert und getrennt einstellbar (Einstellungen); im Freiberufler-Modus nicht verfügbar',
   ]},
