@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.73';
+export const APP_VERSION = '3.9.74';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.74', items: [
+    'Verbessert: Hilfe-Text „Arbeitgeber verwalten“ beschreibt jetzt das Arbeitszeitmodell-Feld und wo die Zusammenfassung in Exporten erscheint; Freiberufler-Hilfetext korrigiert (Arbeitszeitmodell ist im Freiberufler-Modus ebenfalls ausgeblendet, nicht nur der Urlaubsanspruch)',
+  ]},
   { version: '3.9.73', items: [
     'Neu: Arbeitszeitmodell-Zusammenfassung (z. B. „Teilzeit, 60 % · Gleitzeit“) erscheint jetzt auch in den Berichten/Exporten — CSV (Kopf-Metadatenzeile), PDF (unter Pers.-Nr.), Word (unter Pers.-Nr.) sowie in der Monatsübersicht über alle Arbeitgeber (kompakte Fußzeile je Arbeitgeber, im Freiberufler-Modus nicht relevant)',
   ]},

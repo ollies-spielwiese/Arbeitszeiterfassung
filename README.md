@@ -12,6 +12,7 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Zwei Modi: Angestellter (Soll/Ist/Saldo) und Freiberufler (Ist + Rechnungsbetrag)
 - Zeiterfassung per Start-/Stopp-Taste oder nachträglich per Formular
 - Mehrere Arbeitgeber parallel mit eigenen Sollstunden, Wochenplänen und Anstellungsdatum
+- Arbeitszeitmodell pro Arbeitgeber (Beschäftigungsart wie Vollzeit/Teilzeit/Minijob/Midijob inkl. Beschäftigungsgrad, sowie Arbeitszeitorganisation wie Gleitzeit, Vertrauensarbeitszeit, Vier-Tage-Woche, Schichtarbeit u. a.) — erscheint als Zusammenfassung im PDF-, Word- und CSV-Export sowie in der Monatsübersicht; im Freiberufler-Modus ausgeblendet
 - Jahresurlaub pro Arbeitgeber inklusive Resturlaub aus dem Vorjahr — automatisches Prorating im Anstellungsjahr
 - Wöchentliche und monatliche Übersichten mit Soll/Ist/Saldo
 - Übersichts-Tab: alle Arbeitgeber im Monatsvergleich
