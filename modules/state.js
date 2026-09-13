@@ -74,6 +74,13 @@ export const DEFAULT_STATE = {
     lastBackupAt: null,
     backupReminderSnoozeUntil: null,
     backupReminderFirstSeenAt: null,
+    // Sollstunden-Warnung (seit v3.9.78) — additive Settings-Felder, kein Migrations-Eintrag
+    // nötig. Siehe modules/soll-warning.js.
+    sollWarningMonthEnabled: false,
+    sollWarningMonthThresholdPct: 20,
+    sollWarningGleitzeitEnabled: false,
+    sollWarningGleitzeitThresholdPct: 20,
+    sollWarningSnoozeUntil: null,
   },
   activeEmployerId: null,
   runningTimer: null,

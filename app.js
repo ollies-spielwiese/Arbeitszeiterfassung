@@ -110,6 +110,13 @@ import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './mo
 import { buildAuditLogHTML as _buildAuditLogHTMLRaw } from './modules/render/audit-log.js';
 import { buildGleitzeitkontoHTML as _buildGleitzeitkontoHTMLRaw } from './modules/render/gleitzeitkonto.js';
 import {
+  evaluateSollWarning as _evaluateSollWarningRaw,
+  formatSollWarningTooltipText as _formatSollWarningTooltipTextRaw,
+  buildBalanceWarningInfo as _buildBalanceWarningInfoRaw,
+  computeActiveSollWarnings as _computeActiveSollWarningsRaw,
+} from './modules/soll-warning.js';
+import { buildSollWarningListHTML as _buildSollWarningListHTMLRaw } from './modules/render/soll-warning-banner.js';
+import {
   getEmployer as _getEmployerRaw,
   getCurrentReport as _getCurrentReportRaw,
   getCurrentOverview as _getCurrentOverviewRaw,
@@ -619,6 +626,7 @@ function renderTracker() {
   }
 
   renderTodaySummary();
+  updateSollWarningBanner();
 
   // Mode-Toggle beim Wechsel in den Tracker-Tab immer auf Präsenz zurücksetzen (nicht persistiert),
   // außer der laufende Timer ist bereits im Home-Office-Modus.
@@ -1258,6 +1266,18 @@ function computeMonthReport(employerId, ym) {
   return _computeMonthReportRaw(employerId, ym, { state });
 }
 
+// Sollstunden-Warnung (seit v3.9.78): liefert die Kachel-Warnung fuer EINEN Saldo/Soll-Wert,
+// unter Beruecksichtigung von Freiberufler-Modus und dem jeweiligen Enabled-Toggle. Siehe
+// modules/soll-warning.js fuer die reine Berechnung.
+function computeBalanceWarningInfo(balance, targetMin, basis) {
+  if (isFreelance()) return null;
+  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const enabled = basis === 'month' ? settings.sollWarningMonthEnabled : settings.sollWarningGleitzeitEnabled;
+  if (!enabled) return null;
+  const thresholdPct = basis === 'month' ? settings.sollWarningMonthThresholdPct : settings.sollWarningGleitzeitThresholdPct;
+  return _buildBalanceWarningInfoRaw(balance, targetMin, thresholdPct, basis);
+}
+
 function renderReport() {
   const empSel = document.getElementById('report-employer');
   const monthInput = document.getElementById('report-month');
@@ -1297,6 +1317,7 @@ function renderReport() {
     computeHomeofficeMinutes,
     getSummaryFields,
     renderSummaryHTML,
+    balanceWarning: computeBalanceWarningInfo(r.balance, r.targetMin, 'month'),
   });
 }
 
@@ -1454,6 +1475,39 @@ function updateBackupReminderBanner() {
   if (show) textEl.textContent = msg;
 }
 
+// Sollstunden-Warnung-Banner (Erfassen-Ansicht, seit v3.9.78): fasst alle aktiven
+// Warnungen (Monats-Saldo + Gleitzeitkonto-Saldo, ueber alle nicht-ehemaligen Arbeitgeber)
+// zusammen. Gleiches Snooze-/Toggle-Muster wie updateBackupReminderBanner().
+function updateSollWarningBanner() {
+  const banner = document.getElementById('sollstunden-warning-banner');
+  const listEl = document.getElementById('sollstunden-warning-list');
+  if (!banner || !listEl) return;
+  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const now = Date.now();
+
+  if (settings.sollWarningSnoozeUntil && new Date(settings.sollWarningSnoozeUntil).getTime() > now) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  const warnings = _computeActiveSollWarningsRaw(
+    {
+      state,
+      computeMonthReport,
+      computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state }),
+      isFormerEmployer,
+    },
+    { ym: currentYearMonth(), year: new Date().getFullYear(), today: todayISO() }
+  );
+
+  if (!warnings.length) {
+    banner.classList.add('hidden');
+    return;
+  }
+  listEl.innerHTML = _buildSollWarningListHTMLRaw(warnings, { escapeHtml, minutesToHM, formatMonthYear });
+  banner.classList.remove('hidden');
+}
+
 // Jahre, die in den Jahr-Pulldowns von Urlaubsplanung und Gleitzeitkonto zur Auswahl stehen:
 // alle Jahre, in denen Einträge existieren oder ein Arbeitgeber angestellt war/ist, plus das
 // laufende und das kommende Jahr (für Vorausplanung), absteigend sortiert (neuestes zuerst).
@@ -1525,12 +1579,18 @@ function renderGleitzeitkonto() {
   // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
   const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
 
+  const lastRow = rows.length ? rows[rows.length - 1] : null;
+  const balanceWarning = lastRow
+    ? computeBalanceWarningInfo(lastRow.cumulativeBalance, lastRow.cumulativeTargetMin, 'gleitzeitkonto')
+    : null;
+
   container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
     escapeHtml,
     minutesToHM,
     formatMonthYear,
     renderSummaryHTML,
     buildBalanceTooltipText: _buildBalanceTooltipTextRaw,
+    balanceWarning,
   }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
 }
 
@@ -1889,6 +1949,24 @@ function renderSettings() {
   renderAuditLog();
   updateBackupReminderBanner();
   renderBackupFolderSection();
+  syncSollWarningSettingsUI();
+}
+
+// Spiegelt state.settings (sollWarning*) in die Checkbox-/Chip-UI — wird bei
+// jedem Öffnen der Einstellungen sowie initial beim Wiring aufgerufen.
+function syncSollWarningSettingsUI() {
+  ['month', 'gleitzeit'].forEach((basis) => {
+    const enabledKey = basis === 'month' ? 'sollWarningMonthEnabled' : 'sollWarningGleitzeitEnabled';
+    const thresholdKey = basis === 'month' ? 'sollWarningMonthThresholdPct' : 'sollWarningGleitzeitThresholdPct';
+    const enabledCb = document.getElementById(`setting-sw-${basis}-enabled`);
+    if (enabledCb) enabledCb.checked = !!state.settings[enabledKey];
+    const current = Number(state.settings[thresholdKey]) || 0;
+    document.querySelectorAll(`.sw-chip[data-target="${basis}"]`).forEach((btn) => {
+      btn.classList.toggle('active', Number(btn.dataset.value) === current);
+    });
+    const customInput = document.getElementById(`setting-sw-${basis}-threshold-custom`);
+    if (customInput) customInput.value = current || '';
+  });
 }
 
 /**
@@ -1900,8 +1978,10 @@ function updateModeVisibility() {
   // Settings: Bundesland + Feiertage im Freelance-Modus ausblenden
   const blockState = document.getElementById('settings-block-state');
   const blockHolidays = document.getElementById('settings-block-holidays');
+  const blockSollWarning = document.getElementById('settings-block-sw');
   if (blockState) blockState.classList.toggle('hidden', freelance);
   if (blockHolidays) blockHolidays.classList.toggle('hidden', freelance);
+  if (blockSollWarning) blockSollWarning.classList.toggle('hidden', freelance);
   // Tracker: "+ Urlaub / Krankheit"-Button im Freelance-Modus verstecken
   const btnAbsence = document.getElementById('btn-add-absence');
   if (btnAbsence) btnAbsence.style.display = freelance ? 'none' : '';
@@ -2164,6 +2244,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
   openShareModal, shareOverviewPdf, archiveCurrentMonth,
   exportBackup, importBackup, updateBackupReminderBanner,
+  updateSollWarningBanner,
   toast, closeModals, escapeHtml,
   getEmployer, computeSuggestedBreak,
   installWeekInputFallback,
@@ -2205,6 +2286,10 @@ if (typeof window !== 'undefined') {
     buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds,
     switchView, renderReport, renderTracker, renderWeek, renderEntries, renderEmployers, renderArchive, renderSettings,
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML: _buildAuditLogHTMLRaw, renderAuditLog, updateBackupReminderBanner,
+    updateSollWarningBanner, computeBalanceWarningInfo,
+    evaluateSollWarning: _evaluateSollWarningRaw, formatSollWarningTooltipText: _formatSollWarningTooltipTextRaw,
+    buildBalanceWarningInfo: _buildBalanceWarningInfoRaw, computeActiveSollWarnings: _computeActiveSollWarningsRaw,
+    buildSollWarningListHTML: _buildSollWarningListHTMLRaw,
     generateCsvBlob,
     buildGleitzeitkontoHTML: _buildGleitzeitkontoHTMLRaw, renderGleitzeitkonto,
     getCurrentGleitzeitkonto, generateGleitzeitkontoPdfBlob,

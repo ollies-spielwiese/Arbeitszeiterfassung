@@ -58,6 +58,8 @@ export function wireEvents(ctx) {
     openShareModal, shareOverviewPdf, archiveCurrentMonth,
     // Backup
     exportBackup, importBackup, updateBackupReminderBanner,
+    // Sollstunden-Warnung (seit v3.9.78)
+    updateSollWarningBanner,
     // UI-Utilities
     toast, closeModals, escapeHtml,
     // Compute-Helpers (für Entry-Form-Live-Berechnung)
@@ -306,6 +308,59 @@ export function wireEvents(ctx) {
       state.settings.backupReminderSnoozeUntil = snoozeUntil;
       saveState();
       if (typeof updateBackupReminderBanner === 'function') updateBackupReminderBanner();
+      toast('Erinnerung für 7 Tage verschoben');
+    });
+
+    // Sollstunden-Warnung (seit v3.9.78): Einstellungen (2 Bausteine: Monats-Saldo,
+    // Gleitzeitkonto-Saldo) + Banner-Buttons (Erfassen-Ansicht).
+    ['month', 'gleitzeit'].forEach((basis) => {
+      const enabledKey = basis === 'month' ? 'sollWarningMonthEnabled' : 'sollWarningGleitzeitEnabled';
+      const thresholdKey = basis === 'month' ? 'sollWarningMonthThresholdPct' : 'sollWarningGleitzeitThresholdPct';
+      const enabledCb = document.getElementById(`setting-sw-${basis}-enabled`);
+      const chipButtons = Array.from(document.querySelectorAll(`.sw-chip[data-target="${basis}"]`));
+      const customInput = document.getElementById(`setting-sw-${basis}-threshold-custom`);
+
+      const syncChipActive = () => {
+        const current = Number(state.settings[thresholdKey]) || 0;
+        chipButtons.forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.value) === current));
+        if (customInput) customInput.value = current || '';
+      };
+
+      if (enabledCb) {
+        enabledCb.checked = !!state.settings[enabledKey];
+        enabledCb.addEventListener('change', (e) => {
+          state.settings[enabledKey] = e.target.checked;
+          saveState();
+          if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
+        });
+      }
+      chipButtons.forEach((btn) => btn.addEventListener('click', () => {
+        state.settings[thresholdKey] = Number(btn.dataset.value);
+        saveState();
+        syncChipActive();
+        if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
+      }));
+      if (customInput) {
+        customInput.addEventListener('change', (e) => {
+          let v = parseInt(e.target.value, 10);
+          if (!Number.isFinite(v)) v = state.settings[thresholdKey];
+          v = Math.max(1, Math.min(100, v));
+          state.settings[thresholdKey] = v;
+          saveState();
+          syncChipActive();
+          if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
+        });
+      }
+      syncChipActive();
+    });
+
+    const btnSollWarningGoto = document.getElementById('btn-sollwarning-goto');
+    if (btnSollWarningGoto) btnSollWarningGoto.addEventListener('click', () => switchView('gleitzeitkonto'));
+    const btnSollWarningSnooze = document.getElementById('btn-sollwarning-snooze');
+    if (btnSollWarningSnooze) btnSollWarningSnooze.addEventListener('click', () => {
+      state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      saveState();
+      if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
       toast('Erinnerung für 7 Tage verschoben');
     });
 

@@ -1814,6 +1814,148 @@ async function runGleitzeitkontoUnits(page) {
   assertEq('GK8: Jahresansicht 2026 zeigt trotzdem alle 12 Monate (Startpunkt liegt vor 2026)', gk8.rows.length, 12);
 }
 
+async function runSollWarningUnits(page) {
+  console.log('\n=== 1n) Sollstunden-Warnung Unit-Tests ===');
+
+  // SW1: evaluateSollWarning liefert null, wenn die Schwelle nicht erreicht wird.
+  const sw1 = await page.evaluate(() => evaluateSollWarning(-1000, 9600, 20, 'month'));
+  assertEq('SW1: keine Warnung unterhalb der Schwelle (10,4 % < 20 %)', sw1, null);
+
+  // SW2: über der Schwelle, Saldo negativ -> direction 'under'.
+  const sw2 = await page.evaluate(() => evaluateSollWarning(-2400, 9600, 20, 'month'));
+  assertTrue('SW2: Warnung ab 25 % unter Soll ausgelöst', !!sw2, '');
+  assertEq('SW2: direction = under bei negativem Saldo', sw2.direction, 'under');
+  assertEq('SW2: pct = 25', sw2.pct, 25);
+
+  // SW3: positiver Saldo über der Schwelle -> direction 'over'.
+  const sw3 = await page.evaluate(() => evaluateSollWarning(2400, 9600, 20, 'month'));
+  assertEq('SW3: direction = over bei positivem Saldo', sw3.direction, 'over');
+
+  // SW4: Schwelle deaktiviert (0 oder nicht gesetzt) -> nie eine Warnung, unabhängig vom Saldo.
+  const sw4 = await page.evaluate(() => evaluateSollWarning(-9000, 9600, 0, 'month'));
+  assertEq('SW4: Schwelle 0 = deaktiviert, keine Warnung', sw4, null);
+
+  // SW5: Mindest-Soll-Guard — bei sehr kleinem targetMin (z.B. erster Teilmonat) keine Bewertung,
+  // auch wenn der prozentuale Ausschlag riesig wäre.
+  const sw5 = await page.evaluate(() => evaluateSollWarning(-50, 30, 20, 'month'));
+  assertEq('SW5: targetMin unterhalb MIN_TARGET_MIN_FOR_EVALUATION -> keine Warnung', sw5, null);
+
+  // SW6: formatSollWarningTooltipText liefert einen lesbaren, auf den Fall zutreffenden Satz.
+  const sw6 = await page.evaluate(() => formatSollWarningTooltipText({ direction: 'over', pct: 25, thresholdPct: 20, basis: 'month' }));
+  assertContains('SW6: Tooltip-Text nennt Prozentsatz', sw6, '25');
+  assertContains('SW6: Tooltip-Text nennt "über"', sw6, 'über');
+
+  // SW7: computeActiveSollWarnings liefert nichts, wenn beide Bausteine deaktiviert sind.
+  const sw7 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    state.settings.sollWarningMonthEnabled = false;
+    state.settings.sollWarningGleitzeitEnabled = false;
+    const result = computeActiveSollWarnings(
+      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), isFormerEmployer },
+      { ym: '2026-06', year: 2026, today: '2026-06-15' }
+    );
+    Object.assign(state.settings, savedSettings);
+    return result;
+  });
+  assertEq('SW7: keine Warnungen, wenn beide Einstellungen deaktiviert sind', sw7.length, 0);
+
+  // SW8: computeActiveSollWarnings liefert im Freiberufler-Modus immer eine leere Liste,
+  // selbst wenn beide Bausteine aktiviert sind (kein Soll/Saldo-Konzept dort).
+  const sw8 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    state.settings.appMode = 'freelance';
+    state.settings.sollWarningMonthEnabled = true;
+    state.settings.sollWarningGleitzeitEnabled = true;
+    const result = computeActiveSollWarnings(
+      { state, computeMonthReport, computeGleitzeitkontoRows: (emp, year) => computeGleitzeitkontoRows(emp, year, { state }), isFormerEmployer },
+      { ym: '2026-06', year: 2026, today: '2026-06-15' }
+    );
+    Object.assign(state.settings, savedSettings);
+    return result;
+  });
+  assertEq('SW8: Freiberufler-Modus liefert immer eine leere Liste', sw8.length, 0);
+
+  // SW9: Integration — ein Arbeitgeber mit deutlichem Monats-Minus löst eine Warnung aus,
+  // die per updateSollWarningBanner() im Banner landet; ein ehemaliger Arbeitgeber wird
+  // dabei übersprungen.
+  const sw9 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    const savedEmployers = state.employers.slice();
+    const savedEntries = state.entries.slice();
+    const savedActive = state.activeEmployerId;
+    const empId = '__sw-month__';
+    const formerEmpId = '__sw-former__';
+    state.settings.appMode = 'employee';
+    state.settings.sollWarningMonthEnabled = true;
+    state.settings.sollWarningMonthThresholdPct = 20;
+    state.settings.sollWarningGleitzeitEnabled = false;
+    state.settings.sollWarningSnoozeUntil = null;
+    state.employers.push({ id: empId, name: 'SW-Monat-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+    state.employers.push({ id: formerEmpId, name: 'SW-Ehemalig-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01', employmentEndDate: '2020-12-31' });
+    // Ein einziger kurzer Arbeitstag im Monat -> Ist weit unter Soll -> deutliches Minus.
+    state.entries.push({ id: 'sw9-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
+    state.activeEmployerId = empId;
+    updateSollWarningBanner();
+    const banner = document.getElementById('sollstunden-warning-banner');
+    const result = {
+      hidden: banner.classList.contains('hidden'),
+      listHTML: document.getElementById('sollstunden-warning-list').innerHTML,
+    };
+    state.employers = savedEmployers;
+    state.entries = savedEntries;
+    state.activeEmployerId = savedActive;
+    Object.assign(state.settings, savedSettings);
+    updateSollWarningBanner();
+    return result;
+  });
+  assertTrue('SW9: Banner sichtbar bei deutlichem Monats-Minus über der Schwelle', !sw9.hidden, '');
+  assertContains('SW9: Banner nennt den betroffenen Arbeitgeber', sw9.listHTML, 'SW-Monat-Test');
+  assertTrue('SW9: ehemaliger Arbeitgeber wird nicht im Banner gelistet', !sw9.listHTML.includes('SW-Ehemalig-Test'), '');
+
+  // SW10: Snooze blendet den Banner unabhängig von aktiven Warnungen aus, bis die Frist abläuft.
+  const sw10 = await page.evaluate(() => {
+    const savedSettings = { ...state.settings };
+    const savedEmployers = state.employers.slice();
+    const savedEntries = state.entries.slice();
+    const empId = '__sw-snooze__';
+    state.settings.appMode = 'employee';
+    state.settings.sollWarningMonthEnabled = true;
+    state.settings.sollWarningMonthThresholdPct = 20;
+    state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    state.employers.push({ id: empId, name: 'SW-Snooze-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', hiredSince: '2020-01-01' });
+    state.entries.push({ id: 'sw10-e1', employerId: empId, date: '2026-06-01', type: 'work', start: '09:00', end: '10:00', breakMinutes: 0 });
+    updateSollWarningBanner();
+    const hidden = document.getElementById('sollstunden-warning-banner').classList.contains('hidden');
+    state.employers = savedEmployers;
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    updateSollWarningBanner();
+    return hidden;
+  });
+  assertTrue('SW10: Banner bleibt trotz aktiver Warnung ausgeblendet, solange die Snooze-Frist läuft', sw10, '');
+
+  // SW11: getSummaryFields/renderSummaryHTML — die Saldo-Kachel bekommt bei aktiver Warnung
+  // die Hervorhebungsklasse und einen zusätzlichen Tooltip-Satz.
+  const sw11 = await page.evaluate(() => {
+    const warning = buildBalanceWarningInfo(-2400, 9600, 20, 'month');
+    const fields = getSummaryFields({
+      workedMin: 7200, targetMin: 9600, balance: -2400, mode: 'employee', balanceWarning: warning,
+    });
+    return renderSummaryHTML(fields);
+  });
+  assertContains('SW11: Saldo-Kachel erhält sw-flagged-Klasse bei aktiver Warnung', sw11, 'summary-item sw-flagged');
+  assertContains('SW11: zusätzlicher Warnhinweis erscheint im Tooltip', sw11, '⚠');
+
+  // SW12: ohne Warnung (balanceWarning = null) bleibt die Kachel unverändert (keine sw-flagged-Klasse).
+  const sw12 = await page.evaluate(() => {
+    const fields = getSummaryFields({
+      workedMin: 9600, targetMin: 9600, balance: 0, mode: 'employee', balanceWarning: null,
+    });
+    return renderSummaryHTML(fields);
+  });
+  assertTrue('SW12: keine Hervorhebung ohne aktive Warnung', !sw12.includes('sw-flagged'), '');
+}
+
 
 // ---------- Helpers für E2E ----------
 
@@ -3587,6 +3729,7 @@ function runServiceWorkerCacheBustCheck() {
     await runBackupImportMigrationUnits(page);
     await runStateCorruptionUnits(page);
     await runGleitzeitkontoUnits(page);
+    await runSollWarningUnits(page);
     await runEmploymentEndUnits(page);
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);

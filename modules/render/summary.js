@@ -16,10 +16,13 @@
 export function renderSummaryHTML(fields) {
   return fields.map((f) => {
     if (f.kind === 'balance') {
-      const tooltipHTML = f.tooltip
-        ? `<details class="info-tooltip"><summary aria-label="Erklärung zu ${f.label}">i</summary><div class="info-tooltip-content">${f.tooltip}</div></details>`
+      // Sollstunden-Warnung (seit v3.9.78): zusätzlicher Tooltip-Satz + Kachel-Hervorhebung.
+      const combinedTooltip = [f.tooltip, f.warningTooltip].filter(Boolean).join('<br><br>');
+      const tooltipHTML = combinedTooltip
+        ? `<details class="info-tooltip"><summary aria-label="Erklärung zu ${f.label}">i</summary><div class="info-tooltip-content">${combinedTooltip}</div></details>`
         : '';
-      return `<div class="summary-item"><div class="label">${f.label}${tooltipHTML}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
+      const itemClass = f.warningFlag ? 'summary-item sw-flagged' : 'summary-item';
+      return `<div class="${itemClass}"><div class="label">${f.label}${tooltipHTML}</div><div class="value ${f.sign}">${f.valueHM}</div></div>`;
     }
     if (f.kind === 'time') {
       return `<div class="summary-item"><div class="label">${f.label}</div><div class="value">${f.valueHM}</div></div>`;
