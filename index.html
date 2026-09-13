@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.79</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.80</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -712,9 +712,10 @@
             <button type="button" class="sw-chip" data-target="month" data-value="30" data-testid="chip-sw-month-30">30 %</button>
             <span class="sw-chip-custom">
               <label for="setting-sw-month-threshold-custom">eigene %</label>
-              <input type="number" id="setting-sw-month-threshold-custom" min="1" max="100" step="1" data-testid="input-sw-month-threshold-custom" />
+              <input type="number" id="setting-sw-month-threshold-custom" min="10" max="100" step="1" data-testid="input-sw-month-threshold-custom" />
             </span>
           </div>
+          <p class="hint sw-hint" id="sw-month-threshold-hint" data-testid="hint-sw-month-threshold">Am Monatsanfang wird erst ab einer Mindestanzahl bereits vergangener Arbeitstage gewarnt, und die Schwelle wird intern nie unter 10 % gewertet – so löst ein einzelner fehlender Arbeitstag zu Monatsbeginn keinen Fehlalarm aus.</p>
         </div>
 
         <div class="sw-subblock">

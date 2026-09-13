@@ -356,6 +356,55 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
   return dates.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d)).length || 1;
 }
 
+/**
+ * Fortschritt eines Kalendermonats zum Stichtag `todayISOStr` fuer einen Arbeitgeber:
+ * wie viele Arbeitstage sind bereits vergangen (inkl. heute), und welches anteilige
+ * Soll (in Minuten) ergibt sich daraus. Grundlage fuer die Sollstunden-Warnung, damit
+ * am Monatsanfang nicht das VOLLE Monats-Soll gegen ein erst teilweise gearbeitetes
+ * Ist verglichen wird (siehe computeActiveSollWarnings in soll-warning.js).
+ *
+ * - `hoursMode='week'`: proratedTargetMin wird TAGESGENAU aus computeDayTargetMinutes
+ *   aufsummiert (exakt, auch bei unregelmaessigem Wochenschema).
+ * - sonst ('month'/'year'): es gibt kein individuelles Tagesschema, daher NAEHERUNGSWEISE
+ *   per Verhaeltnis (Gesamt-Soll * vergangene Arbeitstage / Gesamt-Arbeitstage) — siehe
+ *   Docstring von computeDayTargetMinutes zu dieser Einschraenkung.
+ *
+ * `todayISOStr` VOR dem Monat -> 0 vergangene Tage. NACH Monatsende -> ganzer Monat zaehlt
+ * als vergangen (elapsedWorkdays === totalWorkdays).
+ *
+ * @param {AZEmployer} employer
+ * @param {string} ym 'YYYY-MM'
+ * @param {string} todayISOStr 'YYYY-MM-DD' Stichtag (i.d.R. heute)
+ * @param {AZComputeCtx} [ctx]
+ * @returns {{elapsedWorkdays: number, totalWorkdays: number, proratedTargetMin: number}}
+ */
+export function computeElapsedMonthProgress(employer, ym, todayISOStr, ctx) {
+  const totalWorkdays = countWorkdaysInMonth(ym, employer, ctx);
+  const stateCode = (ctx && ctx.stateCode) || 'HE';
+  const overrides = ctx && ctx.holidayOverrides;
+  const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
+  const elapsedDatesAll = monthDates(ym).filter(d => d <= todayISOStr);
+
+  let elapsedDates;
+  if (employer && employer.hoursMode === 'week') {
+    const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
+    elapsedDates = elapsedDatesAll.filter(d => !holidays.has(d) && schedule[DAY_KEYS[dayOfWeekISO(d)]]?.enabled);
+  } else {
+    elapsedDates = elapsedDatesAll.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d));
+  }
+  const elapsedWorkdays = elapsedDates.length;
+
+  let proratedTargetMin;
+  if (employer && employer.hoursMode === 'week') {
+    proratedTargetMin = elapsedDates.reduce((sum, d) => sum + computeDayTargetMinutes(employer, d, ctx), 0);
+  } else {
+    const fullTargetMin = computeMonthTargetMinutes(employer, ym, ctx);
+    proratedTargetMin = totalWorkdays > 0 ? Math.round((fullTargetMin * elapsedWorkdays) / totalWorkdays) : 0;
+  }
+
+  return { elapsedWorkdays, totalWorkdays, proratedTargetMin };
+}
+
 /* ---------- Monatsbericht + Monatsuebersicht ---------- */
 
 /**
