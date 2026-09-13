@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.76</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.77</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -259,7 +259,7 @@
       <div class="filter-row">
         <label>
           Jahr
-          <input type="number" id="vacation-planning-year" min="1900" max="2100" step="1" data-testid="input-vacation-planning-year" />
+          <select id="vacation-planning-year" data-testid="input-vacation-planning-year"></select>
         </label>
       </div>
       <div id="vacation-planning-content" class="report-content"></div>
@@ -271,7 +271,7 @@
       <div class="filter-row">
         <label>
           Jahr
-          <input type="number" id="gleitzeitkonto-year" min="1900" max="2100" step="1" data-testid="input-gleitzeitkonto-year" />
+          <select id="gleitzeitkonto-year" data-testid="input-gleitzeitkonto-year"></select>
         </label>
       </div>
       <label class="checkbox-row" for="show-former-employers-gleitzeitkonto">

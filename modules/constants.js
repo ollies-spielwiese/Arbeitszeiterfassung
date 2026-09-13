@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.76';
+export const APP_VERSION = '3.9.77';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.77', items: [
+    'Geändert: Das Jahr-Feld in den Reitern „Gleitzeitkonto“ und „Urlaubsplanung“ ist jetzt ein Pulldown statt eines Zahlenfelds — zur Auswahl stehen alle Jahre mit vorhandenen Einträgen oder Anstellungszeiträumen sowie das aktuelle und das kommende Jahr',
+  ]},
   { version: '3.9.76', items: [
     'Geändert: Überschrift im Übersicht-Tab zeigt jetzt immer „Monatsübersicht“ mit dem Zusatz „(alle Arbeitgeber und Kunden)“ — unabhängig vom Angestellt-/Freiberuflich-Modus',
     'Neu: PDF-Export für das Gleitzeitkonto — Titel, Zeitraum und die Saldo-Tabelle des gewählten Kalenderjahres als eigenständiges, einfaches PDF',

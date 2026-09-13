@@ -1454,10 +1454,39 @@ function updateBackupReminderBanner() {
   if (show) textEl.textContent = msg;
 }
 
+// Jahre, die in den Jahr-Pulldowns von Urlaubsplanung und Gleitzeitkonto zur Auswahl stehen:
+// alle Jahre, in denen Einträge existieren oder ein Arbeitgeber angestellt war/ist, plus das
+// laufende und das kommende Jahr (für Vorausplanung), absteigend sortiert (neuestes zuerst).
+function computeSelectableYears() {
+  const now = new Date().getFullYear();
+  const years = new Set([now, now + 1]);
+  (state.employers || []).forEach((e) => {
+    if (e.hiredSince) years.add(parseInt(String(e.hiredSince).slice(0, 4), 10));
+    if (e.employmentEndDate) years.add(parseInt(String(e.employmentEndDate).slice(0, 4), 10));
+  });
+  (state.entries || []).forEach((e) => {
+    if (e.date) years.add(parseInt(String(e.date).slice(0, 4), 10));
+  });
+  return [...years]
+    .filter((y) => Number.isFinite(y) && y >= 1900 && y <= 2100)
+    .sort((a, b) => b - a);
+}
+
+// Befuellt ein Jahr-<select> mit computeSelectableYears() und waehlt `selectedYear` aus
+// (wird die gewuenschte Jahreszahl nicht in den Daten gefunden, ergaenzt sie die Liste).
+function populateYearSelect(selectEl, selectedYear) {
+  const years = computeSelectableYears();
+  if (!years.includes(selectedYear)) {
+    years.push(selectedYear);
+    years.sort((a, b) => b - a);
+  }
+  selectEl.innerHTML = years.map((y) => `<option value="${y}"${y === selectedYear ? ' selected' : ''}>${y}</option>`).join('');
+}
+
 function renderVacationPlanning() {
   const yearInput = document.getElementById('vacation-planning-year');
-  if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
   const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
+  populateYearSelect(yearInput, year);
   const container = document.getElementById('vacation-planning-content');
 
   ensureActiveEmployer();
@@ -1481,8 +1510,8 @@ function renderGleitzeitkonto() {
   const yearInput = document.getElementById('gleitzeitkonto-year');
   const formerCb = document.getElementById('show-former-employers-gleitzeitkonto');
   if (formerCb) formerCb.checked = showFormerEmployers;
-  if (!yearInput.value) yearInput.value = String(new Date().getFullYear());
   const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
+  populateYearSelect(yearInput, year);
   const container = document.getElementById('gleitzeitkonto-content');
 
   ensureActiveEmployer();
