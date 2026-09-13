@@ -148,6 +148,8 @@
  * @property {import('./modules/holidays.js').AZHolidayOverrides|undefined} [holidayOverrides] Feiertags-Overrides (add/disable/rename)
  * @property {string|null} [lastBackupAt] ISO-Timestamp des letzten Backup-Exports (seit v3.9.47)
  * @property {string|null} [backupReminderSnoozeUntil] ISO-Timestamp, bis zu dem die Backup-Erinnerung stummgeschaltet ist (seit v3.9.47)
+ * @property {string|null} [backupReminderFirstSeenAt] ISO-Timestamp, seit wann Daten ohne bisheriges Backup existieren (seit v3.9.68) —
+ *   Referenzpunkt für die Ein-Tag-Schonfrist, bevor die allererste Backup-Erinnerung erscheint
  */
 
 /**

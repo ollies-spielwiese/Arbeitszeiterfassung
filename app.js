@@ -1375,9 +1375,17 @@ function renderAuditLog() {
   });
 }
 
-// Backup-Erinnerung (seit v3.9.47): zeigt einen Hinweis-Banner in den Einstellungen,
-// wenn seit BACKUP_REMINDER_DAYS Tagen kein Backup exportiert wurde (oder noch nie eines).
-const BACKUP_REMINDER_DAYS = 14;
+// Backup-Erinnerung (seit v3.9.47, Kadenz überarbeitet in v3.9.68): zeigt einen
+// Hinweis-Banner in den Einstellungen.
+//   - Wurde noch NIE ein Backup erstellt: die allererste Erinnerung erscheint erst
+//     am Folgetag (BACKUP_REMINDER_FIRST_DELAY_DAYS), nicht schon am selben Tag,
+//     an dem die ersten Daten angelegt wurden. Der Referenzzeitpunkt dafür wird
+//     einmalig in settings.backupReminderFirstSeenAt festgehalten (additives Feld,
+//     kein Migrations-Eintrag nötig).
+//   - Danach (und sobald mindestens einmal gesichert wurde) gilt ein fester
+//     Rhythmus von BACKUP_REMINDER_INTERVAL_DAYS Tagen seit dem letzten Backup.
+const BACKUP_REMINDER_FIRST_DELAY_DAYS = 1;
+const BACKUP_REMINDER_INTERVAL_DAYS = 7;
 
 function updateBackupReminderBanner() {
   const banner = document.getElementById('backup-reminder-banner');
@@ -1399,11 +1407,19 @@ function updateBackupReminderBanner() {
   let show = false;
   let msg = '';
   if (!settings.lastBackupAt) {
-    show = true;
-    msg = 'Du hast noch kein Backup erstellt. Sichere deine Daten regelmäßig, damit nichts verloren geht.';
+    // Referenzzeitpunkt für die Ein-Tag-Schonfrist einmalig festhalten.
+    if (!settings.backupReminderFirstSeenAt) {
+      settings.backupReminderFirstSeenAt = new Date(now).toISOString();
+      saveState();
+    }
+    const sinceFirstSeen = Math.floor((now - new Date(settings.backupReminderFirstSeenAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (sinceFirstSeen >= BACKUP_REMINDER_FIRST_DELAY_DAYS) {
+      show = true;
+      msg = 'Du hast noch kein Backup erstellt. Sichere deine Daten regelmäßig, damit nichts verloren geht.';
+    }
   } else {
     const days = Math.floor((now - new Date(settings.lastBackupAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (days >= BACKUP_REMINDER_DAYS) {
+    if (days >= BACKUP_REMINDER_INTERVAL_DAYS) {
       show = true;
       msg = `Dein letztes Backup ist ${days} Tage her. Jetzt sichern?`;
     }

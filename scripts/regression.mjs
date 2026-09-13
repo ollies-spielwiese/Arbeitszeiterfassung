@@ -1310,7 +1310,7 @@ async function runUndoUnits(page) {
   assertEq('UN2: 3 Delete-Einträge im Audit-Log nach Rückgängig', un2.auditAfterUndo, 3);
 }
 
-// ---------- 1j) Backup-Erinnerung Unit-Tests (v3.9.47) ----------
+// ---------- 1j) Backup-Erinnerung Unit-Tests (v3.9.47, Kadenz aktualisiert v3.9.68) ----------
 
 async function runBackupReminderUnits(page) {
   console.log('\n=== 1j) Backup-Erinnerung Unit-Tests ===');
@@ -1330,13 +1330,15 @@ async function runBackupReminderUnits(page) {
   });
   assertTrue('BR1: Banner ausgeblendet ohne vorhandene Einträge', br1, '');
 
-  // BR2: Daten vorhanden, noch nie ein Backup gemacht -> Banner sichtbar mit Hinweistext.
+  // BR2: Daten vorhanden, noch nie ein Backup gemacht, aber die Ein-Tag-Schonfrist ist
+  // bereits abgelaufen (backupReminderFirstSeenAt liegt 2 Tage zurück) -> Banner sichtbar.
   const br2 = await page.evaluate(() => {
     const savedEntries = state.entries.slice();
     const savedSettings = { ...state.settings };
     state.entries = [{ id: 'br-e1', employerId: 'x', date: '2026-06-01', type: 'work' }];
     state.settings.lastBackupAt = null;
     state.settings.backupReminderSnoozeUntil = null;
+    state.settings.backupReminderFirstSeenAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
     updateBackupReminderBanner();
     const banner = document.getElementById('backup-reminder-banner');
     const result = { hidden: banner.classList.contains('hidden'), text: document.getElementById('backup-reminder-text').textContent };
@@ -1344,10 +1346,10 @@ async function runBackupReminderUnits(page) {
     Object.assign(state.settings, savedSettings);
     return result;
   });
-  assertTrue('BR2: Banner sichtbar ohne bisheriges Backup', !br2.hidden, '');
+  assertTrue('BR2: Banner sichtbar ohne bisheriges Backup (nach Ablauf der Ein-Tag-Schonfrist)', !br2.hidden, '');
   assertContains('BR2: Hinweistext nennt "noch kein Backup"', br2.text, 'noch kein Backup');
 
-  // BR3: Letztes Backup vor 20 Tagen (> 14 Tage Schwelle) -> Banner sichtbar mit Tagesangabe.
+  // BR3: Letztes Backup vor 20 Tagen (> 7 Tage neue Schwelle) -> Banner sichtbar mit Tagesangabe.
   const br3 = await page.evaluate(() => {
     const savedEntries = state.entries.slice();
     const savedSettings = { ...state.settings };
@@ -1362,6 +1364,51 @@ async function runBackupReminderUnits(page) {
   });
   assertTrue('BR3: Banner sichtbar nach 20 Tagen ohne Backup', !br3.hidden, '');
   assertContains('BR3: Hinweistext nennt Tage seit letztem Backup', br3.text, '20 Tage');
+
+  // BR8: Erstnutzung ohne bisheriges Backup -> Banner bleibt am SELBEN Tag ausgeblendet
+  // (Ein-Tag-Schonfrist), wird aber implizit für den Folgetag vorbereitet
+  // (backupReminderFirstSeenAt wird beim ersten Aufruf gesetzt). Am simulierten Folgetag
+  // erscheint der Banner dann.
+  const br8 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e6', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = null;
+    state.settings.backupReminderSnoozeUntil = null;
+    state.settings.backupReminderFirstSeenAt = null;
+    updateBackupReminderBanner();
+    const hiddenOnFirstDay = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    const firstSeenWasSet = !!state.settings.backupReminderFirstSeenAt;
+    // Simulierter Folgetag: firstSeenAt künstlich 25h zurückdatieren.
+    state.settings.backupReminderFirstSeenAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    updateBackupReminderBanner();
+    const visibleNextDay = !document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return { hiddenOnFirstDay, firstSeenWasSet, visibleNextDay };
+  });
+  assertTrue('BR8: Banner am Tag der Erstnutzung noch ausgeblendet (Ein-Tag-Schonfrist)', br8.hiddenOnFirstDay, '');
+  assertTrue('BR8: backupReminderFirstSeenAt wird beim ersten Aufruf automatisch gesetzt', br8.firstSeenWasSet, '');
+  assertTrue('BR8: Banner am Folgetag sichtbar, wenn weiterhin kein Backup existiert', br8.visibleNextDay, '');
+
+  // BR9: Neue 7-Tage-Schwelle statt bisher 14 Tage — Grenzfall prüfen.
+  const br9 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e7', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.backupReminderSnoozeUntil = null;
+    state.settings.lastBackupAt = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
+    updateBackupReminderBanner();
+    const hiddenAt6Days = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.settings.lastBackupAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    updateBackupReminderBanner();
+    const visibleAt7Days = !document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return { hiddenAt6Days, visibleAt7Days };
+  });
+  assertTrue('BR9: Banner nach 6 Tagen seit letztem Backup noch ausgeblendet (unter neuer 7-Tage-Schwelle)', br9.hiddenAt6Days, '');
+  assertTrue('BR9: Banner ab 7 Tagen seit letztem Backup sichtbar', br9.visibleAt7Days, '');
 
   // BR4: Frisches Backup (heute) -> Banner ausgeblendet.
   const br4 = await page.evaluate(() => {
@@ -1404,6 +1451,34 @@ async function runBackupReminderUnits(page) {
     return written;
   });
   assertTrue('BR6: exportBackup() setzt lastBackupAt', br6, '');
+
+  // BR7: Klick auf den echten "Später erinnern"-Button (nicht nur direkte State-Manipulation)
+  // blendet den Banner aus und der Zustand bleibt auch nach einem erneuten Render-Aufruf
+  // bestehen — gezielte Regressionsabdeckung für den gemeldeten Fehler "Hinweis wird nach
+  // Klick auf Später weiterhin angezeigt".
+  const br7 = await page.evaluate(() => {
+    const savedEntries = state.entries.slice();
+    const savedSettings = { ...state.settings };
+    state.entries = [{ id: 'br-e5', employerId: 'x', date: '2026-06-01', type: 'work' }];
+    state.settings.lastBackupAt = null;
+    state.settings.backupReminderFirstSeenAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    state.settings.backupReminderSnoozeUntil = null;
+    updateBackupReminderBanner();
+    const beforeClick = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    document.getElementById('btn-backup-reminder-snooze').click();
+    const afterClick = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    const snoozeSet = !!state.settings.backupReminderSnoozeUntil;
+    // Erneuter Render-Aufruf darf den Banner NICHT wieder einblenden.
+    updateBackupReminderBanner();
+    const afterRerender = document.getElementById('backup-reminder-banner').classList.contains('hidden');
+    state.entries = savedEntries;
+    Object.assign(state.settings, savedSettings);
+    return { beforeClick, afterClick, snoozeSet, afterRerender };
+  });
+  assertTrue('BR7: Banner sichtbar vor Klick auf "Später erinnern"', !br7.beforeClick, '');
+  assertTrue('BR7: Banner ausgeblendet direkt nach Klick auf "Später erinnern"', br7.afterClick, '');
+  assertTrue('BR7: Snooze-Zeitstempel wird beim Klick gesetzt', br7.snoozeSet, '');
+  assertTrue('BR7: Banner bleibt nach erneutem Render-Aufruf ausgeblendet (Snooze bleibt aktiv)', br7.afterRerender, '');
 }
 
 // ---------- 1k) Backup-Import: Migrations-Lauf beim Import (v3.9.49) ----------

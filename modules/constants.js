@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.67';
+export const APP_VERSION = '3.9.68';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.68', items: [
+    'Fix: Backup-Erinnerung folgt jetzt einer festen 7-Tage-Kadenz statt 14 Tagen; wurde noch nie ein Backup erstellt, erscheint der Hinweis erst ab dem Folgetag statt sofort',
+    'Regression: 9 neue Checks zur Backup-Erinnerung (Ein-Tag-Schonfrist, 7-Tage-Schwelle, Snooze-Klick über die echte Bedienoberfläche)',
+  ]},
   { version: '3.9.67', items: [
     'Fix: Service-Worker cachte beim Update einzelne Dateien ggf. noch aus dem HTTP-Cache des Browsers statt frisch vom Netz, was kurz nach einem Deploy zu inkonsistenten Datei-Versionen im Offline-Cache führen konnte (z. B. neues app.js mit altem constants.js) — Precache nutzt jetzt fetch({ cache: \'reload\' }) und erzwingt für jede Datei eine echte Netzwerkanfrage',
   ]},

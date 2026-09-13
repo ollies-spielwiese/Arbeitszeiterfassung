@@ -73,6 +73,7 @@ export const DEFAULT_STATE = {
     // Backup-Erinnerung (seit v3.9.47) — additive Settings-Felder, kein Migrations-Eintrag nötig.
     lastBackupAt: null,
     backupReminderSnoozeUntil: null,
+    backupReminderFirstSeenAt: null,
   },
   activeEmployerId: null,
   runningTimer: null,
