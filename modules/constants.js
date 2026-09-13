@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.75';
+export const APP_VERSION = '3.9.76';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.76', items: [
+    'Geändert: Überschrift im Übersicht-Tab zeigt jetzt immer „Monatsübersicht“ mit dem Zusatz „(alle Arbeitgeber und Kunden)“ — unabhängig vom Angestellt-/Freiberuflich-Modus',
+    'Neu: PDF-Export für das Gleitzeitkonto — Titel, Zeitraum und die Saldo-Tabelle des gewählten Kalenderjahres als eigenständiges, einfaches PDF',
+  ]},
   { version: '3.9.75', items: [
     'Neu: Info-Tooltip an der Saldo-Kachel (Monat-, Woche-, Übersicht- und Gleitzeitkonto-Tab) — ein antippbares „i“-Icon neben dem Saldo erklärt, wie viele Stunden als Urlaubs-/Krankheitsgutschrift enthalten sind (nur sichtbar, wenn eine Gutschrift angefallen ist)',
   ]},

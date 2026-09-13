@@ -139,6 +139,7 @@ import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.
 import { generateCsvBlob as _generateCsvBlobRaw } from './modules/export/csv.js';
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
+import { generateGleitzeitkontoPdfBlob as _generateGleitzeitkontoPdfBlobRaw } from './modules/export/gleitzeitkonto-pdf.js';
 import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
@@ -1504,6 +1505,44 @@ function renderGleitzeitkonto() {
   }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
 }
 
+function getCurrentGleitzeitkonto() {
+  const yearInput = document.getElementById('gleitzeitkonto-year');
+  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
+  ensureActiveEmployer();
+  const emp = getEmployer(state.activeEmployerId);
+  if (!emp) {
+    toast(`Bitte zuerst einen ${L('employer')} anlegen`);
+    return null;
+  }
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } };
+}
+
+async function generateGleitzeitkontoPdfBlob(rows, emp, meta) {
+  await ensurePdfLibs();
+  const { jsPDF } = window.jspdf;
+  return _generateGleitzeitkontoPdfBlobRaw(rows, emp, meta, { jsPDF, minutesToHM, formatMonthYear });
+}
+
+function fileNameForGleitzeitkonto(emp, meta, ext) {
+  const empSlug = (emp.name || 'Arbeitgeber').replace(/[^\p{L}\p{N}]+/gu, '_');
+  return `Arbeitszeit_Gleitzeitkonto_${empSlug}_${meta.year}.${ext}`;
+}
+
+async function exportGleitzeitkontoPdf() {
+  const current = getCurrentGleitzeitkonto();
+  if (!current) return;
+  const { rows, emp, meta } = current;
+  try {
+    const blob = await generateGleitzeitkontoPdfBlob(rows, emp, meta);
+    downloadBlob(blob, fileNameForGleitzeitkonto(emp, meta, 'pdf'));
+    toast('Gleitzeitkonto als PDF heruntergeladen');
+  } catch (err) {
+    console.error(err);
+    toast('PDF-Export fehlgeschlagen: ' + err.message);
+  }
+}
+
 async function generateOverviewPdfBlob(ov) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
@@ -2093,7 +2132,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   handleWeeklyHoursInputForModel, handleWorkTimeModelChange,
   openTemplateModal, saveTemplate, deleteTemplate,
   openHolidayModal, saveHoliday,
-  exportWord, exportPdf, exportCsv, exportOverviewPdf,
+  exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
   openShareModal, shareOverviewPdf, archiveCurrentMonth,
   exportBackup, importBackup, updateBackupReminderBanner,
   toast, closeModals, escapeHtml,
@@ -2139,6 +2178,7 @@ if (typeof window !== 'undefined') {
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML: _buildAuditLogHTMLRaw, renderAuditLog, updateBackupReminderBanner,
     generateCsvBlob,
     buildGleitzeitkontoHTML: _buildGleitzeitkontoHTMLRaw, renderGleitzeitkonto,
+    getCurrentGleitzeitkonto, generateGleitzeitkontoPdfBlob,
     DAY_KEYS, DAY_LABELS, DAY_LABELS_LONG,
     computeWorkMinutes, computeHomeofficeMinutes, isWorkedEntry,
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
