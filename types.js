@@ -55,9 +55,22 @@
  *   Gehaltsabrechnung. Rein informativ, seit v3.9.56 in PDF-/Word-/CSV-Export sowie Arbeitgeberliste
  *   und Monatsübersicht (PDF) sichtbar, direkt unter dem Namen des Mitarbeiters.
  * @property {AZContact[]} [contacts]
- * @property {'week'|'month'} hoursMode
+ * @property {'week'|'month'|'year'} hoursMode 'year' seit v3.9.72: Jahresarbeitszeit, wird beim
+ *   Speichern (employer-modal.js) bereits gleichmäßig auf monthlyHours (yearlyHours/12) umgerechnet
+ *   und verhält sich in computeMonthTargetMinutes() wie 'month'.
  * @property {number} [weeklyHours]
  * @property {number} [monthlyHours]
+ * @property {number} [yearlyHours] Sollstunden/Jahr, nur bei hoursMode='year' (seit v3.9.72)
+ * @property {'vollzeit'|'teilzeit'|'minijob'|'midijob'} [employmentScope] Beschäftigungsart
+ *   (seit v3.9.72), Default 'vollzeit'. Rein deskriptiv/für Anzeige+Export — beeinflusst NICHT die
+ *   Soll-Berechnung (diese basiert weiterhin auf weeklyHours/monthlyHours/yearlyHours).
+ * @property {number} [fullTimeReferenceHours] Vollzeit-Referenzstunden/Woche für die
+ *   Beschäftigungsgrad-%-Berechnung (seit v3.9.72), Default 40. Gesetzlich nicht fest vorgeschrieben
+ *   (§ 2 TzBfG) — konfigurierbarer Richtwert je Arbeitgeber.
+ * @property {number} [parttimePercent] Beschäftigungsgrad in % (1-99), nur bei
+ *   employmentScope='teilzeit' (seit v3.9.72)
+ * @property {'klassisch'|'gleitzeit'|'vertrauensarbeitszeit'|'jahresarbeitszeit'|'vier_tage_woche'|'schichtarbeit'|'jobsharing'|'arbeit_auf_abruf'} [workTimeModel]
+ *   Arbeitszeitorganisation (seit v3.9.72), Default 'klassisch'. Rein deskriptiv/für Anzeige+Export.
  * @property {'legal'|'manual'|'flex'|'none'} breakMode
  * @property {number} [annualVacation] Urlaubstage pro Jahr
  * @property {AZSchedule} schedule

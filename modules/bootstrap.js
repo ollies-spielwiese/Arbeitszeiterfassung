@@ -47,6 +47,8 @@ export function wireEvents(ctx) {
     // Employer Modal
     openEmployerModal, saveEmployer, deleteEmployer,
     updateHoursModeVisibility,
+    handleEmploymentScopeChange, handlePartTimePercentInput, handleFullTimeReferenceInput,
+    handleWeeklyHoursInputForModel, handleWorkTimeModelChange,
     // Template Modal
     openTemplateModal, saveTemplate, deleteTemplate,
     // Holiday Modal
@@ -191,6 +193,11 @@ export function wireEvents(ctx) {
     document.getElementById('form-employer').addEventListener('submit', saveEmployer);
     document.getElementById('btn-delete-employer').addEventListener('click', deleteEmployer);
     document.getElementById('employer-hours-mode').addEventListener('change', updateHoursModeVisibility);
+    document.getElementById('employer-employment-scope').addEventListener('change', handleEmploymentScopeChange);
+    document.getElementById('employer-parttime-percent').addEventListener('input', handlePartTimePercentInput);
+    document.getElementById('employer-fulltime-reference').addEventListener('input', handleFullTimeReferenceInput);
+    document.getElementById('employer-worktime-model').addEventListener('change', handleWorkTimeModelChange);
+    document.getElementById('employer-weekly-hours').addEventListener('input', handleWeeklyHoursInputForModel);
 
     // Template modal
     document.getElementById('btn-add-template').addEventListener('click', () => openTemplateModal(null));

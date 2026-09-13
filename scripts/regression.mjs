@@ -2505,6 +2505,181 @@ async function runEmployerKindUnits(page) {
   });
 }
 
+// ---------- 1q0) Arbeitszeitmodell im Arbeitgeber-Formular (v3.9.72) ----------
+// Beschäftigungsart (employmentScope) + Arbeitszeitorganisation (workTimeModel) als
+// getrennte Felder, mit %<->Std.-Sync, Jahresarbeitszeit-Verteilung, Migration alter
+// Arbeitgeber ohne die neuen Felder, und Ausblenden im Freiberufler-Modus.
+async function runEmploymentModelUnits(page) {
+  console.log('\n=== 1q0) Arbeitszeitmodell (Beschäftigungsart/-organisation) Unit-Tests (v3.9.72) ===');
+
+  // EM1: Neuanlage mit Beschäftigungsart=Teilzeit -> Beschäftigungsgrad-Zeile sichtbar,
+  // Minijob/Midijob-spezifische Ausblendung greift NICHT bei Teilzeit.
+  const em1 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    document.getElementById('btn-add-employer').click();
+    const scopeSel = document.getElementById('employer-employment-scope');
+    scopeSel.value = 'teilzeit';
+    scopeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    const percentRowHidden = document.getElementById('row-parttime-percent').classList.contains('hidden')
+      || document.getElementById('row-parttime-percent').hidden;
+    const refRowHidden = document.getElementById('row-fulltime-reference').classList.contains('hidden')
+      || document.getElementById('row-fulltime-reference').hidden;
+    return { percentRowHidden, refRowHidden };
+  });
+  assertTrue('EM1a: Teilzeit -> Beschäftigungsgrad-Zeile sichtbar', !em1.percentRowHidden, JSON.stringify(em1));
+  assertTrue('EM1b: Teilzeit -> Vollzeit-Referenz-Zeile sichtbar', !em1.refRowHidden, JSON.stringify(em1));
+
+  // EM2: Beschäftigungsart=Minijob -> Beschäftigungsgrad- UND Referenz-Zeile ausgeblendet
+  // (Minijob/Midijob sind absolute Verdienstgrenzen, kein Prozentsatz einer Vollzeitstelle).
+  const em2 = await page.evaluate(() => {
+    const scopeSel = document.getElementById('employer-employment-scope');
+    scopeSel.value = 'minijob';
+    scopeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    const percentRowHidden = document.getElementById('row-parttime-percent').classList.contains('hidden')
+      || document.getElementById('row-parttime-percent').hidden;
+    const refRowHidden = document.getElementById('row-fulltime-reference').classList.contains('hidden')
+      || document.getElementById('row-fulltime-reference').hidden;
+    return { percentRowHidden, refRowHidden };
+  });
+  assertTrue('EM2a: Minijob -> Beschäftigungsgrad-Zeile ausgeblendet', em2.percentRowHidden, JSON.stringify(em2));
+  assertTrue('EM2b: Minijob -> Vollzeit-Referenz-Zeile ausgeblendet', em2.refRowHidden, JSON.stringify(em2));
+
+  // EM3: %->Std.-Sync: Referenz 40 Std., 60% eingegeben -> Sollstunden/Woche wird auf 24 gesetzt.
+  const em3 = await page.evaluate(() => {
+    const scopeSel = document.getElementById('employer-employment-scope');
+    scopeSel.value = 'teilzeit';
+    scopeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('employer-fulltime-reference').value = '40';
+    document.getElementById('employer-fulltime-reference').dispatchEvent(new Event('input', { bubbles: true }));
+    const pctInput = document.getElementById('employer-parttime-percent');
+    pctInput.value = '60';
+    pctInput.dispatchEvent(new Event('input', { bubbles: true }));
+    return { weeklyHours: document.getElementById('employer-weekly-hours').value };
+  });
+  assertEq('EM3: 60% von 40 Std. -> Sollstunden/Woche = 24', em3.weeklyHours, '24');
+
+  // EM4: Std.->%-Sync (umgekehrte Richtung): Sollstunden/Woche manuell auf 30 gesetzt ->
+  // Beschäftigungsgrad wird auf 75% aktualisiert (bei Referenz 40 Std.).
+  const em4 = await page.evaluate(() => {
+    const hoursInput = document.getElementById('employer-weekly-hours');
+    hoursInput.value = '30';
+    hoursInput.dispatchEvent(new Event('input', { bubbles: true }));
+    return { percent: document.getElementById('employer-parttime-percent').value };
+  });
+  assertEq('EM4: 30 von 40 Std. -> Beschäftigungsgrad = 75%', em4.percent, '75');
+
+  // EM5: Jahresarbeitszeit -- Auswahl von workTimeModel='jahresarbeitszeit' wechselt die
+  // Sollstunden-Eingabe automatisch auf 'Jahr' und zeigt die Jahres-Zeile.
+  const em5 = await page.evaluate(() => {
+    const scopeSel = document.getElementById('employer-employment-scope');
+    scopeSel.value = 'vollzeit';
+    scopeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    const modelSel = document.getElementById('employer-worktime-model');
+    modelSel.value = 'jahresarbeitszeit';
+    modelSel.dispatchEvent(new Event('change', { bubbles: true }));
+    const yearlyRowHidden = document.getElementById('row-yearly-hours').classList.contains('hidden')
+      || document.getElementById('row-yearly-hours').hidden;
+    return { hoursMode: document.getElementById('employer-hours-mode').value, yearlyRowHidden };
+  });
+  assertEq('EM5a: Jahresarbeitszeit -> Sollstunden-Modus wechselt auf "year"', em5.hoursMode, 'year');
+  assertTrue('EM5b: Jahresarbeitszeit -> Jahres-Sollstunden-Zeile sichtbar', !em5.yearlyRowHidden, JSON.stringify(em5));
+
+  // EM6: Vier-Tage-Woche + hohe Vollzeit-Referenz -> ArbZG-Warnhinweis wird angezeigt.
+  const em6 = await page.evaluate(() => {
+    document.getElementById('employer-hours-mode').value = 'week';
+    document.getElementById('employer-hours-mode').dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('employer-weekly-hours').value = '40';
+    document.getElementById('employer-weekly-hours').dispatchEvent(new Event('input', { bubbles: true }));
+    const modelSel = document.getElementById('employer-worktime-model');
+    modelSel.value = 'vier_tage_woche';
+    modelSel.dispatchEvent(new Event('change', { bubbles: true }));
+    const warnHidden = document.getElementById('row-worktime-warning').classList.contains('hidden')
+      || document.getElementById('row-worktime-warning').hidden;
+    return { warnHidden, warnText: document.getElementById('worktime-warning-text').textContent };
+  });
+  assertTrue('EM6a: Vier-Tage-Woche bei 40 Std./Woche -> ArbZG-Warnhinweis sichtbar', !em6.warnHidden, JSON.stringify(em6));
+  assertTrue('EM6b: Warnhinweis nennt § 3 ArbZG', /ArbZG/.test(em6.warnText), em6.warnText);
+
+  // EM7: Speichern + Jahresarbeitszeit -> monthlyHours wird gleichmäßig aus yearlyHours/12
+  // synchronisiert (bestätigte Vorgabe: gleichmäßige 12-Monats-Verteilung).
+  const em7 = await page.evaluate(() => {
+    document.getElementById('employer-name').value = 'EM-Jahresarbeitszeit-Test';
+    const modelSel = document.getElementById('employer-worktime-model');
+    modelSel.value = 'jahresarbeitszeit';
+    modelSel.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('employer-yearly-hours').value = '1560';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    const saved = state.employers.find((e) => e.name === 'EM-Jahresarbeitszeit-Test');
+    return { hoursMode: saved?.hoursMode, yearlyHours: saved?.yearlyHours, monthlyHours: saved?.monthlyHours };
+  });
+  assertEq('EM7a: gespeicherter hoursMode = "year"', em7.hoursMode, 'year');
+  assertEq('EM7b: yearlyHours = 1560 gespeichert', em7.yearlyHours, 1560);
+  assertEq('EM7c: monthlyHours = 1560/12 = 130 (gleichmäßige Verteilung)', em7.monthlyHours, 130);
+
+  // EM8: Anzeige-Zusammenfassung im Formular entspricht dem erwarteten Format.
+  const em8 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    document.getElementById('btn-add-employer').click();
+    const scopeSel = document.getElementById('employer-employment-scope');
+    scopeSel.value = 'teilzeit';
+    scopeSel.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('employer-parttime-percent').value = '60';
+    document.getElementById('employer-parttime-percent').dispatchEvent(new Event('input', { bubbles: true }));
+    const modelSel = document.getElementById('employer-worktime-model');
+    modelSel.value = 'gleitzeit';
+    modelSel.dispatchEvent(new Event('change', { bubbles: true }));
+    return { summary: document.getElementById('employment-model-summary').textContent };
+  });
+  assertEq('EM8: Anzeige zeigt "Teilzeit, 60 % · Gleitzeit"', em8.summary, 'Teilzeit, 60 % · Gleitzeit');
+
+  // EM9: Migration -- Altdatensatz ohne employmentScope/workTimeModel/fullTimeReferenceHours
+  // wird beim Öffnen des Formulars mit sinnvollen Defaults befüllt (keine Exception,
+  // Beschäftigungsart wird aus weeklyHours vs. Referenz 40 abgeleitet).
+  const em9 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const legacyEmp = { id: 'em9-legacy', name: 'EM9-Alt-Arbeitgeber', kind: 'employer',
+      hoursMode: 'week', weeklyHours: 38, breakMode: 'none' };
+    state.employers.push(legacyEmp);
+    saveState();
+    renderEmployers();
+    const card = document.querySelector(`.employer-card[data-id="${legacyEmp.id}"]`);
+    const editBtn = card?.querySelector('[data-action="edit-employer"], .btn-edit-employer, button');
+    (editBtn || card)?.click();
+    return {
+      opened: !document.getElementById('modal-employer').classList.contains('hidden'),
+      scope: document.getElementById('employer-employment-scope').value,
+      model: document.getElementById('employer-worktime-model').value,
+      reference: document.getElementById('employer-fulltime-reference').value,
+    };
+  });
+  assertTrue('EM9a: Formular öffnet sich für Altdatensatz ohne Absturz', em9.opened, JSON.stringify(em9));
+  assertEq('EM9b: Beschäftigungsart wird aus 38 < 40 Std. als "teilzeit" abgeleitet', em9.scope, 'teilzeit');
+  assertEq('EM9c: Arbeitszeitorganisation-Default = "klassisch"', em9.model, 'klassisch');
+  assertEq('EM9d: Vollzeit-Referenz-Default = 40', em9.reference, '40');
+
+  // EM10: Freiberufler-Modus -- das gesamte Arbeitszeitmodell-Fieldset wird ausgeblendet
+  // (Beschäftigungsart/-organisation ergibt für Kunden/Freiberufler-Verhältnisse keinen Sinn).
+  const em10 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'freelance';
+    renderSettings(); // ruft intern updateModeVisibility() auf
+    document.getElementById('btn-add-employer').click();
+    const fsHidden = document.getElementById('fs-employer-employment-model').classList.contains('hidden');
+    state.settings.appMode = 'employee'; // zurueck auf Ausgangsmodus
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    renderSettings();
+    return { fsHidden };
+  });
+  assertTrue('EM10: Freiberufler-Modus blendet das Arbeitszeitmodell-Fieldset aus', em10.fsHidden, JSON.stringify(em10));
+
+  // Aufräumen der Test-Arbeitgeber.
+  await page.evaluate(() => {
+    state.employers = state.employers.filter((e) => !['EM-Jahresarbeitszeit-Test', 'EM9-Alt-Arbeitgeber'].includes(e.name));
+    saveState();
+  });
+}
+
 // ---------- 1q) Einmal-Hinweis nach automatischer kind-Zuordnung (v3.9.59) ----------
 // Die kind-Migration (6->7) rät die Zuordnung Arbeitgeber/Kunde anhand des zum
 // Migrationszeitpunkt aktiven Modus. Damit eine falsche Vermutung (z.B. Modus stand
@@ -3392,6 +3567,7 @@ function runServiceWorkerCacheBustCheck() {
     await runEmploymentEndUnits(page);
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);
+    await runEmploymentModelUnits(page);
     await runKindMigrationNoticeUnits(page);
     await runBackupFolderUnits(page);
     await runFreelance(page);

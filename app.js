@@ -192,6 +192,11 @@ import {
   openEmployerModal as _openEmployerModalRaw,
   saveEmployer as _saveEmployerRaw,
   deleteEmployer as _deleteEmployerRaw,
+  handleEmploymentScopeChange as _handleEmploymentScopeChangeRaw,
+  handlePartTimePercentInput as _handlePartTimePercentInputRaw,
+  handleFullTimeReferenceInput as _handleFullTimeReferenceInputRaw,
+  handleWeeklyHoursInputForModel as _handleWeeklyHoursInputForModelRaw,
+  handleWorkTimeModelChange as _handleWorkTimeModelChangeRaw,
 } from './modules/ui/employer-modal.js';
 import {
   ensureHolidayOverrides as _ensureHolidayOverridesRaw,
@@ -1774,6 +1779,11 @@ function updateHoursModeVisibility() { return _updateHoursModeVisibilityRaw(); }
 function openEmployerModal(emp) { return _openEmployerModalRaw(emp, _emCtx()); }
 function saveEmployer(ev) { return _saveEmployerRaw(ev, _emCtx()); }
 function deleteEmployer() { return _deleteEmployerRaw(_emCtx()); }
+function handleEmploymentScopeChange() { return _handleEmploymentScopeChangeRaw(); }
+function handlePartTimePercentInput() { return _handlePartTimePercentInputRaw(); }
+function handleFullTimeReferenceInput() { return _handleFullTimeReferenceInputRaw(); }
+function handleWeeklyHoursInputForModel() { return _handleWeeklyHoursInputForModelRaw(); }
+function handleWorkTimeModelChange() { return _handleWorkTimeModelChangeRaw(); }
 
 /* ---------- Templates (Notizvorlagen) ---------- */
 
@@ -1815,6 +1825,10 @@ function updateModeVisibility() {
   // Employer-Modal: Urlaubsanspruch-Zeile ausblenden
   const vacRow = document.getElementById('employer-vacation-row');
   if (vacRow) vacRow.classList.toggle('hidden', freelance);
+  // Employer-Modal: Arbeitszeitmodell (Beschäftigungsart/-organisation) gilt nur für
+  // angestellte Arbeitsverhältnisse, nicht für Freiberufler-Kunden.
+  const employmentModelFs = document.getElementById('fs-employer-employment-model');
+  if (employmentModelFs) employmentModelFs.classList.toggle('hidden', freelance);
   // Tab-Beschriftung Arbeitgeber ↔ Kunden anpassen
   const tabEmployers = document.querySelector('[data-view="employers"]');
   if (tabEmployers) tabEmployers.textContent = L('employers');
@@ -2060,6 +2074,8 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   removeHomeofficeSegment, updateHomeofficeLiveTotal,
   openEmployerModal, saveEmployer, deleteEmployer,
   updateHoursModeVisibility,
+  handleEmploymentScopeChange, handlePartTimePercentInput, handleFullTimeReferenceInput,
+  handleWeeklyHoursInputForModel, handleWorkTimeModelChange,
   openTemplateModal, saveTemplate, deleteTemplate,
   openHolidayModal, saveHoliday,
   exportWord, exportPdf, exportCsv, exportOverviewPdf,

@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.71';
+export const APP_VERSION = '3.9.72';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.72', items: [
+    'Neu: Arbeitszeitmodell im Arbeitgeber-Formular — Beschäftigungsart (Vollzeit/Teilzeit/Minijob/Midijob) und Arbeitszeitorganisation (Klassisch, Gleitzeit, Vertrauensarbeitszeit, Jahresarbeitszeit, Vier-Tage-Woche, Schichtarbeit, Jobsharing, Arbeit auf Abruf) getrennt wählbar, inkl. konfigurierbarer Vollzeit-Referenzstunden und automatisch berechneter Anzeige (z. B. „Teilzeit, 60 % · Gleitzeit“)',
+    'Neu: Sollstunden-Eingabe um „Pro Jahr“ ergänzt — Jahresarbeitszeit wird gleichmäßig auf 12 Monate verteilt',
+    'Neu: Hinweis bei Vier-Tage-Woche, wenn die daraus resultierende tägliche Arbeitszeit die gesetzlichen ArbZG-Grenzen (8 bzw. 10 Std./Tag) überschreitet',
+    'Hinweis: Vollzeit/Teilzeit haben laut § 2 TzBfG keine feste gesetzliche Stundengrenze — 40 Std. ist ein üblicher, aber änderbarer Richtwert',
+  ]},
   { version: '3.9.71', items: [
     'Korrigiert: Hinweistext zum Backup-Ordner auf Safari/iOS beschreibt jetzt korrekt den tatsächlichen Ablauf — Safari zeigt beim Export eine Dateivorschau, aus der das Backup manuell über „Mehr …“ bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abgelegt werden muss (kein automatisches Speichern in einen zuvor gewählten Ordner möglich, das ist eine Safari-Einschränkung für im Browser erzeugte Dateien)',
   ]},

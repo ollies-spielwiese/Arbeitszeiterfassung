@@ -193,7 +193,9 @@ export function computeMonthTargetMinutes(employer, ym, ctx) {
   const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
   const dates = monthDates(ym);
 
-  if (employer.hoursMode === 'month' || !employer.hoursMode) {
+  // hoursMode='year' wird beim Speichern (employer-modal.js) bereits gleichmäßig auf monthlyHours
+  // umgerechnet (yearlyHours / 12) und verhält sich hier daher wie 'month'.
+  if (employer.hoursMode === 'month' || employer.hoursMode === 'year' || !employer.hoursMode) {
     const monthlyMin = Math.round((employer.monthlyHours || 0) * 60);
     if (!monthlyMin) return 0;
     const weekdays = dates.filter(d => dayOfWeekISO(d) < 5);

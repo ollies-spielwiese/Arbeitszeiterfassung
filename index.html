@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.71</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.72</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -945,13 +945,62 @@
           </div>
         </fieldset>
 
-        <fieldset class="fs">
+        <fieldset class="fs" id="fs-employer-employment-model">
           <legend>Arbeitszeitmodell</legend>
+          <div class="form-row">
+            <label for="employer-employment-scope">Beschäftigungsart</label>
+            <select id="employer-employment-scope">
+              <option value="vollzeit">Vollzeit</option>
+              <option value="teilzeit">Teilzeit</option>
+              <option value="minijob">Minijob</option>
+              <option value="midijob">Midijob</option>
+            </select>
+          </div>
+          <div class="form-row" id="row-parttime-percent">
+            <label for="employer-parttime-percent">Beschäftigungsgrad</label>
+            <div class="inline-input-group">
+              <input type="number" id="employer-parttime-percent" min="1" max="99" step="1" value="60" />
+              <span>%</span>
+            </div>
+          </div>
+          <div class="form-row" id="row-fulltime-reference">
+            <label for="employer-fulltime-reference">Vollzeit-Referenz</label>
+            <div class="inline-input-group">
+              <input type="number" id="employer-fulltime-reference" min="1" step="0.5" value="40" />
+              <span>Std./Woche</span>
+            </div>
+            <small class="hint">Gesetzlich nicht fest vorgeschrieben (§ 2 TzBfG) – üblicher Richtwert, im Betrieb ggf. abweichend (z.&nbsp;B. laut Tarifvertrag).</small>
+          </div>
+          <div class="form-row">
+            <label for="employer-worktime-model">Arbeitszeitorganisation</label>
+            <select id="employer-worktime-model">
+              <option value="klassisch">Klassisch (feste Tage/Zeiten)</option>
+              <option value="gleitzeit">Gleitzeit</option>
+              <option value="vertrauensarbeitszeit">Vertrauensarbeitszeit</option>
+              <option value="jahresarbeitszeit">Jahresarbeitszeit</option>
+              <option value="vier_tage_woche">Vier-Tage-Woche</option>
+              <option value="schichtarbeit">Schichtarbeit</option>
+              <option value="jobsharing">Jobsharing</option>
+              <option value="arbeit_auf_abruf">Arbeit auf Abruf (KAPOVAZ)</option>
+            </select>
+          </div>
+          <div class="form-row" id="row-worktime-warning" hidden>
+            <small class="hint hint-warning" id="worktime-warning-text"></small>
+          </div>
+          <div class="form-row">
+            <label>Anzeige</label>
+            <div id="employment-model-summary" class="employment-model-summary"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="fs">
+          <legend>Sollstunden &amp; Pausen</legend>
           <div class="form-row">
             <label for="employer-hours-mode">Sollstunden</label>
             <select id="employer-hours-mode">
               <option value="week">Pro Woche (empfohlen bei Teilzeit)</option>
               <option value="month">Pro Monat (fester Wert)</option>
+              <option value="year">Pro Jahr (gleichmäßig auf 12 Monate verteilt)</option>
             </select>
           </div>
           <div class="form-row" id="row-weekly-hours">
@@ -962,6 +1011,11 @@
           <div class="form-row" id="row-monthly-hours">
             <label for="employer-monthly-hours">Sollstunden / Monat</label>
             <input type="number" id="employer-monthly-hours" step="0.5" min="0" value="160" />
+          </div>
+          <div class="form-row" id="row-yearly-hours">
+            <label for="employer-yearly-hours">Sollstunden / Jahr</label>
+            <input type="number" id="employer-yearly-hours" step="1" min="0" value="1920" />
+            <small class="hint">Wird gleichmäßig auf 12 Monate verteilt (Jahressumme ÷ 12).</small>
           </div>
           <div class="form-row">
             <label for="employer-break-mode">Pausenregelung</label>
