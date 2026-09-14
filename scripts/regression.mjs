@@ -3491,7 +3491,7 @@ async function runFreelance(page) {
     id: 'e1', name: 'Kunde Alpha',
     hourlyRate: 85, currency: 'EUR',
     targetHours: 0, weeklySchedule: null,
-  });
+  }, { employeeName: 'Erika Freiberuf' });
 
   const tracker = await checkView(page, 'tracker');
   assertTrue('freelance tracker: Rechnungsbetrag 595,00 €',
@@ -3536,6 +3536,8 @@ async function runFreelance(page) {
     assertTrue('freelance pdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
     assertTrue('freelance pdf-content: 7:00 (Ist-Stunden)', /7:00|07:00/.test(t), snippet(t));
     assertTrue('AM1: freelance pdf-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
+    assertTrue('PN10: freelance pdf-content: Freiberufler/in Erika Freiberuf', /Freiberufler\/in:\s*Erika Freiberuf/.test(t), snippet(t));
+    assertTrue('PN11: freelance pdf-content: KEIN Arbeitnehmer/in-Label', !/Arbeitnehmer\/in/.test(t), snippet(t));
   }
   const flWord = await checkBlob(page, 'freelance', 'word');
   if (flWord) {
@@ -3543,6 +3545,8 @@ async function runFreelance(page) {
     assertTrue('freelance word-content: 595,00 enthalten', /595,00/.test(t), snippet(t));
     assertTrue('freelance word-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
     assertTrue('AM2: freelance word-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
+    assertTrue('PN12: freelance word-content: Freiberufler/in Erika Freiberuf', /Freiberufler\/in:\s*Erika Freiberuf/.test(t), snippet(t));
+    assertTrue('PN13: freelance word-content: KEIN Arbeitnehmer/in-Label', !/Arbeitnehmer\/in/.test(t), snippet(t));
   }
   const flOv = await checkBlob(page, 'freelance', 'overviewPdf');
   if (flOv) {
@@ -3550,11 +3554,15 @@ async function runFreelance(page) {
     assertTrue('freelance overviewPdf-content: Kunde Alpha genannt', /Kunde\s*Alpha/i.test(t), snippet(t));
     assertTrue('freelance overviewPdf-content: 595,00 aggregiert', /595,00/.test(t), snippet(t));
     assertTrue('AM3: freelance overviewPdf-content: KEINE Arbeitszeitmodelle-Fußnote (Freiberufler-Modus)', !/Arbeitszeitmodelle:/.test(t), snippet(t));
+    assertTrue('PN14: freelance overviewPdf-content: Freiberufler/in Erika Freiberuf', /Freiberufler\/in:\s*Erika Freiberuf/.test(t), snippet(t));
+    assertTrue('PN15: freelance overviewPdf-content: KEIN Arbeitnehmer/in-Label', !/Arbeitnehmer\/in/.test(t), snippet(t));
   }
   const flCsv = await checkBlob(page, 'freelance', 'csv');
   if (flCsv) {
     const t = extractCsvText(flCsv);
     assertTrue('AM4: freelance csv-content: KEIN Arbeitszeitmodell (Freiberufler-Modus)', !/Arbeitszeitmodell/.test(t), snippet(t));
+    assertTrue('PN16: freelance csv-content: Kopfzeile Freiberufler/in;Erika Freiberuf', /^Freiberufler\/in;Erika Freiberuf$/m.test(t), snippet(t));
+    assertTrue('PN17: freelance csv-content: KEIN Arbeitnehmer/in-Label', !/Arbeitnehmer\/in/.test(t), snippet(t));
   }
 }
 

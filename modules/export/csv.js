@@ -76,10 +76,11 @@ export function generateCsvBlob(report, ctx) {
   const empName = (employeeName || '').trim();
   const personnelNumber = (report.employer.personnelNumber || '').trim();
   const metaRows = [];
-  if (empName) metaRows.push(['Arbeitnehmer/in', empName]);
+  const csvFreelance = typeof ctx.isFreelance === 'function' ? ctx.isFreelance() : false;
+  if (empName) metaRows.push([csvFreelance ? 'Freiberufler/in' : 'Arbeitnehmer/in', empName]);
   if (personnelNumber) metaRows.push(['Pers.-Nr.', personnelNumber]);
   // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73).
-  if (typeof ctx.isFreelance === 'function' ? !ctx.isFreelance() : true) {
+  if (!csvFreelance) {
     const modelSummary = typeof ctx.formatEmploymentModelSummary === 'function'
       ? ctx.formatEmploymentModelSummary(report.employer)
       : '';
