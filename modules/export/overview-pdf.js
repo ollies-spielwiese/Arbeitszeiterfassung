@@ -40,7 +40,7 @@ export function generateOverviewPdfBlob(ov, ctx) {
   const empName = (state.settings.employeeName || '').trim();
   if (empName) {
     doc.setFontSize(10);
-    const label = 'Arbeitnehmer/in: ';
+    const label = ovFreelance ? 'Freiberufler/in: ' : 'Arbeitnehmer/in: ';
     doc.setFont('helvetica', 'bold');
     const labelWidth = doc.getTextWidth(label);
     doc.text(label, marginX, y);

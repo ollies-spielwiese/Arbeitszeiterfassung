@@ -20,6 +20,7 @@ export const CHANGELOG = [
     'Geändert: Modus-Bezeichnung in den Einstellungen von „Freiberuflich“ zu „Freiberuflich/Nebenerwerb“ erweitert',
     'Geändert: Die Bezeichnung des Namensfelds in den Einstellungen passt sich jetzt dem Hauptmodus an — „Arbeitnehmer/in – Name“ (Angestellt) bzw. „Freiberufler/in – Name“ (Freiberuflich/Nebenerwerb)',
     'Geändert: Die Eintragstyp-Option „Arbeitgeber“ im Kunden-/Arbeitgeber-Formular heißt im Hauptmodus Freiberuflich/Nebenerwerb jetzt „Arbeitgeber (Modus „Nebenerwerb“)“ statt „(Modus „Angestellt“)“; im Hauptmodus Angestellt bleibt die Bezeichnung unverändert',
+    'Geändert: In den PDF-, Word- und CSV-Nachweisen steht die Namenszeile jetzt passend zum jeweiligen Hauptmodus als „Freiberufler/in“ (Freiberuflich/Nebenerwerb) statt weiterhin fest als „Arbeitnehmer/in“ — im Hauptmodus Angestellt unverändert',
   ]},
   { version: '3.9.81', items: [
     'Geändert: Die Gleitzeitkonto-Sollstunden-Warnung bewertet jetzt ein rollierendes 3-Monats-Fenster statt des vollen Kalenderjahres-Saldos, damit ein echter, aktueller Rückstand nicht durch länger zurückliegende Historie verdeckt wird. Die Saldo-Kachel im Gleitzeitkonto-Tab zeigt weiterhin den vollen Jahres-Saldo, jedoch nur bis heute statt bis Dezember; noch nicht begonnene Monate erscheinen in der Tabelle abgesetzt mit dem Zusatz „(geplant)“',

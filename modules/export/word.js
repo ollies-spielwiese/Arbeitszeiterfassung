@@ -130,7 +130,7 @@ export async function generateWordBlob(report, ctx) {
   ];
   if (empName) {
     headerLines.push(new Paragraph({ children: [
-      new TextRun({ text: 'Arbeitnehmer/in: ', bold: true }),
+      new TextRun({ text: isFreelance() ? 'Freiberufler/in: ' : 'Arbeitnehmer/in: ', bold: true }),
       new TextRun({ text: empName }),
     ] }));
   }

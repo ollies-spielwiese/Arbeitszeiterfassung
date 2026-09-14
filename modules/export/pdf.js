@@ -45,7 +45,7 @@ export function generatePdfBlob(report, ctx) {
   if (empName) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const label = 'Arbeitnehmer/in: ';
+    const label = isFreelance() ? 'Freiberufler/in: ' : 'Arbeitnehmer/in: ';
     doc.setFont('helvetica', 'bold');
     const labelWidth = doc.getTextWidth(label);
     doc.text(label, marginX, y);
