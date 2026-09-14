@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.81</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.82</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -654,7 +654,7 @@
           <label class="appmode-option">
             <input type="radio" name="setting-app-mode" value="freelance" data-testid="radio-mode-freelance" />
             <div>
-              <strong>Freiberuflich</strong>
+              <strong>Freiberuflich/Nebenerwerb</strong>
               <span class="hint">Kunden mit Stundensatz. Netto-Summe in Berichten. Ohne Feiertage/Urlaub.</span>
             </div>
           </label>
@@ -662,7 +662,7 @@
       </div>
 
       <div class="settings-block">
-        <h3>Arbeitnehmer/in – Name</h3>
+        <h3 id="settings-employee-name-label">Arbeitnehmer/in – Name</h3>
         <p class="hint">Erscheint im Kopf und in der Unterschriftszeile von Word- und PDF-Nachweisen.</p>
         <input type="text" id="setting-employee-name" placeholder="Vor- und Nachname" data-testid="input-employee-name" autocomplete="name" />
       </div>
@@ -975,7 +975,7 @@
           <div class="form-row" id="employer-kind-row">
             <label for="employer-kind">Eintragstyp</label>
             <select id="employer-kind" data-testid="select-employer-kind">
-              <option value="employer">Arbeitgeber (Modus „Angestellt“)</option>
+              <option value="employer" id="employer-kind-option-employer">Arbeitgeber (Modus „Angestellt“)</option>
               <option value="client">Kunde (Modus „Freiberuflich“)</option>
             </select>
             <small class="hint">Wird beim Anlegen automatisch passend zum aktuellen Modus gesetzt. Nur ändern, wenn dieser Eintrag versehentlich im falschen Modus angelegt wurde.</small>

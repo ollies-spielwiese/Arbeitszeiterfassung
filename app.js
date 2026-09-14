@@ -2055,6 +2055,13 @@ function updateModeVisibility() {
   // Tab-Beschriftung Arbeitgeber ↔ Kunden anpassen
   const tabEmployers = document.querySelector('[data-view="employers"]');
   if (tabEmployers) tabEmployers.textContent = L('employers');
+  // Settings: Namensfeld-Bezeichnung dem Hauptmodus anpassen (Freiberuflich/Nebenerwerb → "Freiberufler/in").
+  const empNameLabel = document.getElementById('settings-employee-name-label');
+  if (empNameLabel) empNameLabel.textContent = freelance ? 'Freiberufler/in – Name' : 'Arbeitnehmer/in – Name';
+  // Eintragstyp-Option "Arbeitgeber" nur im Freiberuflich/Nebenerwerb-Hauptmodus als "Nebenerwerb" bezeichnen —
+  // im Hauptmodus Angestellt bleibt es die primäre Anstellung, nicht der Nebenerwerb.
+  const employerKindOption = document.getElementById('employer-kind-option-employer');
+  if (employerKindOption) employerKindOption.textContent = freelance ? 'Arbeitgeber (Modus „Nebenerwerb“)' : 'Arbeitgeber (Modus „Angestellt“)';
 }
 
 /* ---------- Holiday-Overrides via modules/ui/holiday-overrides.js (Phase 3.9g) ---------- */

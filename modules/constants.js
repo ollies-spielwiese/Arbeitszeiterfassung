@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.81';
+export const APP_VERSION = '3.9.82';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.82', items: [
+    'Geändert: Modus-Bezeichnung in den Einstellungen von „Freiberuflich“ zu „Freiberuflich/Nebenerwerb“ erweitert',
+    'Geändert: Die Bezeichnung des Namensfelds in den Einstellungen passt sich jetzt dem Hauptmodus an — „Arbeitnehmer/in – Name“ (Angestellt) bzw. „Freiberufler/in – Name“ (Freiberuflich/Nebenerwerb)',
+    'Geändert: Die Eintragstyp-Option „Arbeitgeber“ im Kunden-/Arbeitgeber-Formular heißt im Hauptmodus Freiberuflich/Nebenerwerb jetzt „Arbeitgeber (Modus „Nebenerwerb“)“ statt „(Modus „Angestellt“)“; im Hauptmodus Angestellt bleibt die Bezeichnung unverändert',
+  ]},
   { version: '3.9.81', items: [
     'Geändert: Die Gleitzeitkonto-Sollstunden-Warnung bewertet jetzt ein rollierendes 3-Monats-Fenster statt des vollen Kalenderjahres-Saldos, damit ein echter, aktueller Rückstand nicht durch länger zurückliegende Historie verdeckt wird. Die Saldo-Kachel im Gleitzeitkonto-Tab zeigt weiterhin den vollen Jahres-Saldo, jedoch nur bis heute statt bis Dezember; noch nicht begonnene Monate erscheinen in der Tabelle abgesetzt mit dem Zusatz „(geplant)“',
     'Geändert: Standard-Warnschwelle für den Gleitzeitkonto-Baustein jetzt 10\u00a0% (statt 20\u00a0%) — empfohlene Kombination mit dem weiterhin bei 20\u00a0% liegenden Monats-Saldo. Dazu passender neuer Hinweistext in den Einstellungen sowie ein neuer Abschnitt „Sollstunden-Warnung“ in der Bedienungsanleitung',
