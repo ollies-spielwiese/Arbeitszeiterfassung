@@ -130,13 +130,14 @@ export function buildBalanceWarningInfo(balance, targetMin, thresholdPct, basis)
  * (kein Soll/Saldo-Konzept dort).
  * @param {{state:object, computeMonthReport:(empId:string, ym:string)=>any,
  *          computeGleitzeitkontoRows:(emp:any, year:number)=>{rows:Array<any>},
+ *          computeGleitzeitkontoWindow?:(emp:any, today:string)=>{balance:number, targetMin:number},
  *          computeElapsedMonthProgress?:(emp:any, ym:string, today:string)=>{elapsedWorkdays:number, totalWorkdays:number, proratedTargetMin:number},
  *          isFormerEmployer?:(emp:any, today:string)=>boolean}} ctx
  * @param {{ym:string, year:number, today:string}} period aktueller Monat/Jahr/Tag
  * @returns {Array<SollWarning & {employer:any, ym:string}>}
  */
 export function computeActiveSollWarnings(ctx, period) {
-  const { state, computeMonthReport, computeGleitzeitkontoRows, computeElapsedMonthProgress, isFormerEmployer } = ctx;
+  const { state, computeMonthReport, computeGleitzeitkontoRows, computeGleitzeitkontoWindow, computeElapsedMonthProgress, isFormerEmployer } = ctx;
   const settings = (state && state.settings) || {};
   if (settings.appMode === 'freelance') return [];
   const monthOn = !!settings.sollWarningMonthEnabled;
@@ -179,12 +180,26 @@ export function computeActiveSollWarnings(ctx, period) {
       }
     }
     if (gleitzeitOn) {
-      const gk = computeGleitzeitkontoRows(emp, period.year);
-      const rows = gk && gk.rows;
-      if (rows && rows.length) {
-        const last = rows[rows.length - 1];
-        const w = evaluateSollWarning(last.cumulativeBalance, last.cumulativeTargetMin, settings.sollWarningGleitzeitThresholdPct, 'gleitzeitkonto');
-        if (w) results.push({ ...w, employer: emp, ym: last.ym });
+      // Seit v3.9.81 bewertet die Gleitzeitkonto-Warnung ein rollierendes 3-Monats-Fenster
+      // (computeGleitzeitkontoRollingWindow) statt des vollen Kalenderjahres-Saldos, damit ein
+      // echter, aktueller Rückstand nicht durch lange zurückliegende positive Historie
+      // "verdünnt" wird und unter der Warnschwelle verschwindet. Fallback auf das alte
+      // volle-Jahr-Verhalten, falls ctx.computeGleitzeitkontoWindow fehlt (z. B. in älteren
+      // Aufrufern/Regressionstests, die nur computeGleitzeitkontoRows bereitstellen).
+      if (typeof computeGleitzeitkontoWindow === 'function') {
+        const win = computeGleitzeitkontoWindow(emp, period.today);
+        if (win && Math.abs(win.balance) >= MIN_ABSOLUTE_DEVIATION_MIN) {
+          const w = evaluateSollWarning(win.balance, win.targetMin, settings.sollWarningGleitzeitThresholdPct, 'gleitzeitkonto');
+          if (w) results.push({ ...w, employer: emp, ym: period.ym });
+        }
+      } else {
+        const gk = computeGleitzeitkontoRows(emp, period.year);
+        const rows = gk && gk.rows;
+        if (rows && rows.length) {
+          const last = rows[rows.length - 1];
+          const w = evaluateSollWarning(last.cumulativeBalance, last.cumulativeTargetMin, settings.sollWarningGleitzeitThresholdPct, 'gleitzeitkonto');
+          if (w) results.push({ ...w, employer: emp, ym: last.ym });
+        }
       }
     }
   });

@@ -450,6 +450,12 @@ textarea { resize: vertical; min-height: 3rem; }
   .hint-banner { background: #1e3a5f; border-color: #2563eb; color: #bfdbfe; }
 }
 
+/* Gleitzeitkonto: geplante Zukunftsmonate, abgesetzt von bereits abgelaufenen Monaten
+   (seit v3.9.81, siehe modules/render/gleitzeitkonto.js). */
+.future-row { opacity: 0.55; }
+.future-row td { font-style: italic; }
+.future-tag { font-style: normal; color: var(--text-muted); font-size: 0.8em; }
+
 .report-table {
   width: 100%;
   border-collapse: collapse;
@@ -794,6 +800,7 @@ textarea { resize: vertical; min-height: 3rem; }
 .sw-warning-banner .sw-title { font-weight: 600; flex: 1 1 100%; }
 .sw-warning-banner .sw-list { flex: 1 1 100%; margin: 0.35rem 0 0; padding-left: 1.1rem; }
 .sw-warning-banner .sw-list li { margin-bottom: 0.2rem; }
+.sw-warning-banner .sw-note { flex: 1 1 100%; margin: 0.35rem 0 0; font-style: italic; opacity: 0.85; }
 .sw-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 @media (prefers-color-scheme: dark) {
   .sw-warning-banner { background: #451a03; border-color: #b45309; color: #fde68a; }

@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.80</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.81</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -132,6 +132,7 @@
       <div id="sollstunden-warning-banner" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning">
         <span class="sw-title">Sollstunden-Warnung</span>
         <ul id="sollstunden-warning-list" class="sw-list"></ul>
+        <p class="sw-note">Bitte auf fehlende Einträge achten.</p>
         <div class="sw-actions">
           <button type="button" id="btn-sollwarning-goto" class="btn-primary btn-small" data-testid="button-sollwarning-goto">Zum Gleitzeitkonto</button>
           <button type="button" id="btn-sollwarning-snooze" class="btn-secondary btn-small" data-testid="button-sollwarning-snooze">Später erinnern</button>
@@ -247,6 +248,7 @@
       <div id="sollstunden-warning-banner-overview" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning-overview">
         <span class="sw-title">Sollstunden-Warnung</span>
         <ul id="sollstunden-warning-list-overview" class="sw-list"></ul>
+        <p class="sw-note">Bitte auf fehlende Einträge achten.</p>
         <div class="sw-actions">
           <button type="button" id="btn-sollwarning-goto-overview" class="btn-primary btn-small" data-testid="button-sollwarning-goto-overview">Zum Gleitzeitkonto</button>
           <button type="button" id="btn-sollwarning-snooze-overview" class="btn-secondary btn-small" data-testid="button-sollwarning-snooze-overview">Später erinnern</button>
@@ -470,6 +472,20 @@
               <li>Beginnt die Anstellung erst mitten in einem Jahr, zeigt die Tabelle nur die Monate ab der Anstellung (mit Hinweisbanner) — Monate davor würden sonst ein Soll gegen 0h Ist zeigen, obwohl du dort noch gar nicht angestellt warst. Liegt die Anstellung komplett nach dem gewählten Jahr, erscheint stattdessen ein entsprechender Hinweis statt einer leeren Tabelle.</li>
             </ol>
             <p>So erkennst du auf einen Blick, ob sich dein Gleitzeitkonto über die Zeit aufbaut oder abbaut, ohne jeden Monat einzeln addieren zu müssen — und ohne, dass Monate vor deiner Anstellung den Saldo verfälschen.</p>
+          </div>
+        </details>
+
+        <details class="guide-section">
+          <summary>6c. Sollstunden-Warnung – frühzeitiger Hinweis auf Abweichungen</summary>
+          <div class="guide-body">
+            <p>Die Sollstunden-Warnung (Einstellungen → Abschnitt „Sollstunden-Warnung“) macht dich rechtzeitig auf einen Saldo aufmerksam, der deutlich über oder unter dem Soll liegt — als Banner in der Erfassen- und Übersicht-Ansicht sowie als farblich hervorgehobener Rahmen an der Saldo-Kachel. Sie besteht aus zwei getrennt einstellbaren Bausteinen mit jeweils eigener Schwelle:</p>
+            <ul>
+              <li><strong>Monats-Saldo:</strong> vergleicht den bisherigen Ist-Stand im laufenden Monat mit dem anteiligen Soll bis heute. Reagiert am schnellsten auf akute Ausfälle im aktuellen Monat.</li>
+              <li><strong>Gleitzeitkonto-Saldo:</strong> bewertet ein rollierendes 3-Monats-Fenster (aktueller Monat plus die beiden Vormonate) statt des vollen Kalenderjahres-Saldos. Das verhindert, dass ein echter, aktueller Rückstand durch länger zurückliegende, positive Historie „verdünnt“ wird und dadurch unter der Warnschwelle verschwindet. Die Saldo-Kachel im Gleitzeitkonto-Tab zeigt dabei weiterhin den vollen Jahres-Saldo bis heute an — nur die Warnung selbst nutzt das kürzere Fenster; noch nicht begonnene Zukunftsmonate erscheinen in der Tabelle abgesetzt mit dem Zusatz „(geplant)“.</li>
+            </ul>
+            <p><strong>Empfohlene Einstellung (Standard):</strong> Monats-Saldo bei 20&nbsp;%, Gleitzeitkonto-Saldo bei 10&nbsp;% — diese Kombination liefert sowohl eine schnelle Rückmeldung bei einem einzelnen schlechten Monat als auch eine empfindlichere Erkennung eines langsam wachsenden, mehrmonatigen Rückstands, ohne dass sich beide Mechanismen gegenseitig überdecken.</p>
+            <p>Ein Mindest-Arbeitstage-Schutz verhindert bei beiden Bausteinen Fehlalarme zu Monatsbeginn: der laufende Monat fließt erst ein, wenn bereits genügend Arbeitstage vergangen sind — sonst würde z.&nbsp;B. am 1. eines Monats ein einzelner fehlender Eintrag sofort eine Warnung auslösen. Beim Monats-Saldo gilt außerdem intern nie eine Schwelle unter 10&nbsp;%.</p>
+            <p class="hint">Bitte auf fehlende Einträge achten. Eine Warnung kann auch durch schlicht noch nicht erfasste Arbeitszeiten ausgelöst werden, nicht nur durch einen echten Rückstand.</p>
           </div>
         </details>
 
@@ -734,6 +750,7 @@
               <input type="number" id="setting-sw-gleitzeit-threshold-custom" min="1" max="100" step="1" data-testid="input-sw-gleitzeit-threshold-custom" />
             </span>
           </div>
+          <p class="hint sw-hint" id="sw-gleitzeit-threshold-hint" data-testid="hint-sw-gleitzeit-threshold">Bewertet wird ein rollierendes 3-Monats-Fenster (aktueller Monat plus die beiden Vormonate) statt des vollen Kalenderjahres-Saldos, damit ein echter, aktueller Rückstand nicht durch länger zurückliegende Historie verdeckt wird. Empfohlen: eine niedrigere Schwelle als beim Monats-Saldo (z. B. 10 % statt 20 %), da das kürzere Fenster von Natur aus empfindlicher reagiert.</p>
         </div>
       </div>
 

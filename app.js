@@ -102,6 +102,8 @@ import {
   computeVacationRemaining,
   computeYearlyVacationPlanning,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
+  computeGleitzeitkontoAsOfToday as _computeGleitzeitkontoAsOfTodayRaw,
+  computeGleitzeitkontoRollingWindow as _computeGleitzeitkontoRollingWindowRaw,
   computeElapsedMonthProgress as _computeElapsedMonthProgressRaw,
   MONTH_LABELS_LONG,
   isFormerEmployer,
@@ -1286,6 +1288,20 @@ function computeElapsedMonthProgressForEmployer(emp, ym, today) {
   return _computeElapsedMonthProgressRaw(emp, ym, today, { stateCode, holidayOverrides, offDayDates });
 }
 
+// Gleitzeitkonto-Warnung (seit v3.9.81) - Kachel-ANZEIGE: voller Jahres-Saldo, aber nur bis heute
+// (asOfToday) statt bis Dezember, damit noch nicht begonnene Zukunftsmonate den Wert nicht
+// kuenstlich ins Minus ziehen. Siehe modules/compute.js#computeGleitzeitkontoAsOfToday.
+function computeGleitzeitkontoAsOfTodayForEmployer(emp, year, today) {
+  return _computeGleitzeitkontoAsOfTodayRaw(emp, year, today, { state });
+}
+
+// Gleitzeitkonto-Warnung (seit v3.9.81) - rollierendes 3-Monats-Fenster als Grundlage fuer die
+// WARNUNG (Banner + Kachel-Rahmen), entkoppelt von der Kachel-ANZEIGE oben. Siehe
+// modules/compute.js#computeGleitzeitkontoRollingWindow.
+function computeGleitzeitkontoWindowForEmployer(emp, today) {
+  return _computeGleitzeitkontoRollingWindowRaw(emp, today, { state });
+}
+
 // Sollstunden-Warnung (seit v3.9.78): liefert die Kachel-Warnung fuer EINEN Saldo/Soll-Wert,
 // unter Beruecksichtigung von Freiberufler-Modus und dem jeweiligen Enabled-Toggle. Siehe
 // modules/soll-warning.js fuer die reine Berechnung.
@@ -1527,6 +1543,7 @@ function updateSollWarningBanner(overridePeriod) {
       state,
       computeMonthReport,
       computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state }),
+      computeGleitzeitkontoWindow: computeGleitzeitkontoWindowForEmployer,
       computeElapsedMonthProgress: computeElapsedMonthProgressForEmployer,
       isFormerEmployer,
     },
@@ -1615,10 +1632,16 @@ function renderGleitzeitkonto() {
   // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
   const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
 
-  const lastRow = rows.length ? rows[rows.length - 1] : null;
-  const balanceWarning = lastRow
-    ? computeBalanceWarningInfo(lastRow.cumulativeBalance, lastRow.cumulativeTargetMin, 'gleitzeitkonto')
-    : null;
+  // Seit v3.9.81 "kombiniertes Modell":
+  // - Kachel-ANZEIGE: voller Jahres-Saldo, aber nur bis heute (asOfToday) statt bis Dezember,
+  //   damit noch nicht begonnene Zukunftsmonate den Wert nicht kuenstlich ins Minus ziehen.
+  // - Kachel-WARNUNG (Rahmenfarbe): rollierendes 3-Monats-Fenster (dieselbe Basis wie das
+  //   Banner), damit Anzeige und Warnhinweis konsistent zueinander bleiben, aber die Warnung
+  //   selbst nicht von der langen Jahres-Historie verduennt wird.
+  const today = todayISO();
+  const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, today);
+  const windowResult = computeGleitzeitkontoWindowForEmployer(emp, today);
+  const balanceWarning = computeBalanceWarningInfo(windowResult.balance, windowResult.targetMin, 'gleitzeitkonto');
 
   container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
     escapeHtml,
@@ -1627,6 +1650,7 @@ function renderGleitzeitkonto() {
     renderSummaryHTML,
     buildBalanceTooltipText: _buildBalanceTooltipTextRaw,
     balanceWarning,
+    asOf,
   }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
 }
 

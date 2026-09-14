@@ -75,11 +75,17 @@ export const DEFAULT_STATE = {
     backupReminderSnoozeUntil: null,
     backupReminderFirstSeenAt: null,
     // Sollstunden-Warnung (seit v3.9.78) — additive Settings-Felder, kein Migrations-Eintrag
-    // nötig. Siehe modules/soll-warning.js.
+    // nötig. Siehe modules/soll-warning.js. Seit v3.9.81 unterschiedliche Standard-Schwellen für
+    // Monats- und Gleitzeitkonto-Baustein (empfohlene, getestete Kombination — siehe
+    // Entscheidungsvorlage Warnschwelle 10 % vs. 20 %): die Monats-Warnung bleibt bei 20 % für
+    // zeitnahe Rückmeldung ohne die längere Guard-Wartezeit von 10 %, während die
+    // Gleitzeitkonto-Warnung (bewertet ein rollierendes 3-Monats-Fenster statt des vollen
+    // Kalenderjahres, siehe computeGleitzeitkontoRollingWindow) bei 10 % empfindlicher auf
+    // anhaltende, aber moderate Trends reagiert.
     sollWarningMonthEnabled: false,
     sollWarningMonthThresholdPct: 20,
     sollWarningGleitzeitEnabled: false,
-    sollWarningGleitzeitThresholdPct: 20,
+    sollWarningGleitzeitThresholdPct: 10,
     sollWarningSnoozeUntil: null,
   },
   activeEmployerId: null,

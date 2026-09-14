@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.80';
+export const APP_VERSION = '3.9.81';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.81', items: [
+    'Geändert: Die Gleitzeitkonto-Sollstunden-Warnung bewertet jetzt ein rollierendes 3-Monats-Fenster statt des vollen Kalenderjahres-Saldos, damit ein echter, aktueller Rückstand nicht durch länger zurückliegende Historie verdeckt wird. Die Saldo-Kachel im Gleitzeitkonto-Tab zeigt weiterhin den vollen Jahres-Saldo, jedoch nur bis heute statt bis Dezember; noch nicht begonnene Monate erscheinen in der Tabelle abgesetzt mit dem Zusatz „(geplant)“',
+    'Geändert: Standard-Warnschwelle für den Gleitzeitkonto-Baustein jetzt 10\u00a0% (statt 20\u00a0%) — empfohlene Kombination mit dem weiterhin bei 20\u00a0% liegenden Monats-Saldo. Dazu passender neuer Hinweistext in den Einstellungen sowie ein neuer Abschnitt „Sollstunden-Warnung“ in der Bedienungsanleitung',
+    'Neu: Die Sollstunden-Warnung weist im Banner jetzt zusätzlich darauf hin, dass eine Warnung auch durch schlicht noch nicht erfasste Arbeitszeiten ausgelöst werden kann',
+  ]},
   { version: '3.9.80', items: [
     'Verbessert: Die monatliche Sollstunden-Warnung berücksichtigt jetzt den bereits vergangenen Monatsanteil (anteiliges Soll statt volles Monatssoll) und warnt frühestens ab einer Mindestanzahl bereits vergangener Arbeitstage sowie erst ab einer intern nie unter 10\u00a0% fallenden Schwelle — ein einzelner fehlender Arbeitstag am Monatsanfang löst dadurch keinen Fehlalarm mehr aus. Das Gleitzeitkonto-Banner und die Kachel-Hervorhebung im Monat-Bericht sind unverändert',
   ]},

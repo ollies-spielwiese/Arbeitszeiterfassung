@@ -29,7 +29,7 @@
  * @param {GleitzeitkontoRow[]} rows Chronologisch aufsteigend (ältester Monat zuerst), bereits
  *   auf das gewählte Kalenderjahr begrenzt (siehe computeGleitzeitkontoRows in modules/compute.js)
  * @param {any} emp
- * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string)=>(string|null), balanceWarning?:(import('../soll-warning.js').SollWarning & {tooltipText:string})|null}} ctx
+ * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string)=>(string|null), balanceWarning?:(import('../soll-warning.js').SollWarning & {tooltipText:string})|null, asOf?:{cumulativeBalance:number, asOfYm:string, truncated:boolean}}} ctx
  * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean}} [meta] seit v3.9.48
  *   (Endgrenze "Beschäftigt bis" seit v3.9.55): Metadaten aus computeGleitzeitkontoRows, um
  *   Hinweise zu "Angestellt seit"/"Beschäftigt bis"/fehlenden Daten anzuzeigen (siehe
@@ -37,7 +37,7 @@
  * @returns {string}
  */
 export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
-  const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML, buildBalanceTooltipText, balanceWarning } = ctx;
+  const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML, buildBalanceTooltipText, balanceWarning, asOf } = ctx;
   const { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = meta || {};
 
   if (!rows || !rows.length) {
@@ -54,6 +54,11 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const first = rows[0];
   const totalWorked = rows.reduce((s, r) => s + r.workedMin, 0);
   const totalTarget = rows.reduce((s, r) => s + r.targetMin, 0);
+  // Seit v3.9.81: asOf.truncated -> Kachel zeigt den Saldo nur bis heute statt bis Dezember
+  // (siehe computeGleitzeitkontoAsOfToday in modules/compute.js). Faellt ohne asOf (z. B.
+  // aeltere Aufrufer/Regressionstests) auf den bisherigen vollen Jahres-Saldo zurueck.
+  const tileBalance = asOf ? asOf.cumulativeBalance : last.cumulativeBalance;
+  const tileLabel = asOf && asOf.truncated ? `Aktueller Gleitzeitsaldo (Stand: ${formatMonthYear(asOf.asOfYm)})` : 'Aktueller Gleitzeitsaldo';
   const yearStartYm = year ? `${year}-01` : null;
   const yearEndYm = year ? `${year}-12` : null;
   const truncatedByHire = !!(effectiveStartYm && yearStartYm && effectiveStartYm > yearStartYm);
@@ -66,9 +71,9 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
     { kind: 'count', label: 'Zeitraum', value: `${formatMonthYear(first.ym)} – ${formatMonthYear(last.ym)}` },
     {
       kind: 'balance',
-      label: 'Aktueller Gleitzeitsaldo',
-      sign: last.cumulativeBalance >= 0 ? 'pos' : 'neg',
-      valueHM: minutesToHM(last.cumulativeBalance),
+      label: tileLabel,
+      sign: tileBalance >= 0 ? 'pos' : 'neg',
+      valueHM: minutesToHM(tileBalance),
       tooltip: balanceTooltip,
       // Sollstunden-Warnung (seit v3.9.78), siehe modules/soll-warning.js.
       warningFlag: !!balanceWarning,
@@ -87,9 +92,15 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const bodyRows = rows.map((r) => {
     const balanceClass = r.balance < 0 ? 'neg' : (r.balance > 0 ? 'pos' : '');
     const cumulativeClass = r.cumulativeBalance < 0 ? 'neg' : (r.cumulativeBalance > 0 ? 'pos' : '');
+    // Seit v3.9.81: Monate NACH dem heutigen Stichmonat sind rein geplant (noch keine Eintraege
+    // moeglich) -> abgesetzte Optik + Hinweis, statt wie ein bereits abgelaufener Monat mit
+    // vollem negativem Saldo dargestellt zu werden.
+    const isFuture = !!(asOf && asOf.truncated && asOf.asOfYm && r.ym > asOf.asOfYm);
+    const rowClass = isFuture ? ' class="future-row"' : '';
+    const monatLabel = escapeHtml(formatMonthYear(r.ym)) + (isFuture ? ' <span class="future-tag">(geplant)</span>' : '');
     return `
-    <tr>
-      <td data-label="Monat">${escapeHtml(formatMonthYear(r.ym))}</td>
+    <tr${rowClass}>
+      <td data-label="Monat">${monatLabel}</td>
       <td class="num" data-label="Ist">${minutesToHM(r.workedMin)}</td>
       <td class="num" data-label="Soll">${minutesToHM(r.targetMin)}</td>
       <td class="num ${balanceClass}" data-label="Saldo (Monat)">${minutesToHM(r.balance)}</td>

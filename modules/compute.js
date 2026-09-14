@@ -755,3 +755,112 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
   }
   return { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear: false, endedBeforeYear: false };
 }
+
+/**
+ * Gleitzeitkonto-Saldo für die Kachel-ANZEIGE: wie computeGleitzeitkontoRows, aber der
+ * kumulierte Saldo wird nur bis zum heutigen Tag fortgeschrieben statt bis Dezember. Ohne
+ * diese Begrenzung würden noch nicht begonnene Zukunftsmonate mit vollem Soll gegen Ist=0
+ * gerechnet und den angezeigten Saldo künstlich ins Minus ziehen. Die Tabelle (`rows`) bleibt
+ * unverändert und zeigt weiterhin alle Monate des Kalenderjahres (geplante Zukunftsmonate
+ * abgesetzt dargestellt, siehe modules/render/gleitzeitkonto.js).
+ * @param {AZEmployer} emp
+ * @param {number} year
+ * @param {string} todayISOStr 'YYYY-MM-DD'
+ * @param {AZComputeCtx} ctx muss ctx.state enthalten
+ * @returns {{rows:Array<any>, cumulativeBalance:number, cumulativeTargetMin:number, asOfYm:string|null, truncated:boolean}}
+ */
+export function computeGleitzeitkontoAsOfToday(emp, year, todayISOStr, ctx) {
+  const full = computeGleitzeitkontoRows(emp, year, ctx);
+  const { rows, hiredAfterYear, endedBeforeYear } = full;
+  const currentYm = todayISOStr.slice(0, 7);
+
+  if (!currentYm.startsWith(String(year)) || hiredAfterYear || endedBeforeYear || !rows.length) {
+    const last = rows.length ? rows[rows.length - 1] : null;
+    return {
+      rows,
+      cumulativeBalance: last ? last.cumulativeBalance : 0,
+      cumulativeTargetMin: last ? last.cumulativeTargetMin : 0,
+      asOfYm: last ? last.ym : null,
+      truncated: false,
+    };
+  }
+
+  const priorRows = rows.filter(r => r.ym < currentYm);
+  const lastPrior = priorRows.length ? priorRows[priorRows.length - 1] : null;
+  let cumulativeBalance = lastPrior ? lastPrior.cumulativeBalance : 0;
+  let cumulativeTargetMin = lastPrior ? lastPrior.cumulativeTargetMin : 0;
+
+  const stateCode = (ctx && ctx.state && ctx.state.settings?.state) || 'HE';
+  const holidayOverrides = ctx && ctx.state && ctx.state.settings?.holidayOverrides;
+  const progress = computeElapsedMonthProgress(emp, currentYm, todayISOStr, { stateCode, holidayOverrides });
+  const currentReport = computeMonthReport(emp.id, currentYm, ctx);
+  if (currentReport) {
+    const actualCurrent = currentReport.workedMin + currentReport.creditedAbsenceMin;
+    cumulativeBalance += actualCurrent - progress.proratedTargetMin;
+    cumulativeTargetMin += progress.proratedTargetMin;
+  }
+
+  return { rows, cumulativeBalance, cumulativeTargetMin, asOfYm: currentYm, truncated: true };
+}
+
+/**
+ * Rollierendes N-Monats-Fenster als Grundlage für die Gleitzeitkonto-Sollstunden-WARNUNG (seit
+ * v3.9.81) — getrennt von der Kachel-ANZEIGE, die weiterhin den vollen Jahres-Saldo bis heute
+ * zeigt (siehe computeGleitzeitkontoAsOfToday). Bewertet werden nur die letzten `windowMonths`
+ * Monate, damit ein kurzer, aber echter aktueller Rückstand nicht durch weiter zurückliegende,
+ * positive Historie "verdünnt" wird und dadurch unter der Warnschwelle verschwindet.
+ *
+ * Mindest-Arbeitstage-Schutz für den laufenden Monat: der noch nicht abgeschlossene aktuelle
+ * Monat fließt nur ein, wenn bereits mindestens `minGateWorkdays` Arbeitstage vergangen sind
+ * (sonst würde z. B. am 1. eines Monats ein einzelner fehlender Tag das Fenster kurzfristig stark
+ * verzerren). Ist die Bedingung nicht erfüllt, wird statt des angebrochenen Monats ein weiterer
+ * bereits abgeschlossener Vormonat ergänzt, damit das Fenster dieselbe Monatsanzahl (und damit
+ * dieselbe grobe Stabilität) behält.
+ * @param {AZEmployer} emp
+ * @param {string} todayISOStr 'YYYY-MM-DD'
+ * @param {AZComputeCtx} ctx muss ctx.state enthalten
+ * @param {number} [windowMonths=3]
+ * @param {number} [minGateWorkdays=5]
+ * @returns {{balance:number, targetMin:number, actualMin:number, months:string[], includeCurrentPartial:boolean, elapsedWorkdaysCurrentMonth:number}}
+ */
+export function computeGleitzeitkontoRollingWindow(emp, todayISOStr, ctx, windowMonths = 3, minGateWorkdays = 5) {
+  const currentYm = todayISOStr.slice(0, 7);
+  const stateCode = (ctx && ctx.state && ctx.state.settings?.state) || 'HE';
+  const holidayOverrides = ctx && ctx.state && ctx.state.settings?.holidayOverrides;
+  const progress = computeElapsedMonthProgress(emp, currentYm, todayISOStr, { stateCode, holidayOverrides });
+  const includeCurrentPartial = progress.elapsedWorkdays >= minGateWorkdays;
+  const completeMonthsCount = includeCurrentPartial ? windowMonths - 1 : windowMonths;
+
+  const months = [];
+  let cursor = shiftYearMonth(currentYm, -1);
+  for (let i = 0; i < completeMonthsCount; i++) {
+    months.unshift(cursor);
+    cursor = shiftYearMonth(cursor, -1);
+  }
+
+  let actualMin = 0;
+  let targetMin = 0;
+  for (const ym of months) {
+    const r = computeMonthReport(emp.id, ym, ctx);
+    if (r) {
+      actualMin += r.workedMin + r.creditedAbsenceMin;
+      targetMin += r.targetMin;
+    }
+  }
+
+  if (includeCurrentPartial) {
+    const r = computeMonthReport(emp.id, currentYm, ctx);
+    if (r) actualMin += r.workedMin + r.creditedAbsenceMin;
+    targetMin += progress.proratedTargetMin;
+    months.push(currentYm);
+  }
+
+  return {
+    balance: actualMin - targetMin,
+    targetMin,
+    actualMin,
+    months,
+    includeCurrentPartial,
+    elapsedWorkdaysCurrentMonth: progress.elapsedWorkdays,
+  };
+}
