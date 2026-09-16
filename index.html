@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.82</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.83</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -499,11 +499,11 @@
                 <ul>
                   <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
                   <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber laut Gehaltsabrechnung. Erscheint, falls ausgefüllt, direkt unter deinem Namen im PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export und als eigene Spalte in der Monatsübersicht (PDF).</li>
-                  <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
+                  <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen).</li>
                   <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
                   <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>, die zum Jahresanspruch hinzugerechnet werden.</li>
                   <li><strong>Angestellt seit</strong> und <strong>Beschäftigt bis:</strong> grenzen die anteilige Urlaubsberechnung und das Gleitzeitkonto ein. Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> — er erhält in der Liste einen rot hinterlegten Namen und das Badge „Ehemalig seit ...“ und verschwindet aus den Auswahlfeldern für neue Einträge. Über die Checkbox <strong>„Ehemalige anzeigen“</strong> (verfügbar in Tracker, Einträge, Übersicht und Gleitzeitkonto) blendest du ehemalige Arbeitgeber bei Bedarf wieder ein, etwa um nachträglich noch einen Nachweis zu erstellen.</li>
-                  <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
+                  <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular. Lässt du bei Sollstunden „pro Woche“ alle Tage leer, zeigt die App darunter einen Hinweis, dass die Sollstunden gleichmäßig auf alle Werktage verteilt werden.</li>
                   <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint — beide Listen sind seit v3.9.58 strikt getrennt. Neue Einträge übernehmen automatisch den aktuellen Modus; du kannst den Typ im Formular aber jederzeit manuell umstellen, etwa wenn du parallel angestellt und freiberuflich tätig bist. Die Monatsübersicht (Reiter „Übersicht“) zeigt weiterhin beide Typen gemeinsam an.</li>
                 </ul>
               </li>
@@ -1148,6 +1148,7 @@
           <legend>Feste Wochenarbeitszeiten (Vorschlag bei Nacherfassung)</legend>
           <p class="hint">Leer lassen, wenn kein fester Rhythmus.</p>
           <div id="schedule-grid" class="schedule-grid"></div>
+          <small class="hint" id="schedule-flexible-hint" hidden>Kein festes Wochenschema aktiv: Die Sollstunden werden aus „Wochenstunden" berechnet und gleichmäßig auf alle echten Werktage (Mo–Fr) des jeweiligen Monats verteilt – die Verteilung passt sich damit automatisch an unterschiedlich lange Monate an. Relevant vor allem bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus.</small>
         </fieldset>
 
         <fieldset class="fs">
@@ -1364,11 +1365,11 @@
               <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
               <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber — erscheint, falls ausgefüllt, im PDF-, Word- und CSV-Export sowie in der Monatsübersicht.</li>
               <li><strong>Arbeitszeitmodell:</strong> Beschäftigungsart (Vollzeit, Teilzeit inkl. Beschäftigungsgrad in %, Minijob oder Midijob) und Arbeitszeitorganisation (z. B. Gleitzeit, Vertrauensarbeitszeit, Vier-Tage-Woche, Schichtarbeit). Die kombinierte Zusammenfassung (z. B. „Teilzeit, 60 % · Gleitzeit“) erscheint im PDF-, Word- und CSV-Export direkt unter der Pers.-Nr. sowie als Fußnote je Arbeitgeber in der Monatsübersicht.</li>
-              <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird dann aus Werktagen minus Feiertage berechnet) oder <strong>pro Monat</strong> fest.</li>
+              <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen).</li>
               <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
               <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>.</li>
               <li><strong>Angestellt seit</strong> / <strong>Beschäftigt bis:</strong> Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> (rote Markierung, Badge) und verschwindet aus den Auswahlfeldern für neue Einträge — über die Checkbox <strong>„Ehemalige anzeigen“</strong> blendest du ihn wieder ein.</li>
-              <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular.</li>
+              <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular. Lässt du bei Sollstunden „pro Woche“ alle Tage leer, zeigt die App darunter einen Hinweis, dass die Sollstunden gleichmäßig auf alle Werktage verteilt werden.</li>
               <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag hier im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint. Neue Einträge übernehmen automatisch den aktuellen Modus, lassen sich aber jederzeit manuell umstellen — z. B. wenn du parallel angestellt und freiberuflich tätig bist.</li>
             </ul>
           </li>

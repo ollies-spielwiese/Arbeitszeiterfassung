@@ -351,6 +351,13 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
   const dates = monthDates(ym);
   if (employer && employer.hoursMode === 'week') {
     const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
+    const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
+    if (!activeDays.length) {
+      // Kein festes Wochenschema (0 aktivierte Tage) -> gleichmaessige Verteilung ueber alle
+      // echten Werktage Mo-Fr, konsistent zum Fallback in computeMonthTargetMinutes/
+      // weekModePerDayMinutesMap (seit v3.9.83, siehe dortige Kommentare).
+      return dates.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d)).length || 1;
+    }
     return dates.filter(d => !holidays.has(d) && schedule[DAY_KEYS[dayOfWeekISO(d)]]?.enabled).length || 1;
   }
   return dates.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d)).length || 1;
@@ -388,7 +395,15 @@ export function computeElapsedMonthProgress(employer, ym, todayISOStr, ctx) {
   let elapsedDates;
   if (employer && employer.hoursMode === 'week') {
     const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-    elapsedDates = elapsedDatesAll.filter(d => !holidays.has(d) && schedule[DAY_KEYS[dayOfWeekISO(d)]]?.enabled);
+    const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
+    if (!activeDays.length) {
+      // Kein festes Wochenschema -> wie in countWorkdaysInMonth: echte Werktage Mo-Fr zaehlen
+      // als "bereits vergangen", statt 0 (siehe computeDayTargetMinutes fuer das dazu passende
+      // anteilige Tages-Soll ueber denselben Fallback).
+      elapsedDates = elapsedDatesAll.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d));
+    } else {
+      elapsedDates = elapsedDatesAll.filter(d => !holidays.has(d) && schedule[DAY_KEYS[dayOfWeekISO(d)]]?.enabled);
+    }
   } else {
     elapsedDates = elapsedDatesAll.filter(d => dayOfWeekISO(d) < 5 && !holidays.has(d));
   }

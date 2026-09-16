@@ -1814,6 +1814,93 @@ async function runGleitzeitkontoUnits(page) {
   assertEq('GK8: Jahresansicht 2026 zeigt trotzdem alle 12 Monate (Startpunkt liegt vor 2026)', gk8.rows.length, 12);
 }
 
+// ---------- 1m2) Flexibles Wochenschema: 0 aktivierte Tage bei hoursMode='week' (v3.9.83) ----------
+// Vorher lieferten countWorkdaysInMonth/computeElapsedMonthProgress bei komplett leerem
+// Wochenschema 0/1 statt der echten Werktage des Monats, obwohl computeMonthTargetMinutes
+// bereits korrekt auf "Wochenstunden gleichmäßig über Mo-Fr verteilt" zurückfiel. Das erzeugte
+// stark verfälschte Gleitzeitkonto-Salden bei Gleitzeit/Vertrauensarbeitszeit/Arbeit auf Abruf
+// ohne festen Tagesrhythmus (Praxisfall aus echtem Nutzer-Backup, siehe Diagnose 2026-09-16).
+async function runFlexibleScheduleUnits(page) {
+  console.log("\n=== 1m2) Flexibles Wochenschema (0 aktivierte Tage) Unit-Tests (v3.9.83) ===");
+
+  const allDisabled = {
+    mon: { enabled: false, start: '', end: '', break: 0 },
+    tue: { enabled: false, start: '', end: '', break: 0 },
+    wed: { enabled: false, start: '', end: '', break: 0 },
+    thu: { enabled: false, start: '', end: '', break: 0 },
+    fri: { enabled: false, start: '', end: '', break: 0 },
+    sat: { enabled: false, start: '', end: '', break: 0 },
+    sun: { enabled: false, start: '', end: '', break: 0 },
+  };
+
+  // FS1: countWorkdaysInMonth zaehlt bei 0 aktivierten Tagen die echten Mo-Fr-Werktage des
+  // Monats (September 2026: 22 Werktage), statt pauschal 1.
+  const fs1 = await page.evaluate((schedule) => {
+    const emp = { id: '__fs1__', hoursMode: 'week', weeklyHours: 24, schedule };
+    return countWorkdaysInMonth('2026-09', emp, { stateCode: 'HE' });
+  }, allDisabled);
+  assertEq('FS1: countWorkdaysInMonth zaehlt bei leerem Wochenschema echte Werktage (Sept. 2026 = 22)', fs1, 22);
+
+  // FS2: computeElapsedMonthProgress zaehlt bei 0 aktivierten Tagen die bereits vergangenen
+  // echten Werktage und summiert ein plausibles, nicht-null anteiliges Soll (statt 0).
+  const fs2 = await page.evaluate((schedule) => {
+    const emp = { id: '__fs2__', hoursMode: 'week', weeklyHours: 24, schedule };
+    return computeElapsedMonthProgress(emp, '2026-09', '2026-09-16', { stateCode: 'HE' });
+  }, allDisabled);
+  assertEq('FS2: elapsedWorkdays > 0 bei leerem Wochenschema (statt 0)', fs2.elapsedWorkdays, 12);
+  assertEq('FS2: totalWorkdays weiterhin 22 (konsistent mit FS1)', fs2.totalWorkdays, 22);
+  assertTrue('FS2: proratedTargetMin > 0 (statt 0 durch den frueheren Bug)', fs2.proratedTargetMin > 0, String(fs2.proratedTargetMin));
+  assertEq('FS2: proratedTargetMin entspricht 12 Tagen a 24h/5 (57:36 = 3456 Min)', fs2.proratedTargetMin, 3456);
+
+  // FS3: Regressionsschutz — ein bewusst gepflegtes Wochenschema (>=1 aktivierter Tag) verhaelt
+  // sich unveraendert wie zuvor (nur die tatsaechlich aktivierten Tage zaehlen).
+  const fs3 = await page.evaluate(() => {
+    const schedule = {
+      mon: { enabled: true, start: '09:00', end: '13:00', break: 0 },
+      tue: { enabled: false, start: '', end: '', break: 0 },
+      wed: { enabled: true, start: '09:00', end: '13:00', break: 0 },
+      thu: { enabled: false, start: '', end: '', break: 0 },
+      fri: { enabled: false, start: '', end: '', break: 0 },
+      sat: { enabled: false, start: '', end: '', break: 0 },
+      sun: { enabled: false, start: '', end: '', break: 0 },
+    };
+    const emp = { id: '__fs3__', hoursMode: 'week', weeklyHours: 8, schedule };
+    const total = countWorkdaysInMonth('2026-09', emp, { stateCode: 'HE' });
+    const progress = computeElapsedMonthProgress(emp, '2026-09', '2026-09-16', { stateCode: 'HE' });
+    return { total, elapsedWorkdays: progress.elapsedWorkdays };
+  });
+  assertEq('FS3: festes Schema (Mo+Mi) zaehlt weiterhin nur diese Tage (9 im September 2026)', fs3.total, 9);
+  assertEq('FS3: elapsedWorkdays bis 16.09. zaehlt weiterhin nur Mo/Mi (5)', fs3.elapsedWorkdays, 5);
+
+  // FS4: UI — das Hinweis-Element unter dem Wochenschema erscheint automatisch, sobald im Grid
+  // kein Tag mehr aktiviert ist (Neuanlage startet mit Mo-Fr aktiviert -> Hinweis zunaechst
+  // verborgen), und verschwindet wieder, sobald mindestens ein Tag aktiviert wird.
+  const fs4 = await page.evaluate(() => {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    state.settings.appMode = 'employee';
+    document.getElementById('btn-add-employer').click();
+    const hintEl = document.getElementById('schedule-flexible-hint');
+    const hiddenOnNewEmployer = hintEl.hidden; // Default-Schema Mo-Fr aktiviert -> verborgen
+    const toggles = Array.from(document.querySelectorAll('#schedule-grid .day-toggle'));
+    toggles.forEach((t) => {
+      if (t.checked) {
+        t.checked = false;
+        t.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    const hiddenAfterClearingAll = hintEl.hidden;
+    const monToggle = document.querySelector('#schedule-grid .schedule-day[data-day="mon"] .day-toggle');
+    monToggle.checked = true;
+    monToggle.dispatchEvent(new Event('change', { bubbles: true }));
+    const hiddenAfterReenable = hintEl.hidden;
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    return { hiddenOnNewEmployer, hiddenAfterClearingAll, hiddenAfterReenable };
+  });
+  assertTrue('FS4a: Neuanlage (Default Mo-Fr aktiviert) zeigt den Hinweis NICHT', fs4.hiddenOnNewEmployer, JSON.stringify(fs4));
+  assertTrue('FS4b: Hinweis erscheint, sobald alle Tage deaktiviert werden', !fs4.hiddenAfterClearingAll, JSON.stringify(fs4));
+  assertTrue('FS4c: Hinweis verschwindet wieder, sobald ein Tag reaktiviert wird', fs4.hiddenAfterReenable, JSON.stringify(fs4));
+}
+
 async function runSollWarningUnits(page) {
   console.log('\n=== 1n) Sollstunden-Warnung Unit-Tests ===');
 
@@ -3963,6 +4050,7 @@ function runServiceWorkerCacheBustCheck() {
     await runBackupImportMigrationUnits(page);
     await runStateCorruptionUnits(page);
     await runGleitzeitkontoUnits(page);
+    await runFlexibleScheduleUnits(page);
     await runSollWarningUnits(page);
     await runEmploymentEndUnits(page);
     await runPersonnelNumberUnits(page);

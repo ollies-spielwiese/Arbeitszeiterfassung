@@ -41,8 +41,21 @@ export function buildScheduleGrid(schedule) {
     const toggle = row.querySelector('.day-toggle');
     toggle.addEventListener('change', () => {
       row.querySelectorAll('input[type="time"], input[type="number"]').forEach(inp => inp.disabled = !toggle.checked);
+      updateScheduleFlexibleHint();
     });
   });
+  updateScheduleFlexibleHint();
+}
+
+/** Blendet den Hinweis "kein festes Wochenschema" ein, sobald kein einziger Wochentag im Grid
+ * aktiviert ist (seit v3.9.83). Betrifft nur die Anzeige/Aufklaerung - die Berechnung selbst
+ * (siehe countWorkdaysInMonth/computeElapsedMonthProgress in compute.js) behandelt 0 aktivierte
+ * Tage bei hoursMode='week' bereits als gueltigen "flexibel verteilt"-Zustand. */
+function updateScheduleFlexibleHint() {
+  const hintEl = document.getElementById('schedule-flexible-hint');
+  if (!hintEl) return;
+  const anyEnabled = !!document.querySelector('#schedule-grid .day-toggle:checked');
+  hintEl.hidden = anyEnabled;
 }
 
 export function readScheduleFromGrid() {

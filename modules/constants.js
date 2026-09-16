@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.82';
+export const APP_VERSION = '3.9.83';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.83', items: [
+    'Behoben: Bei Sollstunden „pro Woche“ ohne aktivierten Wochentag (z. B. Gleitzeit/Vertrauensarbeitszeit/Arbeit auf Abruf ohne festen Rhythmus) rechneten die Werktage-Zählung und das „Stand heute“-Soll fälschlich mit 0/1 statt mit den tatsächlichen Werktagen des Monats — dadurch konnte das Gleitzeitkonto stark verfälschte Salden anzeigen. Beide Berechnungen nutzen jetzt denselben Verteilungs-Fallback wie das Monats-Soll (gleichmäßig auf alle echten Werktage Mo–Fr verteilt)',
+    'Neu: Hinweistext im Arbeitgeber-Formular, sobald im Wochenschema kein Tag aktiviert ist — erklärt die automatische Verteilung der Sollstunden auf alle Werktage',
+  ]},
   { version: '3.9.82', items: [
     'Geändert: Modus-Bezeichnung in den Einstellungen von „Freiberuflich“ zu „Freiberuflich/Nebenerwerb“ erweitert',
     'Geändert: Die Bezeichnung des Namensfelds in den Einstellungen passt sich jetzt dem Hauptmodus an — „Arbeitnehmer/in – Name“ (Angestellt) bzw. „Freiberufler/in – Name“ (Freiberuflich/Nebenerwerb)',
