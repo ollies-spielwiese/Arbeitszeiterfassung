@@ -3570,6 +3570,103 @@ async function runBackupFolderUnits(page) {
   assertTrue('BF10d: lastBackupAt wird beim Ordner-Schreibpfad aktualisiert', bf10.lastBackupAtChanged, '');
 }
 
+async function runShareModalIosReopenUnits(page) {
+  console.log('\n=== 1p) Freigabe-Dialog: iOS Mailto-Stage2 Reset Unit-Tests ===');
+
+  // Setup: ein Arbeitgeber mit eigener E-Mail-Adresse + ein Eintrag im aktuellen Monat,
+  // damit getCurrentReport() im Bericht-Tab etwas liefert. iOS wird ueber navigator.userAgent
+  // vorgetaeuscht, damit der Zwei-Stufen-Mailto-Pfad (showMailtoStage2) ausgeloest wird.
+  const originalUA = await page.evaluate(() => navigator.userAgent);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      configurable: true,
+    });
+    const empId = 'share-modal-probe-emp';
+    state.settings.appMode = 'employee';
+    state.settings.ownEmail = 'ich@example.de';
+    state.employers = [{ id: empId, name: 'Share-Modal-Test AG', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 }];
+    state.activeEmployerId = empId;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    state.entries = [{
+      id: 'share-modal-probe-r1', employerId: empId, date: `${y}-${m}-01`, type: 'work',
+      start: '09:00', end: '16:00', breakMinutes: 0, note: 'SH-Probe', createdAt: new Date().toISOString(),
+    }];
+    saveState();
+    switchView('report');
+    document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden'));
+  });
+  await page.waitForTimeout(150);
+
+  // SH1: Erstes Oeffnen liefert das normale Formular (Kontrollpruefung).
+  await page.click('#btn-share');
+  await page.waitForSelector('#share-recipients .recipient-check', { timeout: 5000 });
+  const sh1 = await page.evaluate(() => ({
+    hasRecipients: !!document.getElementById('share-recipients'),
+    hasSendBtn: !!document.getElementById('share-send-btn'),
+    hasFormatRadio: !!document.querySelector('input[name="share-format"]'),
+  }));
+  assertTrue('SHM1: Freigabe-Dialog zeigt beim ersten Oeffnen Empfaenger/Sende-Button/Format', sh1.hasRecipients && sh1.hasSendBtn && sh1.hasFormatRadio, JSON.stringify(sh1));
+
+  // SH2: E-Mail-Versand ausloesen (iOS-Zweig) -> Stage-2-Hinweis "Fast fertig" erscheint.
+  await page.check('#share-recipients .recipient-check');
+  await page.click('#share-send-btn');
+  await page.waitForSelector('#mailto-open-btn', { timeout: 8000 });
+  const sh2 = await page.evaluate(() => !!document.getElementById('mailto-open-btn'));
+  assertTrue('SHM2: iOS-Zweig zeigt Stage-2-Dialog (E-Mail-App-Button) nach Versand', sh2, '');
+
+  // SH3: Stage-2 ueber "Fertig / Abbrechen" schliessen, danach erneut oeffnen — das Formular
+  // muss vollstaendig wiederhergestellt sein (Regression fuer den urspruenglich gefundenen Bug:
+  // vorher blieb #share-recipients/#share-send-btn nach diesem Zyklus dauerhaft zerstoert).
+  const sh3errors = [];
+  page.once('pageerror', (err) => sh3errors.push(err.message));
+  await page.click('#modal-share .mailto-stage2 button[data-close-modal]');
+  await page.waitForTimeout(150);
+  await page.click('#btn-share');
+  await page.waitForTimeout(200);
+  const sh3 = await page.evaluate(() => ({
+    hasRecipients: !!document.getElementById('share-recipients'),
+    hasSendBtn: !!document.getElementById('share-send-btn'),
+    hasFormatRadio: !!document.querySelector('input[name="share-format"]'),
+    recipientCardCount: document.querySelectorAll('#share-recipients .recipient-check').length,
+  }));
+  assertTrue('SHM3: nach "Fertig / Abbrechen" ist der Dialog beim erneuten Oeffnen wieder vollstaendig', sh3.hasRecipients && sh3.hasSendBtn && sh3.hasFormatRadio, JSON.stringify(sh3));
+  assertEq('SHM3: Empfaenger-Liste ist beim erneuten Oeffnen korrekt neu befuellt', sh3.recipientCardCount, 1);
+  assertTrue('SHM3: kein JS-Fehler beim erneuten Oeffnen nach Stage-2-Zyklus', sh3errors.length === 0, sh3errors.join(' | '));
+
+  // SH4: gleicher Zyklus ein zweites Mal (Kopfzeilen-X statt "Fertig"-Button), um zu
+  // bestaetigen, dass der Dialog auch ueber mehrere Zyklen hinweg stabil bleibt.
+  await page.check('#share-recipients .recipient-check');
+  await page.click('#share-send-btn');
+  await page.waitForSelector('#mailto-open-btn', { timeout: 8000 });
+  const sh4errors = [];
+  page.once('pageerror', (err) => sh4errors.push(err.message));
+  await page.click('#modal-share .modal-header button[data-close-modal]');
+  await page.waitForTimeout(150);
+  await page.click('#btn-share');
+  await page.waitForTimeout(200);
+  const sh4 = await page.evaluate(() => ({
+    hasRecipients: !!document.getElementById('share-recipients'),
+    hasSendBtn: !!document.getElementById('share-send-btn'),
+    recipientCardCount: document.querySelectorAll('#share-recipients .recipient-check').length,
+  }));
+  assertTrue('SHM4: Dialog bleibt auch nach zweitem Stage-2-Zyklus (X-Button) stabil', sh4.hasRecipients && sh4.hasSendBtn, JSON.stringify(sh4));
+  assertEq('SHM4: Empfaenger-Liste bleibt ueber mehrere Zyklen korrekt', sh4.recipientCardCount, 1);
+  assertTrue('SHM4: kein JS-Fehler nach zweitem Stage-2-Zyklus', sh4errors.length === 0, sh4errors.join(' | '));
+
+  // Aufraeumen: Testdaten entfernen, Modal schliessen, echten UserAgent wiederherstellen.
+  await page.evaluate((origUA) => {
+    document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden'));
+    state.employers = state.employers.filter(e => e.id !== 'share-modal-probe-emp');
+    state.entries = state.entries.filter(e => e.id !== 'share-modal-probe-r1');
+    if (state.activeEmployerId === 'share-modal-probe-emp') state.activeEmployerId = state.employers[0]?.id || null;
+    saveState();
+    Object.defineProperty(navigator, 'userAgent', { value: origUA, configurable: true });
+  }, originalUA);
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -4058,6 +4155,7 @@ function runServiceWorkerCacheBustCheck() {
     await runEmploymentModelUnits(page);
     await runKindMigrationNoticeUnits(page);
     await runBackupFolderUnits(page);
+    await runShareModalIosReopenUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

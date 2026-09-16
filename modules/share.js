@@ -203,6 +203,44 @@ export function openShareModal(ctx) {
   modal.classList.remove('hidden');
 }
 
+// Statisches Ursprungs-Markup von #modal-share .modal-content (siehe index.html).
+// showMailtoStage2() ersetzt diesen Inhalt vorübergehend durch die "Fast fertig"-
+// Ansicht; beim Verlassen dieser Ansicht muss GENAU dieses Markup wiederhergestellt
+// werden, sonst bleibt der Freigabe-Dialog beim naechsten Oeffnen leer/defekt, weil
+// #share-recipients, #share-send-btn und die Format-Radios fehlen.
+// Bei Aenderungen am Formular in index.html bitte auch hier nachziehen.
+const SHARE_MODAL_DEFAULT_HTML = `
+    <div class="modal-header">
+      <h3>Auswertung versenden</h3>
+      <button class="modal-close" data-close-modal>✕</button>
+    </div>
+    <div class="form-row">
+      <label>Format</label>
+      <div class="radio-row">
+        <label><input type="radio" name="share-format" value="docx" checked /> Word</label>
+        <label><input type="radio" name="share-format" value="pdf" /> PDF</label>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Empfänger</label>
+      <div id="share-recipients" class="recipient-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+      <button type="button" class="btn-primary" id="share-send-btn">Senden / Teilen</button>
+    </div>
+  `;
+
+// Stellt das urspruengliche Freigabe-Formular wieder her, nachdem showMailtoStage2()
+// den Dialoginhalt ueberschrieben hatte. Ohne diesen Reset wuerde ein erneutes
+// Oeffnen des Dialogs (openShareModal) auf fehlende Elemente treffen und abstuerzen.
+function resetShareModalContent(content, closeModals) {
+  content.innerHTML = SHARE_MODAL_DEFAULT_HTML;
+  content.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.addEventListener('click', () => closeModals());
+  });
+}
+
 export function showMailtoStage2(mailto, count, filename, ctx) {
   const { closeModals } = ctx;
   const modal = document.getElementById('modal-share');
@@ -224,12 +262,18 @@ export function showMailtoStage2(mailto, count, filename, ctx) {
     </div>
   `;
   content.querySelectorAll('[data-close-modal]').forEach(btn => {
-    btn.addEventListener('click', () => closeModals());
+    btn.addEventListener('click', () => {
+      resetShareModalContent(content, closeModals);
+      closeModals();
+    });
   });
   const a = content.querySelector('#mailto-open-btn');
   if (a) {
     a.addEventListener('click', () => {
-      setTimeout(() => closeModals(), 300);
+      setTimeout(() => {
+        resetShareModalContent(content, closeModals);
+        closeModals();
+      }, 300);
     });
   }
 }

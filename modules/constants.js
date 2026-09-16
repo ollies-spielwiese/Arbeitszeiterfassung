@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.84';
+export const APP_VERSION = '3.9.85';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.85', items: [
+    'Behoben: Auf iOS/iPadOS blieb der Freigabe-Dialog (E-Mail-Versand) nach einem erfolgreichen Versand dauerhaft leer/defekt, weil der zweistufige Mailto-Hinweis den Dialoginhalt überschrieb, ohne ihn beim Schließen wiederherzustellen — der Dialog funktioniert jetzt auch nach mehrfachem Versand zuverlässig',
+  ]},
   { version: '3.9.84', items: [
     'Bedienungsanleitung ergänzt: Erklärung, warum die Dauer im Reiter „Einträge“ mal blau (normal/Home-Office) und mal orange (Präsenzzeit über dem durchschnittlichen Tages-Soll) angezeigt wird',
   ]},
