@@ -3751,6 +3751,138 @@ async function runShareModalIosReopenUnits(page) {
   }, originalUA);
 }
 
+async function runOverviewShareModalUnits(page) {
+  console.log('\n=== 1q) Uebersicht-Reiter: Freigabe-Dialog (an Monat angeglichen) ===');
+
+  // Setup: zwei Arbeitgeber MIT Ansprechpartnern + je ein Eintrag im aktuellen Monat, damit
+  // getCurrentOverview() im Uebersicht-Tab beide Arbeitgeber liefert. iOS wird vorgetaeuscht,
+  // damit der Zwei-Stufen-Mailto-Pfad (showMailtoStage2) ausgeloest wird.
+  const originalUA = await page.evaluate(() => navigator.userAgent);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      configurable: true,
+    });
+    const emp1 = 'ov-share-probe-emp1';
+    const emp2 = 'ov-share-probe-emp2';
+    state.settings.appMode = 'employee';
+    state.settings.ownEmail = 'ich@example.de';
+    state.employers = [
+      { id: emp1, name: 'OV-Share-Test AG', hoursMode: 'week', weeklyHours: 30, breakMode: 'none', annualVacation: 28, contacts: [{ name: 'Kontakt Eins', email: 'kontakt1@example.de' }] },
+      { id: emp2, name: 'OV-Share-Test GmbH', hoursMode: 'week', weeklyHours: 10, breakMode: 'none', annualVacation: 10, contacts: [{ name: 'Kontakt Zwei', email: 'kontakt2@example.de' }] },
+    ];
+    state.activeEmployerId = emp1;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    state.entries = [
+      { id: 'ov-share-probe-r1', employerId: emp1, date: `${y}-${m}-01`, type: 'work', start: '09:00', end: '16:00', breakMinutes: 0, note: 'OV-Probe', createdAt: new Date().toISOString() },
+      { id: 'ov-share-probe-r2', employerId: emp2, date: `${y}-${m}-02`, type: 'work', start: '17:00', end: '20:00', breakMinutes: 0, note: 'OV-Probe', createdAt: new Date().toISOString() },
+    ];
+    saveState();
+    switchView('overview');
+    document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden'));
+  });
+  await page.waitForTimeout(150);
+
+  // OVM1: Erstes Oeffnen liefert Empfaenger/Sende-Button und eine einzige, deaktivierte
+  // PDF-Format-Option (keine echte Formatwahl, da die Uebersicht keinen Word-Export kennt).
+  await page.click('#btn-share-overview');
+  await page.waitForSelector('#share-recipients .recipient-check', { timeout: 5000 });
+  const ovm1 = await page.evaluate(() => {
+    const formatInput = document.querySelector('input[name="share-format-overview"]');
+    return {
+      hasRecipients: !!document.getElementById('share-recipients'),
+      hasSendBtn: !!document.getElementById('share-send-btn'),
+      formatValue: formatInput?.value,
+      formatChecked: formatInput?.checked,
+      formatDisabled: formatInput?.disabled,
+      formatRadioCount: document.querySelectorAll('input[name="share-format-overview"]').length,
+    };
+  });
+  assertTrue('OVM1: Uebersicht-Dialog zeigt Empfaenger/Sende-Button beim ersten Oeffnen', ovm1.hasRecipients && ovm1.hasSendBtn, JSON.stringify(ovm1));
+  assertEq('OVM1: Format-Zeile zeigt genau eine Option', ovm1.formatRadioCount, 1);
+  assertTrue('OVM1: Format-Option ist "PDF", vorausgewaehlt und deaktiviert', ovm1.formatValue === 'pdf' && ovm1.formatChecked && ovm1.formatDisabled, JSON.stringify(ovm1));
+
+  // OVM2: Empfaenger-Liste enthaelt "An mich selbst" plus die Kontakte BEIDER Arbeitgeber,
+  // jeweils mit Firmenname zur Unterscheidung (Kernanforderung: Arbeitgeber-E-Mail bleibt erhalten).
+  const ovm2 = await page.evaluate(() => Array.from(document.querySelectorAll('#share-recipients .recipient-check')).map(cb => {
+    const card = cb.closest('.recipient-card');
+    return { name: card?.querySelector('.recipient-name')?.textContent, email: card?.querySelector('.recipient-email')?.textContent };
+  }));
+  assertEq('OVM2: Empfaenger-Liste enthaelt genau 3 Kacheln (Ich + 2 Arbeitgeber-Kontakte)', ovm2.length, 3);
+  assertEq('OVM2: erste Kachel ist "An mich selbst"', ovm2[0]?.name, 'An mich selbst');
+  assertTrue('OVM2: Kontakt des ersten Arbeitgebers mit Firmenname vorhanden', ovm2.some(c => c.name === 'Kontakt Eins (OV-Share-Test AG)' && c.email === 'kontakt1@example.de'), JSON.stringify(ovm2));
+  assertTrue('OVM2: Kontakt des zweiten Arbeitgebers mit Firmenname vorhanden', ovm2.some(c => c.name === 'Kontakt Zwei (OV-Share-Test GmbH)' && c.email === 'kontakt2@example.de'), JSON.stringify(ovm2));
+
+  // OVM3: E-Mail-Versand ausloesen (iOS-Zweig) -> Stage-2-Hinweis erscheint, danach ueber
+  // "Fertig / Abbrechen" schliessen und erneut oeffnen — das Formular muss vollstaendig
+  // wiederhergestellt sein (gleiche Regression wie SHM2/SHM3, jetzt fuer den Uebersicht-Pfad).
+  await page.check('#share-recipients .recipient-check');
+  await page.click('#share-send-btn');
+  await page.waitForSelector('#mailto-open-btn', { timeout: 8000 });
+  const ovm3errors = [];
+  page.once('pageerror', (err) => ovm3errors.push(err.message));
+  await page.click('#modal-share .mailto-stage2 button[data-close-modal]');
+  await page.waitForTimeout(150);
+  await page.click('#btn-share-overview');
+  await page.waitForTimeout(200);
+  const ovm3 = await page.evaluate(() => ({
+    hasRecipients: !!document.getElementById('share-recipients'),
+    hasSendBtn: !!document.getElementById('share-send-btn'),
+    formatDisabled: document.querySelector('input[name="share-format-overview"]')?.disabled,
+    recipientCardCount: document.querySelectorAll('#share-recipients .recipient-check').length,
+  }));
+  assertTrue('OVM3: nach "Fertig / Abbrechen" ist der Uebersicht-Dialog beim erneuten Oeffnen wieder vollstaendig', ovm3.hasRecipients && ovm3.hasSendBtn && ovm3.formatDisabled, JSON.stringify(ovm3));
+  assertEq('OVM3: Empfaenger-Liste ist beim erneuten Oeffnen korrekt neu befuellt (3 Kacheln)', ovm3.recipientCardCount, 3);
+  assertTrue('OVM3: kein JS-Fehler beim erneuten Oeffnen nach Stage-2-Zyklus', ovm3errors.length === 0, ovm3errors.join(' | '));
+
+  // OVM4: Cross-Context-Regression — nach dem Uebersicht-Dialog den Monat-Dialog oeffnen und
+  // umgekehrt; der jeweils andere Dialogtyp darf durch den gemeinsam genutzten #modal-share
+  // Container nicht beschaedigt werden (Format-Radios/Empfaenger muessen zum jeweiligen
+  // Kontext passen).
+  await page.evaluate(() => { document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden')); switchView('report'); });
+  await page.evaluate(async (ym) => {
+    const inp = document.getElementById('report-month');
+    if (inp) inp.value = ym;
+    const sel = document.getElementById('report-employer');
+    if (sel) sel.value = state.activeEmployerId;
+    if (typeof renderReport === 'function') renderReport();
+  }, await currentYm());
+  await page.waitForTimeout(150);
+  await page.click('#btn-share');
+  await page.waitForSelector('#share-recipients .recipient-check', { timeout: 5000 });
+  const ovm4a = await page.evaluate(() => Array.from(document.querySelectorAll('input[name="share-format"]')).map(i => i.value));
+  assertEq('OVM4a: Monat-Dialog zeigt nach Uebersicht-Dialog wieder Word/PDF-Formatwahl', JSON.stringify(ovm4a), JSON.stringify(['docx', 'pdf']));
+  await page.evaluate(() => document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden')));
+
+  await page.evaluate(async (ym) => {
+    switchView('overview');
+    const inp = document.getElementById('overview-month');
+    if (inp) inp.value = ym;
+    if (typeof renderOverview === 'function') renderOverview();
+  }, await currentYm());
+  await page.waitForTimeout(150);
+  await page.click('#btn-share-overview');
+  await page.waitForSelector('#share-recipients .recipient-check', { timeout: 5000 });
+  const ovm4b = await page.evaluate(() => ({
+    formatRadioCount: document.querySelectorAll('input[name="share-format-overview"]').length,
+    recipientCardCount: document.querySelectorAll('#share-recipients .recipient-check').length,
+  }));
+  assertTrue('OVM4b: Uebersicht-Dialog zeigt nach Monat-Dialog wieder die reduzierte PDF-Formatzeile', ovm4b.formatRadioCount === 1, JSON.stringify(ovm4b));
+  assertEq('OVM4b: Uebersicht-Empfaenger-Liste bleibt nach Kontextwechsel korrekt (3 Kacheln)', ovm4b.recipientCardCount, 3);
+
+  // Aufraeumen: Testdaten entfernen, Modal schliessen, echten UserAgent wiederherstellen.
+  await page.evaluate((origUA) => {
+    document.querySelectorAll('.modal').forEach(mo => mo.classList.add('hidden'));
+    state.employers = state.employers.filter(e => e.id !== 'ov-share-probe-emp1' && e.id !== 'ov-share-probe-emp2');
+    state.entries = state.entries.filter(e => e.id !== 'ov-share-probe-r1' && e.id !== 'ov-share-probe-r2');
+    if (!state.employers.some(e => e.id === state.activeEmployerId)) state.activeEmployerId = state.employers[0]?.id || null;
+    saveState();
+    Object.defineProperty(navigator, 'userAgent', { value: origUA, configurable: true });
+  }, originalUA);
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -4292,6 +4424,7 @@ function runServiceWorkerCacheBustCheck() {
     await runKindMigrationNoticeUnits(page);
     await runBackupFolderUnits(page);
     await runShareModalIosReopenUnits(page);
+    await runOverviewShareModalUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

@@ -25,6 +25,20 @@
 //   downloadBlob,
 //   toast,
 // }
+//
+// ctx (openOverviewShareModal) = {
+//   getCurrentOverview,
+//   getState,                    // liefert state fuer settings.ownEmail
+//   fileNameForOverview,
+//   formatMonthYear,
+//   renderSummaryPlaintext,
+//   getOverviewSummaryFields,
+//   generateOverviewPdfBlob,
+//   downloadBlob,
+//   toast,
+//   escapeHtml,
+//   closeModals,
+// }
 
 function isIOSPlatform() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -54,6 +68,19 @@ ${summaryLines.join('\n')}
 Mit freundlichen Grüßen`;
 }
 
+function buildOverviewMailBody(ov, ctx) {
+  const { formatMonthYear, renderSummaryPlaintext, getOverviewSummaryFields } = ctx;
+  const summaryLines = renderSummaryPlaintext(getOverviewSummaryFields(ov));
+  return `Sehr geehrte Damen und Herren,
+
+anbei die Monatsübersicht für ${formatMonthYear(ov.ym)}.
+
+Zusammenfassung:
+${summaryLines.join('\n')}
+
+Mit freundlichen Grüßen`;
+}
+
 function buildMailto(emails, subject, body, filename) {
   const to = emails.map(encodeURIComponent).join(',');
   return `mailto:${to}`
@@ -61,28 +88,9 @@ function buildMailto(emails, subject, body, filename) {
     + `&body=${encodeURIComponent(body + '\n\nBitte den Anhang „' + filename + '“ hinzufügen.')}`;
 }
 
-export function openShareModal(ctx) {
-  const {
-    getCurrentReport, getState, escapeHtml,
-    fileNameForReport, formatMonthYear,
-    renderSummaryPlaintext, getSummaryFields,
-    generateWordBlob, generatePdfBlob,
-    downloadBlob, toast, closeModals,
-  } = ctx;
-
-  const r = getCurrentReport();
-  if (!r) return;
-  const modal = document.getElementById('modal-share');
-  const recipientList = document.getElementById('share-recipients');
-
-  const emp = r.employer;
-  const state = getState();
-  const emailRecipients = [];
-  const own = state.settings.ownEmail;
-  if (own) emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' });
-  const contacts = (emp.contacts || []).filter(c => c.email);
-  contacts.forEach(c => emailRecipients.push({ label: c.name || 'Ansprechpartner', email: c.email, icon: '📧' }));
-
+// Baut die Empfaenger-Karten (Checkbox-Kacheln + manuelles Eingabefeld + "Nur teilen"-Option),
+// die sowohl im Monat- als auch im Uebersicht-Freigabe-Dialog identisch verwendet werden.
+function buildRecipientCardsHTML(emailRecipients, escapeHtml) {
   const cards = [];
   cards.push(`
     <div class="share-hint">Mehrere Empfänger möglich – die E-Mail-App öffnet sich mit allen Adressen im An-Feld.</div>
@@ -116,8 +124,12 @@ export function openShareModal(ctx) {
     </label>
   `);
 
-  recipientList.innerHTML = cards.join('');
+  return cards.join('');
+}
 
+// Verdrahtet die Wechselwirkung zwischen Empfaenger-Checkboxen, manuellem Eingabefeld
+// und der "Nur teilen"-Systemoption (gegenseitiger Ausschluss). Identisch fuer beide Dialoge.
+function wireRecipientInteractions(recipientList) {
   const systemRadio = document.getElementById('share-mode-system');
   const checks = recipientList.querySelectorAll('.recipient-check');
   if (systemRadio) {
@@ -136,18 +148,55 @@ export function openShareModal(ctx) {
   if (manualInput) manualInput.addEventListener('input', () => {
     if (manualInput.value.trim() && systemRadio) systemRadio.checked = false;
   });
+}
+
+// Liest die aktuelle Empfaenger-Auswahl (System-Dialog vs. E-Mail-Adressen) aus dem DOM.
+function readRecipientSelection(recipientList) {
+  const useSystem = document.getElementById('share-mode-system')?.checked;
+  const picked = Array.from(recipientList.querySelectorAll('.recipient-check:checked'))
+    .map(cb => cb.dataset.email).filter(Boolean);
+  const manualRaw = (document.getElementById('share-manual-emails')?.value || '').trim();
+  const manual = manualRaw ? manualRaw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) : [];
+  const emails = Array.from(new Set([...picked, ...manual]));
+  return { useSystem, emails };
+}
+
+export function openShareModal(ctx) {
+  const {
+    getCurrentReport, getState, escapeHtml,
+    fileNameForReport, formatMonthYear,
+    renderSummaryPlaintext, getSummaryFields,
+    generateWordBlob, generatePdfBlob,
+    downloadBlob, toast, closeModals,
+  } = ctx;
+
+  const r = getCurrentReport();
+  if (!r) return;
+  const modal = document.getElementById('modal-share');
+  const content = modal.querySelector('.modal-content');
+  // Defensiver Reset: falls zuvor der Uebersicht-Dialog offen war, ist das Markup
+  // aktuell OVERVIEW_SHARE_MODAL_HTML (kein Format-Radio) — ohne diesen Reset wuerde
+  // der folgende Zugriff auf 'input[name="share-format"]' fehlschlagen.
+  resetShareModalContent(content, closeModals, SHARE_MODAL_DEFAULT_HTML);
+  const recipientList = document.getElementById('share-recipients');
+
+  const emp = r.employer;
+  const state = getState();
+  const emailRecipients = [];
+  const own = state.settings.ownEmail;
+  if (own) emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' });
+  const contacts = (emp.contacts || []).filter(c => c.email);
+  contacts.forEach(c => emailRecipients.push({ label: c.name || 'Ansprechpartner', email: c.email, icon: '📧' }));
+
+  recipientList.innerHTML = buildRecipientCardsHTML(emailRecipients, escapeHtml);
+  wireRecipientInteractions(recipientList);
 
   const sendBtn = document.getElementById('share-send-btn');
   if (sendBtn) {
     const clone = sendBtn.cloneNode(true);
     sendBtn.parentNode.replaceChild(clone, sendBtn);
     clone.addEventListener('click', () => {
-      const useSystem = document.getElementById('share-mode-system')?.checked;
-      const picked = Array.from(recipientList.querySelectorAll('.recipient-check:checked'))
-        .map(cb => cb.dataset.email).filter(Boolean);
-      const manualRaw = (document.getElementById('share-manual-emails')?.value || '').trim();
-      const manual = manualRaw ? manualRaw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) : [];
-      const emails = Array.from(new Set([...picked, ...manual]));
+      const { useSystem, emails } = readRecipientSelection(recipientList);
 
       const format = document.querySelector('input[name="share-format"]:checked').value;
 
@@ -169,7 +218,7 @@ export function openShareModal(ctx) {
             try {
               const blob = format === 'docx' ? await generateWordBlob(rep) : await generatePdfBlob(rep);
               downloadBlob(blob, filename);
-              showMailtoStage2(mailto, emails.length, filename, { closeModals });
+              showMailtoStage2(mailto, emails.length, filename, { closeModals, restoreHtml: SHARE_MODAL_DEFAULT_HTML });
             } catch (err) {
               console.error(err);
               toast('Datei-Erstellung fehlgeschlagen: ' + err.message);
@@ -197,6 +246,109 @@ export function openShareModal(ctx) {
 
       closeModals();
       shareReport(format, [], ctx);
+    });
+  }
+
+  modal.classList.remove('hidden');
+}
+
+// Freigabe-Dialog fuer den Reiter "Uebersicht" (Monatsauswertung ueber alle Arbeitgeber).
+// Baugleich zu openShareModal (Empfaenger-Kacheln, manuelle Adressen, "Nur teilen"-Option,
+// Mailto-/iOS-Stage2-Fallback) — einzige inhaltliche Abweichung: die Uebersicht kennt keine
+// Formatwahl (es gibt bisher nur PDF, kein Word-Export fuer die aggregierte Auswertung), die
+// Format-Zeile zeigt deshalb nur eine deaktivierte "PDF"-Option statt einer echten Wahl. Die
+// Arbeitgeber-Kontakte ALLER in der Uebersicht enthaltenen Arbeitgeber werden angezeigt
+// (mit Firmenname in Klammern zur Unterscheidung), da die Uebersicht mehrere Arbeitgeber
+// zusammenfasst statt wie im Monat-Dialog genau einen.
+export function openOverviewShareModal(ctx) {
+  const {
+    getCurrentOverview, getState, escapeHtml,
+    fileNameForOverview, formatMonthYear,
+    generateOverviewPdfBlob,
+    downloadBlob, toast, closeModals,
+  } = ctx;
+
+  const ov = getCurrentOverview();
+  if (!ov) return;
+  const modal = document.getElementById('modal-share');
+  const content = modal.querySelector('.modal-content');
+  // Immer auf das Uebersicht-Markup zuruecksetzen — falls zuvor der Monat-Dialog
+  // offen war, enthaelt #modal-share sonst noch die Format-Radios/Empfaenger-Logik
+  // des Monat-Dialogs.
+  resetShareModalContent(content, closeModals, OVERVIEW_SHARE_MODAL_HTML);
+  const recipientList = document.getElementById('share-recipients');
+
+  const state = getState();
+  const emailRecipients = [];
+  const seenEmails = new Set();
+  const own = state.settings.ownEmail;
+  if (own) { emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' }); seenEmails.add(own); }
+  (ov.rows || []).forEach((row) => {
+    const emp = row && row.employer;
+    if (!emp) return;
+    (emp.contacts || []).filter(c => c.email).forEach((c) => {
+      if (seenEmails.has(c.email)) return;
+      seenEmails.add(c.email);
+      emailRecipients.push({ label: `${c.name || 'Ansprechpartner'} (${emp.name})`, email: c.email, icon: '📧' });
+    });
+  });
+
+  recipientList.innerHTML = buildRecipientCardsHTML(emailRecipients, escapeHtml);
+  wireRecipientInteractions(recipientList);
+
+  const sendBtn = document.getElementById('share-send-btn');
+  if (sendBtn) {
+    const clone = sendBtn.cloneNode(true);
+    sendBtn.parentNode.replaceChild(clone, sendBtn);
+    clone.addEventListener('click', () => {
+      const { useSystem, emails } = readRecipientSelection(recipientList);
+
+      if (!useSystem && emails.length === 0) {
+        toast('Bitte mindestens einen Empfänger wählen oder „Nur teilen“ anklicken');
+        return;
+      }
+
+      if (!useSystem && emails.length > 0) {
+        const cur = getCurrentOverview();
+        if (!cur) return;
+        const filename = fileNameForOverview(cur, 'pdf');
+        const subject = `Arbeitszeit-Übersicht ${formatMonthYear(cur.ym)}`;
+        const body = buildOverviewMailBody(cur, ctx);
+        const mailto = buildMailto(emails, subject, body, filename);
+
+        if (isIOSPlatform()) {
+          (async () => {
+            try {
+              const blob = await generateOverviewPdfBlob(cur);
+              downloadBlob(blob, filename);
+              showMailtoStage2(mailto, emails.length, filename, { closeModals, restoreHtml: OVERVIEW_SHARE_MODAL_HTML });
+            } catch (err) {
+              console.error(err);
+              toast('Datei-Erstellung fehlgeschlagen: ' + err.message);
+            }
+          })();
+          return;
+        }
+
+        try { window.location.href = mailto; } catch (e) { console.warn('mailto failed', e); }
+        (async () => {
+          try {
+            const blob = await generateOverviewPdfBlob(cur);
+            downloadBlob(blob, filename);
+            toast(emails.length === 1
+              ? 'E-Mail-App geöffnet – Datei heruntergeladen, bitte anhängen'
+              : `E-Mail-App geöffnet mit ${emails.length} Empfängern – Datei heruntergeladen`);
+          } catch (err) {
+            console.error(err);
+            toast('Datei-Erstellung fehlgeschlagen: ' + err.message);
+          }
+        })();
+        closeModals();
+        return;
+      }
+
+      closeModals();
+      shareOverviewPdf(ctx);
     });
   }
 
@@ -231,18 +383,44 @@ const SHARE_MODAL_DEFAULT_HTML = `
     </div>
   `;
 
+// Analoges Markup fuer den Uebersicht-Freigabe-Dialog — gleicher Aufbau (Format-Zeile,
+// Empfaenger-Zeile, Aktionen), aber die Format-Zeile zeigt nur die deaktivierte Option
+// "PDF", da die Uebersicht bisher keinen Word-Export anbietet. Bei Aenderungen an
+// SHARE_MODAL_DEFAULT_HTML bitte pruefen, ob diese Struktur nachgezogen werden muss.
+const OVERVIEW_SHARE_MODAL_HTML = `
+    <div class="modal-header">
+      <h3>Auswertung versenden</h3>
+      <button class="modal-close" data-close-modal>✕</button>
+    </div>
+    <div class="form-row">
+      <label>Format</label>
+      <div class="radio-row">
+        <label><input type="radio" name="share-format-overview" value="pdf" checked disabled /> PDF</label>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Empfänger</label>
+      <div id="share-recipients" class="recipient-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+      <button type="button" class="btn-primary" id="share-send-btn">Senden / Teilen</button>
+    </div>
+  `;
+
 // Stellt das urspruengliche Freigabe-Formular wieder her, nachdem showMailtoStage2()
 // den Dialoginhalt ueberschrieben hatte. Ohne diesen Reset wuerde ein erneutes
-// Oeffnen des Dialogs (openShareModal) auf fehlende Elemente treffen und abstuerzen.
-function resetShareModalContent(content, closeModals) {
-  content.innerHTML = SHARE_MODAL_DEFAULT_HTML;
+// Oeffnen des Dialogs (openShareModal/openOverviewShareModal) auf fehlende Elemente
+// treffen und abstuerzen. `html` waehlt zwischen Monat- und Uebersicht-Markup.
+function resetShareModalContent(content, closeModals, html = SHARE_MODAL_DEFAULT_HTML) {
+  content.innerHTML = html;
   content.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => closeModals());
   });
 }
 
 export function showMailtoStage2(mailto, count, filename, ctx) {
-  const { closeModals } = ctx;
+  const { closeModals, restoreHtml } = ctx;
   const modal = document.getElementById('modal-share');
   const content = modal.querySelector('.modal-content');
   if (!content) return;
@@ -263,7 +441,7 @@ export function showMailtoStage2(mailto, count, filename, ctx) {
   `;
   content.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => {
-      resetShareModalContent(content, closeModals);
+      resetShareModalContent(content, closeModals, restoreHtml);
       closeModals();
     });
   });
@@ -271,7 +449,7 @@ export function showMailtoStage2(mailto, count, filename, ctx) {
   if (a) {
     a.addEventListener('click', () => {
       setTimeout(() => {
-        resetShareModalContent(content, closeModals);
+        resetShareModalContent(content, closeModals, restoreHtml);
         closeModals();
       }, 300);
     });

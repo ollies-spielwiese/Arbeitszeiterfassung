@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.87';
+export const APP_VERSION = '3.9.88';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.88', items: [
+    'Neu: Im Reiter „Übersicht" öffnet „Teilen" jetzt denselben Empfänger-Dialog wie im Reiter „Monat" (bisher nur reiner PDF-Download ohne Empfängerauswahl) — mit eigener Adresse und den Ansprechpersonen aller enthaltenen Arbeitgeber (Firmenname zur Unterscheidung), Freitext-Adressfeld und „Nur teilen"-Option; die Formatwahl ist auf PDF festgelegt, da die Übersicht keinen Word-Export anbietet',
+  ]},
   { version: '3.9.87', items: [
     'Doku: Bedienungsanleitung (Abschnitt 6a) um Beschreibung des in v3.9.86 eingeführten Urlaubsplanung-Kalenders ergänzt — Farbmarkierungen, Legende, Monats-Navigation und Standardmonat',
   ]},

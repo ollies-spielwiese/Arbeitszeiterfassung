@@ -171,6 +171,7 @@ import {
 } from './modules/backupFolder.js';
 import {
   openShareModal as _openShareModalRaw,
+  openOverviewShareModal as _openOverviewShareModalRaw,
   showMailtoStage2 as _showMailtoStage2Raw,
   shareReport as _shareReportRaw,
   shareOverviewPdf as _shareOverviewPdfRaw,
@@ -1791,15 +1792,28 @@ async function exportOverviewPdf() {
   }
 }
 
-async function shareOverviewPdf() {
-  return _shareOverviewPdfRaw({
+function _overviewShareCtx() {
+  return {
     getCurrentOverview,
-    generateOverviewPdfBlob,
+    getState: _getState,
+    escapeHtml,
     fileNameForOverview,
     formatMonthYear,
+    renderSummaryPlaintext,
+    getOverviewSummaryFields,
+    generateOverviewPdfBlob,
     downloadBlob,
     toast,
-  });
+    closeModals,
+  };
+}
+
+async function shareOverviewPdf() {
+  return _shareOverviewPdfRaw(_overviewShareCtx());
+}
+
+function openOverviewShareModal() {
+  return _openOverviewShareModalRaw(_overviewShareCtx());
 }
 
 /* ---------- Export UI ---------- */
@@ -2373,7 +2387,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   openTemplateModal, saveTemplate, deleteTemplate,
   openHolidayModal, saveHoliday,
   exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
-  openShareModal, shareOverviewPdf, archiveCurrentMonth,
+  openShareModal, openOverviewShareModal, shareOverviewPdf, archiveCurrentMonth,
   exportBackup, importBackup, updateBackupReminderBanner,
   updateSollWarningBanner, MONTH_THRESHOLD_MIN_PCT,
   toast, closeModals, escapeHtml,

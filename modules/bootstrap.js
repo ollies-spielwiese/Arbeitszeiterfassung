@@ -55,7 +55,7 @@ export function wireEvents(ctx) {
     openHolidayModal, saveHoliday,
     // Export
     exportWord, exportPdf, exportCsv, exportOverviewPdf, exportGleitzeitkontoPdf,
-    openShareModal, shareOverviewPdf, archiveCurrentMonth,
+    openShareModal, openOverviewShareModal, shareOverviewPdf, archiveCurrentMonth,
     // Backup
     exportBackup, importBackup, updateBackupReminderBanner,
     // Sollstunden-Warnung (seit v3.9.78, MONTH_THRESHOLD_MIN_PCT seit v3.9.80)
@@ -226,7 +226,7 @@ export function wireEvents(ctx) {
 
     // Overview actions
     document.getElementById('btn-export-overview-pdf').addEventListener('click', exportOverviewPdf);
-    document.getElementById('btn-share-overview').addEventListener('click', shareOverviewPdf);
+    document.getElementById('btn-share-overview').addEventListener('click', openOverviewShareModal);
 
     // Gleitzeitkonto actions
     const btnExportGleitzeitkontoPdf = document.getElementById('btn-export-gleitzeitkonto-pdf');
