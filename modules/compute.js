@@ -535,6 +535,57 @@ export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
   return { year: yearStr, months, totalTaken, totalUpcoming, totalYear: totalTaken + totalUpcoming };
 }
 
+/**
+ * Tagesgenaue Kalenderdaten fuer einen einzelnen Monat der Urlaubsplanung (Kalenderansicht,
+ * seit v3.9.86). Liefert fuer jeden Tag des Monats Wochentag, Wochenende-Flag, Urlaubsstatus
+ * ('taken'|'upcoming'|null) und Feiertagsname (oder null), damit ein reiner Builder daraus
+ * ohne weitere Datenzugriffe ein Kalendergitter rendern kann.
+ *
+ * Kontrakt:
+ *   - Grundlage: alle Eintraege mit type='vacation' und employerId=emp.id fuer den Monat.
+ *   - Vergleich date <= today (ISO-String-Vergleich) entscheidet taken/upcoming, analog zu
+ *     computeYearlyVacationPlanning.
+ *   - Feiertage ueber getHolidays(...) inkl. Bundesland + Overrides (add/disable/rename).
+ *   - today wird bewusst als Parameter uebergeben (kein Date.now() im Modul), damit die
+ *     Funktion deterministisch und regressionstestbar bleibt.
+ *
+ * @param {any} emp Employer-Objekt (mind. id)
+ * @param {string} ym Year-Month 'YYYY-MM'
+ * @param {Array<any>} allEntries Alle Eintraege (state.entries)
+ * @param {string} today Stichtag im ISO-Format YYYY-MM-DD
+ * @param {string} stateCode Bundesland-Code, z.B. 'HE'
+ * @param {import('../types.js').AZHolidayOverrides} [holidayOverrides]
+ * @returns {{ym:string, days:Array<{date:string, day:number, dow:number, isWeekend:boolean, vacation:('taken'|'upcoming'|null), holidayName:(string|null)}>}}
+ */
+export function computeVacationCalendarMonth(emp, ym, allEntries, today, stateCode, holidayOverrides) {
+  const dates = monthDates(ym);
+  const vacationByDate = new Map();
+  if (emp) {
+    (allEntries || []).forEach((e) => {
+      if (!e || e.type !== 'vacation' || e.employerId !== emp.id) return;
+      if (!e.date || !e.date.startsWith(ym)) return;
+      vacationByDate.set(e.date, today && e.date <= today ? 'taken' : 'upcoming');
+    });
+  }
+  const year = Number(ym.slice(0, 4));
+  const holidays = getHolidays(year, stateCode, holidayOverrides);
+  const holidayByDate = new Map(holidays.map((h) => [h.date, h.name]));
+
+  const days = dates.map((date) => {
+    const dow = dayOfWeekISO(date);
+    return {
+      date,
+      day: Number(date.slice(8, 10)),
+      dow,
+      isWeekend: dow === 5 || dow === 6,
+      vacation: vacationByDate.get(date) || null,
+      holidayName: holidayByDate.get(date) || null,
+    };
+  });
+
+  return { ym, days };
+}
+
 export function computeMonthReport(employerId, ym, ctx) {
   const state = ctx && ctx.state;
   if (!state) return null;

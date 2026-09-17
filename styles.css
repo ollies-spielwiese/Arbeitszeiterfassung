@@ -484,6 +484,82 @@ textarea { resize: vertical; min-height: 3rem; }
 .report-table td .neg, .report-table td.neg { color: #dc2626; }
 .vacation-planning-table .muted-row td { color: var(--text-muted); }
 
+/* Urlaubsplanung: Monats-Kalendergitter (seit v3.9.86) */
+.vacation-calendar { margin: 1rem 0; }
+.vac-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.vac-cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.vac-cal-nav-btn:hover { background: var(--border); }
+.vac-cal-month-label { font-size: 1rem; font-weight: 600; color: var(--text); }
+.vac-cal-weekdays, .vac-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.vac-cal-weekdays {
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.vac-cal-cell {
+  text-align: center;
+  padding: 0.5rem 0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid transparent;
+  box-sizing: border-box;
+}
+.vac-cal-blank { visibility: hidden; }
+.vac-cal-taken { background: var(--primary-dark); color: #ffffff; font-weight: 600; }
+.vac-cal-upcoming { background: #dbeafe; color: #1d4ed8; border-color: #1d4ed8; border-style: dashed; font-weight: 500; }
+.vac-cal-holiday { background: var(--warning); color: #ffffff; font-weight: 600; }
+.vac-cal-weekend { background: var(--surface-alt); color: var(--text-muted); }
+.vac-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.vac-cal-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.vac-cal-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.vac-cal-swatch.vac-cal-taken { background: var(--primary-dark); }
+.vac-cal-swatch.vac-cal-upcoming { background: #dbeafe; border: 1.5px dashed #1d4ed8; box-sizing: border-box; }
+.vac-cal-swatch.vac-cal-holiday { background: var(--warning); }
+.vac-cal-swatch.vac-cal-weekend { background: var(--surface-alt); border: 1px solid var(--border); }
+@media (prefers-color-scheme: dark) {
+  .vac-cal-taken, .vac-cal-swatch.vac-cal-taken { background: #3b6fe0; color: #ffffff; }
+  .vac-cal-upcoming, .vac-cal-swatch.vac-cal-upcoming { background: #1e3a8a; color: #93c5fd; border-color: #93c5fd; }
+  .vac-cal-holiday, .vac-cal-swatch.vac-cal-holiday { background: #b45f04; color: #ffffff; }
+}
+@media (max-width: 380px) {
+  .vac-cal-cell { font-size: 0.75rem; padding: 0.4rem 0; }
+  .vac-cal-nav-btn { width: 36px; height: 36px; font-size: 1.2rem; }
+}
+
 /* Karten-Ansicht auf schmalen Displays (iPhone) */
 @media (max-width: 700px) {
   .report-table thead { display: none; }

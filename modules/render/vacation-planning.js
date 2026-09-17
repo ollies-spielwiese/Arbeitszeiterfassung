@@ -10,7 +10,7 @@
 // }
 
 export function buildVacationPlanningHTML(vp, vr, emp, ctx) {
-  const { escapeHtml, renderSummaryHTML, monthLabels } = ctx;
+  const { escapeHtml, renderSummaryHTML, monthLabels, calendarHTML } = ctx;
   const planned = vr.annual + vr.carryOver;
 
   const summaryFields = [
@@ -44,6 +44,7 @@ export function buildVacationPlanningHTML(vp, vr, emp, ctx) {
       <div class="subtitle">Jahr ${escapeHtml(vp.year)}</div>
     </div>
     <div class="summary-grid">${renderSummaryHTML(summaryFields)}</div>
+    ${calendarHTML || ''}
     <div class="report-table-wrap">
       <table class="report-table vacation-planning-table">
         <thead>

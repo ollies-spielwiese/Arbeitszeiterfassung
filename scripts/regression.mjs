@@ -2483,6 +2483,90 @@ async function runVacationPlanningUnits(page) {
   assertContains('VP4: leerer Monat erhält muted-row Klasse', vp4Html, 'muted-row');
 }
 
+async function runVacationCalendarUnits(page) {
+  console.log('\n=== 1h) computeVacationCalendarMonth + buildVacationCalendarHTML Unit-Tests ===');
+
+  // VC1: Tages-Status pro Zelle korrekt: genommen (<=today), eingegeben (>today),
+  // Feiertag hat Vorrang vor Urlaubsstatus, Wochenende nur ohne Urlaub/Feiertag,
+  // andere Employer und Nicht-Urlaub-Typen werden ignoriert.
+  const vc1 = await page.evaluate(() => {
+    const emp = { id: 'e1' };
+    const entries = [
+      { id: 'a', type: 'vacation', employerId: 'e1', date: '2026-01-02' }, // Fr, genommen
+      { id: 'b', type: 'vacation', employerId: 'e1', date: '2026-01-20' }, // Di, eingegeben
+      { id: 'c', type: 'vacation', employerId: 'e1', date: '2026-01-01' }, // Neujahr — Feiertag hat Vorrang
+      { id: 'd', type: 'vacation', employerId: 'e2', date: '2026-01-05' }, // anderer Employer, ignoriert
+      { id: 'e', type: 'sick', employerId: 'e1', date: '2026-01-06' },     // kein Urlaub, ignoriert
+    ];
+    return computeVacationCalendarMonth(emp, '2026-01', entries, '2026-01-15', 'HE', undefined);
+  });
+  assertEq('VC1: ym übernommen', vc1.ym, '2026-01');
+  assertEq('VC1: 31 Tage im Januar', vc1.days.length, 31);
+  const d1 = vc1.days.find(d => d.date === '2026-01-01');
+  const d2 = vc1.days.find(d => d.date === '2026-01-02');
+  const d3 = vc1.days.find(d => d.date === '2026-01-03');
+  const d20 = vc1.days.find(d => d.date === '2026-01-20');
+  const d5 = vc1.days.find(d => d.date === '2026-01-05');
+  const d6 = vc1.days.find(d => d.date === '2026-01-06');
+  assertEq('VC1: 01.01. Feiertagsname gesetzt', d1.holidayName, 'Neujahr');
+  assertTrue('VC1: 01.01. trotz eingetragenem Urlaub als Feiertag markiert (Vorrang)', !!d1.holidayName && d1.vacation === 'taken');
+  assertEq('VC1: 02.01. (Stichtag-Vortag) genommen', d2.vacation, 'taken');
+  assertTrue('VC1: 03.01. (Samstag) als Wochenende markiert', d3.isWeekend === true && d3.vacation === null);
+  assertEq('VC1: 20.01. (nach Stichtag) eingegeben', d20.vacation, 'upcoming');
+  assertEq('VC1: 05.01. anderer Employer ignoriert', d5.vacation, null);
+  assertEq('VC1: 06.01. type=sick ignoriert', d6.vacation, null);
+
+  // VC2: Ohne Arbeitgeber (emp=null) liefert alle Tage ohne Urlaubsstatus, kein Crash.
+  const vc2 = await page.evaluate(() => {
+    const entries = [{ id: 'a', type: 'vacation', employerId: 'e1', date: '2026-06-10' }];
+    return computeVacationCalendarMonth(null, '2026-06', entries, '2026-06-15', 'HE', undefined);
+  });
+  assertTrue('VC2: alle Tage ohne Arbeitgeber vacation=null', vc2.days.every(d => d.vacation === null), JSON.stringify(vc2.days.map(d => d.vacation)));
+  assertEq('VC2: 30 Tage im Juni', vc2.days.length, 30);
+
+  // VC3: Samstag, der zugleich Urlaub (genommen) ist, zeigt Urlaubsstatus statt Wochenende
+  // (Feiertag/Urlaub haben Vorrang vor der reinen Wochenend-Markierung).
+  const vc3 = await page.evaluate(() => {
+    const emp = { id: 'e1' };
+    const entries = [{ id: 'a', type: 'vacation', employerId: 'e1', date: '2026-08-01' }]; // Samstag
+    const res = computeVacationCalendarMonth(emp, '2026-08', entries, '2026-08-15', 'HE', undefined);
+    return res.days.find(d => d.date === '2026-08-01');
+  });
+  assertTrue('VC3: Samstag mit Urlaub → vacation=taken, isWeekend bleibt true, Zelle rendert taken', vc3.isWeekend === true && vc3.vacation === 'taken');
+
+  // VC4: buildVacationCalendarHTML rendert Navigation, Wochentags-Header, Tageszellen mit
+  // korrekten Klassen/Titeln (Feiertag > genommen > eingegeben > Wochenende) sowie Legende.
+  const vc4Html = await page.evaluate(() => {
+    const calendarMonth = computeVacationCalendarMonth(
+      { id: 'e1' }, '2026-01',
+      [
+        { id: 'a', type: 'vacation', employerId: 'e1', date: '2026-01-02' },
+        { id: 'b', type: 'vacation', employerId: 'e1', date: '2026-01-20' },
+      ],
+      '2026-01-15', 'HE', undefined
+    );
+    const escapeHtml = (s) => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    return buildVacationCalendarHTML(calendarMonth, { escapeHtml, monthLabel: 'Januar 2026' });
+  });
+  assertContains('VC4: Monatslabel im Markup', vc4Html, 'Januar 2026');
+  assertContains('VC4: Prev-Button-ID vorhanden', vc4Html, 'id="btn-vacation-calendar-prev"');
+  assertContains('VC4: Next-Button-ID vorhanden', vc4Html, 'id="btn-vacation-calendar-next"');
+  assertContains('VC4: Wochentags-Header Montag', vc4Html, '<div>Mo</div>');
+  assertContains('VC4: Wochentags-Header Sonntag', vc4Html, '<div>So</div>');
+  assertContains('VC4: Feiertag-Titel „Neujahr" gesetzt', vc4Html, 'title="Neujahr"');
+  assertContains('VC4: vac-cal-holiday-Klasse gesetzt (Vorrang vor Urlaub)', vc4Html, 'vac-cal-holiday');
+  assertContains('VC4: vac-cal-taken-Klasse für genommenen Tag', vc4Html, 'vac-cal-taken');
+  assertContains('VC4: vac-cal-upcoming-Klasse für eingegebenen Tag', vc4Html, 'vac-cal-upcoming');
+  assertContains('VC4: vac-cal-weekend-Klasse für unberührtes Wochenende', vc4Html, 'vac-cal-weekend');
+  assertContains('VC4: Legende mit „Genommen"', vc4Html, 'Genommen');
+  assertContains('VC4: Legende mit „Eingegeben"', vc4Html, 'Eingegeben');
+  assertContains('VC4: Legende mit „Feiertag"', vc4Html, 'Feiertag');
+  assertContains('VC4: Legende mit „Wochenende"', vc4Html, 'Wochenende');
+  // Januar 2026 beginnt an einem Donnerstag (dow=3) → 3 führende Blank-Zellen.
+  const blankCount = (vc4Html.match(/vac-cal-blank/g) || []).length;
+  assertEq('VC4: 3 führende Blank-Zellen (Januar 2026 beginnt Donnerstag)', blankCount, 3);
+}
+
 async function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -3826,6 +3910,57 @@ async function runEmployee(page) {
   assertTrue('employee vacation-planning: Jahresanspruch sichtbar', /Jahresanspruch/i.test(vacationPlanning));
   assertTrue('employee vacation-planning: Monatsname Dezember in Tabelle', /Dezember/i.test(vacationPlanning));
   assertTrue('employee vacation-planning: Gesamt-Zeile sichtbar', /Gesamt/i.test(vacationPlanning));
+  assertTrue('employee vacation-planning: kein überflüssiger "Kalender anzeigen"-Button mehr', !/Kalender anzeigen/i.test(vacationPlanning));
+
+  // VC-E2E: Kalender ist fest in die Ansicht integriert (kein Toggle), Default-Monat,
+  // Navigations-Buttons und die Jahresgrenzen-Klammerung (kein Ueberlauf in Nachbarjahr).
+  // Testjahr 2099 liegt garantiert nicht im aktuellen Jahr → Default-Monat = Januar,
+  // unabhaengig vom tatsaechlichen Ausfuehrungsdatum dieses Regressionslaufs.
+  const vacCal = await page.evaluate(async () => {
+    const yearInput = document.getElementById('vacation-planning-year');
+    if (yearInput) {
+      // Native <select> ignoriert .value, wenn keine passende <option> existiert
+      // (Jahr 2099 liegt i.d.R. ausserhalb der vorbefuellten Jahresliste) — Option
+      // vorab ergaenzen, damit die Zuweisung tatsaechlich greift.
+      let opt = yearInput.querySelector('option[value="2099"]');
+      if (!opt) { opt = document.createElement('option'); opt.value = '2099'; yearInput.appendChild(opt); }
+      yearInput.value = '2099';
+    }
+    switchView('vacation-planning');
+    const label = () => document.querySelector('.vac-cal-month-label')?.textContent || null;
+    const clickNext = (n) => { for (let i = 0; i < n; i++) document.getElementById('btn-vacation-calendar-next').click(); };
+    const clickPrev = (n) => { for (let i = 0; i < n; i++) document.getElementById('btn-vacation-calendar-prev').click(); };
+    const initialLabel = label();
+    const hasNav = !!document.getElementById('btn-vacation-calendar-prev') && !!document.getElementById('btn-vacation-calendar-next');
+    const hasWeekdayHeader = !!document.querySelector('.vac-cal-weekdays');
+    const hasLegend = !!document.querySelector('.vac-cal-legend');
+    clickNext(1);
+    const afterOneNext = label();
+    clickPrev(1);
+    const backToJanuary = label();
+    clickNext(11); // Jan → Dez (11 Schritte)
+    const atDecember = label();
+    clickNext(1); // Klammerung: Dez + 1 bleibt Dez (kein Rutsch nach Januar 2100)
+    const afterDecemberOverflow = label();
+    clickPrev(11); // Dez → Jan (11 Schritte zurück)
+    const backAtJanuary = label();
+    clickPrev(1); // Klammerung: Jan - 1 bleibt Jan (kein Rutsch nach Dezember 2098)
+    const afterJanuaryUnderflow = label();
+    return {
+      initialLabel, hasNav, hasWeekdayHeader, hasLegend,
+      afterOneNext, backToJanuary, atDecember, afterDecemberOverflow, backAtJanuary, afterJanuaryUnderflow,
+    };
+  });
+  assertEq('VC-E2E: Default-Monat Januar 2099 (Testjahr ≠ aktuelles Jahr)', vacCal.initialLabel, 'Januar 2099');
+  assertTrue('VC-E2E: Navigations-Buttons vorhanden', vacCal.hasNav);
+  assertTrue('VC-E2E: Wochentags-Header vorhanden', vacCal.hasWeekdayHeader);
+  assertTrue('VC-E2E: Legende vorhanden', vacCal.hasLegend);
+  assertEq('VC-E2E: Weiter-Klick → Februar 2099', vacCal.afterOneNext, 'Februar 2099');
+  assertEq('VC-E2E: Zurück-Klick → wieder Januar 2099', vacCal.backToJanuary, 'Januar 2099');
+  assertEq('VC-E2E: 11× Weiter ab Januar → Dezember 2099', vacCal.atDecember, 'Dezember 2099');
+  assertEq('VC-E2E: Weiter-Klick im Dezember bleibt im gewählten Jahr (Klammerung)', vacCal.afterDecemberOverflow, 'Dezember 2099');
+  assertEq('VC-E2E: 11× Zurück ab Dezember → Januar 2099', vacCal.backAtJanuary, 'Januar 2099');
+  assertEq('VC-E2E: Zurück-Klick im Januar bleibt im gewählten Jahr (Klammerung)', vacCal.afterJanuaryUnderflow, 'Januar 2099');
 
   const emPdf = await checkBlob(page, 'employee', 'pdf');
   if (emPdf) {
@@ -4131,6 +4266,7 @@ function runServiceWorkerCacheBustCheck() {
     await runMigrationChainUnits(page);
     await runVacationRemainingUnits(page);
     await runVacationPlanningUnits(page);
+    await runVacationCalendarUnits(page);
     await runRangeEntryUnits(page);
     await runOvertimeReductionUnits(page);
     await runAbsenceDuplicateGuardUnits(page);

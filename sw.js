@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-85';
+const CACHE_NAME = 'arbeitszeit-v3-9-86';
 const ASSETS = [
   './',
   './index.html',
@@ -21,6 +21,7 @@ const ASSETS = [
   './modules/render/archive.js',
   './modules/render/tracker.js',
   './modules/render/vacation-planning.js',
+  './modules/render/vacation-calendar.js',
   './modules/render/gleitzeitkonto.js',
   './modules/render/audit-log.js',
   './modules/render/soll-warning-banner.js',

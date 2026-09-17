@@ -39,7 +39,8 @@ export function exportBridge(target, refs) {
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
-    computeYearlyVacationPlanning, MONTH_LABELS_LONG, buildVacationPlanningHTML,
+    computeYearlyVacationPlanning, computeVacationCalendarMonth, MONTH_LABELS_LONG,
+    buildVacationPlanningHTML, buildVacationCalendarHTML,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
@@ -128,8 +129,10 @@ export function exportBridge(target, refs) {
   if (typeof computeMonthOverview === 'function') target.computeMonthOverview = computeMonthOverview;
   if (typeof computeVacationRemaining === 'function') target.computeVacationRemaining = computeVacationRemaining;
   if (typeof computeYearlyVacationPlanning === 'function') target.computeYearlyVacationPlanning = computeYearlyVacationPlanning;
+  if (typeof computeVacationCalendarMonth === 'function') target.computeVacationCalendarMonth = computeVacationCalendarMonth;
   if (typeof MONTH_LABELS_LONG !== 'undefined') target.MONTH_LABELS_LONG = MONTH_LABELS_LONG;
   if (typeof buildVacationPlanningHTML === 'function') target.buildVacationPlanningHTML = buildVacationPlanningHTML;
+  if (typeof buildVacationCalendarHTML === 'function') target.buildVacationCalendarHTML = buildVacationCalendarHTML;
   if (typeof generatePdfBlob === 'function') target.generatePdfBlob = generatePdfBlob;
   if (typeof generateOverviewPdfBlob === 'function') target.generateOverviewPdfBlob = generateOverviewPdfBlob;
   if (typeof generateWordBlob === 'function') target.generateWordBlob = generateWordBlob;

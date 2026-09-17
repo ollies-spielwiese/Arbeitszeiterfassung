@@ -101,6 +101,7 @@ import {
   computeMonthOverview as _computeMonthOverviewRaw,
   computeVacationRemaining,
   computeYearlyVacationPlanning,
+  computeVacationCalendarMonth,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
   computeGleitzeitkontoAsOfToday as _computeGleitzeitkontoAsOfTodayRaw,
   computeGleitzeitkontoRollingWindow as _computeGleitzeitkontoRollingWindowRaw,
@@ -110,6 +111,7 @@ import {
   filterVisibleEmployers,
 } from './modules/compute.js';
 import { buildVacationPlanningHTML as _buildVacationPlanningHTMLRaw } from './modules/render/vacation-planning.js';
+import { buildVacationCalendarHTML as _buildVacationCalendarHTMLRaw } from './modules/render/vacation-calendar.js';
 import { buildAuditLogHTML as _buildAuditLogHTMLRaw } from './modules/render/audit-log.js';
 import { buildGleitzeitkontoHTML as _buildGleitzeitkontoHTMLRaw } from './modules/render/gleitzeitkonto.js';
 import {
@@ -361,6 +363,10 @@ if (typeof window !== 'undefined') window.state = state;
 // report-employer) sowie die Entries-/Uebersicht-/Gleitzeitkonto-Listen. Erstell-Dropdowns
 // (entry-employer, range-employer, ho-employer) ignorieren dieses Flag bewusst (siehe RELEASE.md).
 let showFormerEmployers = false;
+// Seit v3.9.86: aktuell angezeigter Monat (YYYY-MM) im Kalendergitter der Urlaubsplanung.
+// Nicht persistiert; wird bei Jahreswechsel auf den aktuellen Monat (falls im gewaehlten
+// Jahr) bzw. sonst auf Januar zurueckgesetzt (siehe renderVacationPlanning()).
+let vacationCalendarYm = null;
 // Seit v3.9.49: unmittelbar nach dem Laden festhalten, ob der Speicher defekt war —
 // wireEvents() zeigt in diesem Fall einen sichtbaren Warn-Banner (siehe modules/bootstrap.js).
 const stateWasCorrupted = wasLastLoadCorrupted();
@@ -1606,11 +1612,69 @@ function renderVacationPlanning() {
   const vp = computeYearlyVacationPlanning(emp, year, state.entries, todayISO());
   const vr = computeVacationRemaining(emp, `${year}-12`, state.entries);
 
+  // Angezeigten Kalendermonat bestimmen: falls noch keiner gesetzt ist oder das gewaehlte
+  // Jahr nicht mehr zum zuletzt angezeigten Monat passt (z.B. nach Jahreswechsel per
+  // Dropdown), auf den aktuellen Monat zurueckfallen (falls dieser im gewaehlten Jahr
+  // liegt) bzw. sonst auf Januar.
+  const todayYm = todayISO().slice(0, 7);
+  const todayYear = todayISO().slice(0, 4);
+  if (!vacationCalendarYm || vacationCalendarYm.slice(0, 4) !== String(year)) {
+    vacationCalendarYm = String(year) === todayYear ? todayYm : `${year}-01`;
+  }
+
+  const stateCode = state.settings?.state || 'HE';
+  const holidayOverrides = state.settings?.holidayOverrides;
+  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, state.entries, todayISO(), stateCode, holidayOverrides);
+  const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
+  const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
+  const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
+
   container.innerHTML = _buildVacationPlanningHTMLRaw(vp, vr, emp, {
     escapeHtml,
     renderSummaryHTML,
     monthLabels: MONTH_LABELS_LONG,
+    calendarHTML,
   });
+
+  wireVacationCalendarNav();
+}
+
+// Verschiebt vacationCalendarYm um +/-1 Monat, begrenzt auf Januar..Dezember des im
+// Jahr-Dropdown gewaehlten Jahres (Kachel-Werte und Monatstabelle beziehen sich auf genau
+// dieses Jahr, ein Ueberlauf in ein Nachbarjahr wuerde beides auseinanderlaufen lassen).
+function stepVacationCalendarMonth(delta) {
+  const yearInput = document.getElementById('vacation-planning-year');
+  const selectedYear = yearInput ? yearInput.value : vacationCalendarYm.slice(0, 4);
+  const candidate = shiftYearMonth(vacationCalendarYm, delta);
+  if (candidate.slice(0, 4) !== String(selectedYear)) return;
+  vacationCalendarYm = candidate;
+  renderVacationCalendarOnly();
+}
+
+function wireVacationCalendarNav() {
+  const prevBtn = document.getElementById('btn-vacation-calendar-prev');
+  const nextBtn = document.getElementById('btn-vacation-calendar-next');
+  if (prevBtn) prevBtn.addEventListener('click', () => stepVacationCalendarMonth(-1));
+  if (nextBtn) nextBtn.addEventListener('click', () => stepVacationCalendarMonth(1));
+}
+
+// Rendert nur das Kalendergitter neu (Monatsnavigation), ohne die Kennzahlen-Kacheln und
+// die Monatstabelle der Jahresuebersicht neu aufzubauen — vermeidet unnoetigen Re-Render
+// bei jedem ‹/›-Klick.
+function renderVacationCalendarOnly() {
+  const emp = getEmployer(state.activeEmployerId);
+  const calendarContainer = document.querySelector('#vacation-planning-content .vacation-calendar');
+  if (!emp || !calendarContainer) { renderVacationPlanning(); return; }
+
+  const stateCode = state.settings?.state || 'HE';
+  const holidayOverrides = state.settings?.holidayOverrides;
+  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, state.entries, todayISO(), stateCode, holidayOverrides);
+  const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
+  const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
+  const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
+  calendarContainer.outerHTML = calendarHTML;
+
+  wireVacationCalendarNav();
 }
 
 function renderGleitzeitkonto() {
@@ -2367,9 +2431,10 @@ if (typeof window !== 'undefined') {
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
-    computeYearlyVacationPlanning, MONTH_LABELS_LONG,
+    computeYearlyVacationPlanning, computeVacationCalendarMonth, MONTH_LABELS_LONG,
     computeGleitzeitkontoRows: _computeGleitzeitkontoRowsRaw,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
+    buildVacationCalendarHTML: _buildVacationCalendarHTMLRaw,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO,
     buildEmployerCardsHTML: _buildEmployerCardsHTMLRaw,
