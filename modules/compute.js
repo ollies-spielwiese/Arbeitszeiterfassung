@@ -554,7 +554,7 @@ export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
  * @param {Array<any>} allEntries Alle Eintraege (state.entries)
  * @param {string} today Stichtag im ISO-Format YYYY-MM-DD
  * @param {string} stateCode Bundesland-Code, z.B. 'HE'
- * @param {import('../types.js').AZHolidayOverrides} [holidayOverrides]
+ * @param {import('./holidays.js').AZHolidayOverrides} [holidayOverrides]
  * @returns {{ym:string, days:Array<{date:string, day:number, dow:number, isWeekend:boolean, vacation:('taken'|'upcoming'|null), holidayName:(string|null)}>}}
  */
 export function computeVacationCalendarMonth(emp, ym, allEntries, today, stateCode, holidayOverrides) {
