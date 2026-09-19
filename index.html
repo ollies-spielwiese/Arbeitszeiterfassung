@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.88</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.89</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -357,7 +357,7 @@
               <li><strong>■ Arbeitsende:</strong> beendet die laufende Erfassung und speichert den Eintrag.</li>
               <li><strong>+ Zeit nachträglich erfassen:</strong> öffnet ein Formular, um vergangene Arbeitszeiten mit Datum, Uhrzeit und Pause einzutragen. Hat der Arbeitgeber feste Wochenarbeitszeiten hinterlegt (siehe Reiter Arbeitgeber), schlägt die App die passende Uhrzeit für den gewählten Tag vor — per Tipp übernehmen.</li>
               <li><strong>+ Home-Office-Tag:</strong> öffnet den Home-Office-Editor für einen ganzen Tag mit mehreren Arbeitsblöcken (siehe eigener Abschnitt).</li>
-              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein. Im Auswahlfeld „Art“ stehen zur Verfügung:
+              <li><strong>+ Urlaub / Krankheit:</strong> trägt einen einzelnen Tag als Abwesenheit ein, wahlweise mit einer Bemerkung (optional). Im Auswahlfeld „Art“ stehen zur Verfügung:
                 <ul>
                   <li><strong>Urlaub / Krankheit:</strong> werden voll gutgeschrieben (Soll = Ist an diesem Tag); der Urlaubsanspruch sinkt nur bei „Urlaub“.</li>
                   <li><strong>Gleitzeit-Überstundenabbau:</strong> ein ganzer freier Tag zum Abbau von zuvor angesammelten Überstunden. Anders als Urlaub/Krankheit wird dieser Tag <strong>nicht</strong> gutgeschrieben — er senkt den Gleitzeitsaldo tatsächlich um das Tages-Soll dieses Wochentags. Der Urlaubsanspruch bleibt unverändert.</li>
@@ -377,7 +377,7 @@
             <p><strong>Zwei Wege, Home-Office zu erfassen:</strong></p>
             <ol>
               <li><strong>Live per Timer:</strong> Umschalter auf <em>Home-Office</em> stellen, dann <em>Arbeitsbeginn</em>/<em>Arbeitsende</em> wie gewohnt. Jeder Timer-Lauf am selben Tag wird automatisch als neuer Block an denselben Home-Office-Eintrag angehängt.</li>
-              <li><strong>Nachträglich über „+ Home-Office-Tag“:</strong> Öffnet den Editor mit Datum, Arbeitgeber, einer Liste von Arbeitsblöcken (Beginn/Ende) und einer Bemerkung. Beliebig viele Blöcke hinzufügen. Oben rechts siehst du die Netto-Summe live.</li>
+              <li><strong>Nachträglich über „+ Home-Office-Tag“:</strong> Öffnet den Editor mit Datum, Arbeitgeber, einer Liste von Arbeitsblöcken (Beginn/Ende) und einer Bemerkung, die beim Tippen automatisch in der Höhe mitwächst. Beliebig viele Blöcke hinzufügen. Oben rechts siehst du die Netto-Summe live.</li>
             </ol>
             <p><strong>Ein Tag = ein Eintrag:</strong> Pro Kombination aus Datum und Arbeitgeber gibt es höchstens einen Home-Office-Eintrag. Ergänzt du später am selben Tag weitere Blöcke — egal ob per Timer oder über „+ Home-Office-Tag“ — führt die App sie automatisch mit dem bestehenden Eintrag zusammen. Du bekommst also nie mehrere kleine Einträge pro Tag.</p>
             <p><strong>Wichtig für den Bericht:</strong></p>
@@ -398,6 +398,7 @@
               <li>Über die zwei Filter oben wählst du <strong>Arbeitgeber</strong> und <strong>Monat</strong>.</li>
               <li>Jeder Eintrag wird als Karte angezeigt: Datum, Uhrzeit, Pause, Dauer und ggf. Notiz.</li>
               <li>Abwesenheitstage (Urlaub, Krankheit, Gleitzeit-Überstundenabbau) zeigen statt Uhrzeit/Dauer eine farbige Beschriftung als Badge.</li>
+              <li><strong>Bemerkung (optional):</strong> lässt sich beim Bearbeiten bei <strong>jeder</strong> Eintragsart erfassen oder ändern — auch bei Urlaub, Krankheit, Gleitzeit-Überstundenabbau und Freiem Tag, nicht nur bei Arbeit/Home-Office. Das Feld wächst beim Tippen automatisch in der Höhe mit, sodass auch längere Texte vollständig sichtbar bleiben.</li>
               <li>Die angezeigte Dauer ist bei Präsenz-Einträgen <strong>blau</strong>, solange sie im Rahmen liegt. Überschreitet die Arbeitszeit an diesem Tag den rechnerischen Tagesdurchschnitt des Monats-Solls (Monats-Sollstunden ÷ Werktage im Monat), wird sie <strong>orange</strong> hervorgehoben. Home-Office-Zeiten werden unabhängig von ihrer Dauer immer blau dargestellt.</li>
               <li>Ein Tipp auf einen Eintrag öffnet ihn zum Bearbeiten oder Löschen.</li>
             </ul>
@@ -850,14 +851,14 @@
               </select>
             </div>
           </div>
-          <div class="form-row">
-            <label for="entry-note">Bemerkung (optional)</label>
-            <div class="input-with-templates">
-              <input type="text" id="entry-note" />
-              <select id="entry-note-tpl" class="template-select" data-target="entry-note">
-                <option value="">Vorlage einfügen …</option>
-              </select>
-            </div>
+        </div>
+        <div class="form-row">
+          <label for="entry-note">Bemerkung (optional)</label>
+          <div class="input-with-templates">
+            <textarea id="entry-note" rows="1" class="note-autogrow"></textarea>
+            <select id="entry-note-tpl" class="template-select" data-target="entry-note">
+              <option value="">Vorlage einfügen …</option>
+            </select>
           </div>
         </div>
         <div class="modal-actions">
@@ -909,7 +910,7 @@
         </div>
         <div class="form-row">
           <label for="range-note">Bemerkung (optional)</label>
-          <input type="text" id="range-note" />
+          <textarea id="range-note" rows="1" class="note-autogrow"></textarea>
         </div>
         <small class="hint">Für jeden Tag im Zeitraum wird ein eigener Eintrag angelegt. Tage mit bereits vorhandenem Eintrag werden übersprungen.</small>
         <div class="modal-actions">
@@ -948,7 +949,7 @@
         <div class="form-row">
           <label for="ho-note">Bemerkung (optional)</label>
           <div class="input-with-templates">
-            <input type="text" id="ho-note" />
+            <textarea id="ho-note" rows="1" class="note-autogrow"></textarea>
             <select id="ho-note-tpl" class="template-select" data-target="ho-note">
               <option value="">Vorlage einfügen …</option>
             </select>

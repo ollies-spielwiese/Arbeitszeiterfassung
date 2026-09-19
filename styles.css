@@ -158,6 +158,16 @@ select {
 
 textarea { resize: vertical; min-height: 3rem; }
 
+/* Automatisch mitwachsende Bemerkungsfelder (Zeit erfassen/bearbeiten, Zeitraum
+   erfassen, Home-Office) — Hoehe wird per JS (modules/ui/autogrow.js) an den
+   Inhalt angepasst, daher kein manueller Ziehpunkt und kein interner Scroll. */
+textarea.note-autogrow {
+  resize: none;
+  overflow: hidden;
+  min-height: 3rem;
+  line-height: 1.4;
+}
+
 .live-status {
   background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
   color: white;

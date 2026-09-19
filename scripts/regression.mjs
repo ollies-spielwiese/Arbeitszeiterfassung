@@ -3883,6 +3883,107 @@ async function runOverviewShareModalUnits(page) {
   }, originalUA);
 }
 
+// ---------- 1e-6) Bemerkungsfeld: alle Eintragsarten + Auto-Grow (v3.9.89) ----------
+
+async function runEntryNoteFieldUnits(page) {
+  console.log('\n=== 1e-6) Bemerkungsfeld: alle Eintragsarten + Auto-Grow (v3.9.89) ===');
+
+  // ENF1: Fuer alle 6 Eintragsarten bleibt die Bemerkung-Zeile sichtbar, waehrend
+  // Beginn/Ende/Pause/Ueberstundengrund (#work-fields) weiterhin nur bei
+  // Arbeit/Home-Office sichtbar sind (Regressionsschutz fuer die Verschiebung
+  // des entry-note-Feldes aus #work-fields heraus).
+  const enf1 = await page.evaluate(async () => {
+    const { updateEntryTypeFields } = await import('/modules/ui/entry-modal.js');
+    document.getElementById('modal-entry').classList.remove('hidden');
+    const types = ['work', 'homeoffice', 'vacation', 'sick', 'overtime_reduction', 'off_day'];
+    const results = types.map((type) => {
+      document.getElementById('entry-type').value = type;
+      updateEntryTypeFields();
+      const noteRow = document.getElementById('entry-note').closest('.form-row');
+      const workFields = document.getElementById('work-fields');
+      return {
+        type,
+        noteRowVisible: getComputedStyle(noteRow).display !== 'none',
+        workFieldsVisible: getComputedStyle(workFields).display !== 'none',
+      };
+    });
+    document.getElementById('modal-entry').classList.add('hidden');
+    return results;
+  });
+  enf1.forEach((r) => {
+    assertTrue(`ENF1: Bemerkung-Zeile sichtbar bei Typ "${r.type}"`, r.noteRowVisible, JSON.stringify(r));
+  });
+  assertTrue('ENF1: work-fields nur bei work/homeoffice sichtbar',
+    enf1.find(r => r.type === 'work').workFieldsVisible === true &&
+    enf1.find(r => r.type === 'homeoffice').workFieldsVisible === true &&
+    enf1.find(r => r.type === 'vacation').workFieldsVisible === false &&
+    enf1.find(r => r.type === 'sick').workFieldsVisible === false &&
+    enf1.find(r => r.type === 'overtime_reduction').workFieldsVisible === false &&
+    enf1.find(r => r.type === 'off_day').workFieldsVisible === false,
+    JSON.stringify(enf1));
+
+  // ENF2: entry-note, range-note und ho-note sind Textareas mit der Klasse
+  // note-autogrow (v3.9.89 \u2014 vorher einzeilige <input type="text">).
+  const enf2 = await page.evaluate(() => ({
+    entryNote: { tag: document.getElementById('entry-note').tagName, cls: document.getElementById('entry-note').classList.contains('note-autogrow') },
+    rangeNote: { tag: document.getElementById('range-note').tagName, cls: document.getElementById('range-note').classList.contains('note-autogrow') },
+    hoNote: { tag: document.getElementById('ho-note').tagName, cls: document.getElementById('ho-note').classList.contains('note-autogrow') },
+  }));
+  assertEq('ENF2: entry-note ist eine Textarea', enf2.entryNote.tag, 'TEXTAREA');
+  assertTrue('ENF2: entry-note traegt note-autogrow', enf2.entryNote.cls, JSON.stringify(enf2.entryNote));
+  assertEq('ENF2: range-note ist eine Textarea', enf2.rangeNote.tag, 'TEXTAREA');
+  assertTrue('ENF2: range-note traegt note-autogrow', enf2.rangeNote.cls, JSON.stringify(enf2.rangeNote));
+  assertEq('ENF2: ho-note ist eine Textarea', enf2.hoNote.tag, 'TEXTAREA');
+  assertTrue('ENF2: ho-note traegt note-autogrow', enf2.hoNote.cls, JSON.stringify(enf2.hoNote));
+
+  // ENF3: autoGrowTextarea() vergroessert die Feldhoehe sichtbar, wenn der Inhalt
+  // mehr als eine Zeile Text umfasst (die Kernfunktion des Auto-Grow-Features).
+  const enf3 = await page.evaluate(async () => {
+    const { autoGrowTextarea } = await import('/modules/ui/autogrow.js');
+    document.getElementById('modal-entry').classList.remove('hidden');
+    const el = document.getElementById('entry-note');
+    el.value = '';
+    autoGrowTextarea(el);
+    const shortHeight = el.getBoundingClientRect().height;
+    el.value = 'Zeile eins mit etwas laengerem Text.\nZeile zwei mit noch mehr Text.\nZeile drei fuer garantiertes Wachstum.';
+    autoGrowTextarea(el);
+    const longHeight = el.getBoundingClientRect().height;
+    document.getElementById('modal-entry').classList.add('hidden');
+    return { shortHeight, longHeight };
+  });
+  assertTrue('ENF3: Feld waechst bei mehrzeiligem Inhalt sichtbar in der Hoehe',
+    enf3.longHeight > enf3.shortHeight + 10, JSON.stringify(enf3));
+
+  // ENF4: Bemerkung wird fuer eine Abwesenheitsart (Urlaub) beim Speichern korrekt
+  // uebernommen \u2014 bestaetigt, dass die HTML-Verschiebung des Feldes die
+  // saveEntry()-Persistenz nicht beeinflusst hat.
+  const enf4 = await page.evaluate(async () => {
+    const { saveEntry } = await import('/modules/ui/entry-modal.js');
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    const empId = '__enf4-guard-emp__';
+    state.employers.push({ id: empId, name: 'ENF4-Test', hoursMode: 'week', weeklyHours: 40, breakMode: 'none' });
+    const ctx = {
+      getState: () => state, saveState, closeModals: () => {}, renderTracker: () => {}, renderEntries: () => {},
+      toast: () => {}, uid,
+    };
+    document.getElementById('entry-id').value = '';
+    document.getElementById('entry-employer').innerHTML = `<option value="${empId}">Test</option>`;
+    document.getElementById('entry-employer').value = empId;
+    document.getElementById('entry-date').value = '2027-02-10';
+    document.getElementById('entry-type').value = 'vacation';
+    document.getElementById('entry-note').value = 'Sommerurlaub, Vertretung: Frau Klein';
+    saveEntry({ preventDefault: () => {} }, ctx);
+    const created = state.entries.find(e => e.employerId === empId);
+    const result = { note: created?.note, type: created?.type };
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    saveState();
+    return result;
+  });
+  assertEq('ENF4: Bemerkung wird bei Urlaub korrekt gespeichert', enf4.note, 'Sommerurlaub, Vertretung: Frau Klein');
+  assertEq('ENF4: Typ bleibt vacation', enf4.type, 'vacation');
+}
+
 // ---------- 2) Freelance E2E ----------
 
 async function runFreelance(page) {
@@ -4425,6 +4526,7 @@ function runServiceWorkerCacheBustCheck() {
     await runBackupFolderUnits(page);
     await runShareModalIosReopenUnits(page);
     await runOverviewShareModalUnits(page);
+    await runEntryNoteFieldUnits(page);
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

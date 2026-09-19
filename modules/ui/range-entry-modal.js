@@ -20,6 +20,7 @@
 import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from '../range-entry.js';
 import { computeVacationRemaining, filterVisibleEmployers } from '../compute.js';
 import { pushAuditLog } from '../audit-log.js';
+import { autoGrowTextarea } from './autogrow.js';
 
 export function openRangeEntryModal(ctx) {
   const { getState, escapeHtml, todayISO } = ctx;
@@ -44,6 +45,7 @@ export function openRangeEntryModal(ctx) {
   document.getElementById('range-note').value = '';
 
   modal.classList.remove('hidden');
+  autoGrowTextarea(document.getElementById('range-note'));
   updateRangeVacationStats(ctx);
 }
 

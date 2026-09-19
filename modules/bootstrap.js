@@ -1,3 +1,5 @@
+import { autoGrowTextarea, wireAutoGrowTextareas } from './ui/autogrow.js';
+
 /**
  * modules/bootstrap.js
  *
@@ -172,8 +174,14 @@ export function wireEvents(ctx) {
         targetEl.value = current ? `${current}\n${val}` : val;
         e.target.value = '';
         targetEl.focus();
+        if (targetEl.classList.contains('note-autogrow')) autoGrowTextarea(targetEl);
       });
     });
+
+    // Automatisch mitwachsende Bemerkungsfelder (v3.9.89) — Zeit erfassen/bearbeiten,
+    // Zeitraum erfassen, Home-Office. Hoehe passt sich live beim Tippen an, kein
+    // manueller Ziehpunkt noetig (siehe modules/ui/autogrow.js).
+    wireAutoGrowTextareas(['entry-note', 'range-note', 'ho-note']);
 
     // Employer modal
     document.getElementById('btn-add-employer').addEventListener('click', () => openEmployerModal(null));

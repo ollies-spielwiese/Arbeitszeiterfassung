@@ -27,6 +27,7 @@
 
 import { pushAuditLog } from '../audit-log.js';
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
+import { autoGrowTextarea } from './autogrow.js';
 
 export function openHomeofficeModal(entry, opts, ctx) {
   opts = opts || {};
@@ -90,6 +91,9 @@ export function openHomeofficeModal(entry, opts, ctx) {
   renderHomeofficeSegments(ctx);
   populateTemplatePicker('ho-note-tpl');
   modal.classList.remove('hidden');
+  // Erst NACH dem Sichtbarmachen des Modals messen — scrollHeight ist bei
+  // display:none 0, die Hoehe wuerde sonst faelschlich auf einzeilig kollabieren.
+  autoGrowTextarea(noteInput);
 }
 
 export function updateHomeofficeContext(ctx) {

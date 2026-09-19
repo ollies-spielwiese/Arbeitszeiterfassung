@@ -25,6 +25,7 @@
 // }
 
 import { pushAuditLog } from '../audit-log.js';
+import { autoGrowTextarea } from './autogrow.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
@@ -60,6 +61,9 @@ export function openEntryModal(entry, opts, ctx) {
   updateScheduleFillVisibility(ctx);
 
   modal.classList.remove('hidden');
+  // Erst NACH dem Sichtbarmachen des Modals messen — scrollHeight ist bei
+  // display:none 0, die Hoehe wuerde sonst faelschlich auf einzeilig kollabieren.
+  autoGrowTextarea(form.querySelector('#entry-note'));
 }
 
 export function updateScheduleFillVisibility(ctx) {
