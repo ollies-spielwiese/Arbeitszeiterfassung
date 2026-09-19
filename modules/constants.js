@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.89';
+export const APP_VERSION = '3.9.90';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.90', items: [
+    'Fix: „Jetzt aktualisieren" im Update-Hinweis lädt die neue Version jetzt auch auf iPhone/iPad zuverlässig — bisher blieb der Tap dort teilweise wirkungslos, weil sich die App allein auf ein Browser-Ereignis verlassen hat, das auf iOS/iPadOS nach dem Aktivieren der neuen Version nicht zuverlässig ausgelöst wird',
+  ]},
   { version: '3.9.89', items: [
     'Neu: Bemerkung (optional) lässt sich jetzt bei „Zeit erfassen/bearbeiten“ für alle Eintragsarten eingeben (bisher nur bei Arbeit/Home-Office sichtbar, nicht bei Urlaub, Krankheit, Gleitzeit-Überstundenabbau, Freier Tag) — gespeichert wurde die Bemerkung intern bereits vorher, sie war nur nicht bearbeitbar',
     'Neu: Die Bemerkungsfelder bei „Zeit erfassen/bearbeiten“, „Urlaubszeitraum erfassen“ und „Home-Office-Tag“ wachsen beim Tippen automatisch in der Höhe mit, statt wie bisher als einzeiliges Feld nur horizontal zu scrollen',

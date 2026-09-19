@@ -21,9 +21,19 @@
 //    visibilitychange nie, und ohne diesen expliziten Check wird ein neuer
 //    Server-Stand nie erkannt ("keine neuen Daten abgerufen"). Der Aufruf
 //    selbst loest weiterhin keinen Reload aus — nur Punkt 3 tut das.
+// 6. Fix v3.9.90: "Jetzt aktualisieren" verliess sich bisher ausschliesslich auf
+//    das 'controllerchange'-Event, um den Reload auszuloesen. Auf iOS/iPadOS
+//    (Home-Bildschirm-Apps, WebKit) feuert dieses Event nach skipWaiting() nicht
+//    zuverlaessig — der Tap auf den Button hatte dort sichtbar keine Wirkung,
+//    obwohl der neue Service Worker im Hintergrund korrekt aktiviert wurde.
+//    Zusaetzlich zum controllerchange-Listener wird der Aktivierungsstatus des
+//    Waiting-Workers jetzt aktiv abgefragt (Polling) und der Reload notfalls
+//    selbst ausgeloest — inkl. harter 5s-Obergrenze, da der Nutzer aktiv auf
+//    "Jetzt aktualisieren" gedrueckt hat.
 
 let __swWaitingRegistration = null;
 let __swUserRequestedActivation = false;
+let __swReloading = false;
 
 function showUpdateBanner() {
   const el = document.getElementById('update-banner');
@@ -35,17 +45,37 @@ function hideUpdateBanner() {
   if (el) el.classList.add('hidden');
 }
 
+function forceReloadOnce() {
+  if (__swReloading) return;
+  __swReloading = true;
+  hideUpdateBanner();
+  window.location.reload();
+}
+
 function activateWaitingServiceWorker() {
   __swUserRequestedActivation = true;
   const reg = __swWaitingRegistration;
   if (!reg || !reg.waiting) {
     // Kein waiting mehr — kann passieren, wenn iOS den SW zwischenzeitlich selbst aktiviert hat.
     // In diesem Fall: einfach neu laden, damit die neueste Version aus dem SW-Cache greift.
-    hideUpdateBanner();
-    window.location.reload();
+    forceReloadOnce();
     return;
   }
-  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+  const waitingWorker = reg.waiting;
+  waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+
+  // Fallback fuer WebKit/iOS (siehe Punkt 6 oben): aktiv pruefen, ob der
+  // Waiting-Worker aktiviert wurde, statt uns allein auf 'controllerchange'
+  // zu verlassen. Sobald reg.waiting nicht mehr derselbe Worker ist, wurde er
+  // aktiviert — dann selbst neu laden. Nach 5s wird ohnehin neu geladen.
+  const pollStart = Date.now();
+  const pollId = setInterval(() => {
+    if (__swReloading) { clearInterval(pollId); return; }
+    if (reg.waiting !== waitingWorker || Date.now() - pollStart > 5000) {
+      clearInterval(pollId);
+      forceReloadOnce();
+    }
+  }, 250);
 }
 
 function registerServiceWorkerWithUpdatePrompt() {
@@ -98,12 +128,9 @@ function registerServiceWorkerWithUpdatePrompt() {
 
   // Reload NUR wenn der User explizit "Jetzt aktualisieren" gedrueckt hat.
   // Ohne diese Bedingung entstehen unerwartete Reloads beim App-Wechsel auf iOS.
-  let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
     if (!__swUserRequestedActivation) return;
-    reloading = true;
-    window.location.reload();
+    forceReloadOnce();
   });
 }
 
