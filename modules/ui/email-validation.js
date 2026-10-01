@@ -48,10 +48,65 @@ export function validateEmailField(element, multiple = false) {
   return setEmailError(input, multiple ? emailListError(input.value) : emailFormatError(input.value));
 }
 
+// Blur-Hinweise können das Klickziel verschieben (insbesondere in WebKit).
+// Nur während einer primären Zeigeraktion bis Click-Capture zurückstellen:
+// Dann steht das Ziel fest, vor der nativen Formular-/Submit-Prüfung.
+/** @type {number|null} */
+let pointerId = null;
+let pointerGeneration = 0;
+let pointerListenersInstalled = false;
+/** @type {Map<HTMLElement, boolean>} */
+const pendingBlur = new Map();
+
+function flushPendingBlur() {
+  const fields = [...pendingBlur];
+  pendingBlur.clear();
+  fields.forEach(([element, multiple]) => {
+    if (element.isConnected && element.getClientRects().length) validateEmailField(element, multiple);
+  });
+}
+
+function installPointerCoordination() {
+  if (pointerListenersInstalled) return;
+  pointerListenersInstalled = true;
+  document.addEventListener('pointerdown', event => {
+    if (event.isPrimary && event.button === 0) {
+      pointerId = event.pointerId;
+      pointerGeneration++;
+    }
+  }, true);
+  document.addEventListener('click', () => {
+    pointerId = null;
+    flushPendingBlur();
+  }, true);
+  /** @param {PointerEvent} event */
+  const finish = event => {
+    if (event.pointerId !== pointerId) return;
+    // Auch bei Abbruch/Loslassen ohne click keinen Feldhinweis verlieren.
+    // Touch kann nach pointerup noch mousedown/blur/click auslösen. Deshalb
+    // die laufende Aktivierung erst im click-Handler oder danach beenden.
+    const releasedId = pointerId;
+    const releasedGeneration = pointerGeneration;
+    setTimeout(() => {
+      if (pointerId === releasedId && pointerGeneration === releasedGeneration) {
+        pointerId = null;
+        flushPendingBlur();
+      }
+    }, 0);
+  };
+  document.addEventListener('pointerup', finish, true);
+  document.addEventListener('pointercancel', finish, true);
+  window.addEventListener('blur', () => {
+    pointerId = null;
+    flushPendingBlur();
+  });
+}
+
 /** Erst bei Blur prüfen; nach einem Fehler während der Korrektur aktualisieren.
  * @param {HTMLElement} element @param {boolean} [multiple] */
 export function wireEmailField(element, multiple = false) {
   if (!element) return;
+  installPointerCoordination();
   // Native E-Mail-Validierung kann submit schon vor saveEmployer verhindern.
   // Nur ihre Sprechblase ersetzen; alle übrigen Formularregeln unverändert lassen.
   element.addEventListener('invalid', event => {
@@ -64,7 +119,10 @@ export function wireEmailField(element, multiple = false) {
       : null;
     (/** @type {HTMLElement} */ (firstInvalid) || element).focus();
   });
-  element.addEventListener('blur', () => validateEmailField(element, multiple));
+  element.addEventListener('blur', () => {
+    if (pointerId !== null) pendingBlur.set(element, multiple);
+    else validateEmailField(element, multiple);
+  });
   element.addEventListener('input', () => {
     if (element.getAttribute('aria-invalid') === 'true') validateEmailField(element, multiple);
   });

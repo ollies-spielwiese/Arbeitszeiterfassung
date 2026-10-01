@@ -138,8 +138,7 @@ export async function runEmailValidationTests(page, { assertTrue, assertEq, asse
       const before = await page.evaluate(() => ({ generated: __emailProbe.generated, downloads: __emailProbe.downloads, system: __emailProbe.system }));
       await page.evaluate(mode => __emailProbe.open(mode), mode);
       await page.fill('#share-manual-emails', 'gut@example.de; chef@');
-      // Blur-Hinweis zuerst rendern lassen, dann den nun tiefer liegenden Button klicken.
-      await page.locator('#share-manual-emails').blur();
+      // Ohne vorbereitendes Blur: Schon der erste echte Klick muss ankommen.
       await page.click('#share-send-btn');
       assertContains(`EMAIL ${mode}: ungültige manuelle Adresse benannt`,
         await page.locator('#share-manual-emails-error').textContent(), 'chef@');

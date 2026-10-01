@@ -49,6 +49,34 @@ Das neue Modul steht im Service-Worker-Precache.
 
 ## Regression
 
+### Erster Klick und Touch ab v3.9.92
+
+Eine beim Blur eingeblendete Fehlermeldung konnte den Button zwischen
+pointerdown und pointerup verschieben. WebKit traf dann beim Loslassen nicht
+mehr den Button; der nachgelagerte Fokus-Code wurde gar nicht ausgeführt.
+
+Das gemeinsame Feldmodul stellt ausschließlich Blur-Hinweise während einer
+primären Zeigeraktion zurück. Im Click-Capture wird der Hinweis angezeigt,
+nachdem das Klickziel feststeht und bevor die vorhandene Formularprüfung
+weiterläuft. Tastatur-Blur bleibt unmittelbar, native Regeln und Fokuslogik
+bleiben unverändert. Es gibt weder reservierte Leerflächen noch Fokus-Timer.
+
+Pointerup/Pointercancel ohne Click holen ausstehende Hinweise im nächsten
+Task nach; Window-Blur erledigt das sofort. Die aktive Geste bleibt bis
+Click bzw. Cleanup erhalten, damit Touch-Kompatibilitätsereignisse nach
+pointerup ebenfalls geschützt sind. Eine Generationsnummer verhindert, dass
+ein älterer Cleanup eine neuere Geste beendet. Nicht mehr sichtbare oder
+entfernte Felder werden beim Nachholen ausgelassen.
+
+`scripts/email-pointer-tests.mjs` prüft die reale App ohne Vorschau-Code oder
+Modulersetzung: Arbeitgeber, Kunden und beide Teilen-Dialoge bei Desktopbreite,
+schmalem Viewport und Touch-Emulation; außerdem längeres Gedrückthalten,
+Tab, Enter, Pointercancel, Pointerup ohne Click und Window-Blur.
+Der Runner führt diese Tests in Chromium und WebKit aus. Reale iPhone-/iPad-
+Tests ergänzen die Engine-/Touch-Emulation, werden durch sie aber nicht ersetzt.
+
+### Bestehende Format- und Ablaufprüfungen
+
 `scripts/email-validation-tests.mjs` ist in `npm run qa` eingebunden und läuft
 damit auch über die vorhandene WebKit-CI. Die Tests behandeln Formatregeln,
 optionale Felder, Persistenzschutz, Feldfokus, Arbeitgeber/Kunden, beide
