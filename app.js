@@ -235,6 +235,7 @@ import {
   deleteTemplate as _deleteTemplateRaw,
 } from './modules/ui/templates.js';
 import { exportBridge } from './modules/regression-bridge.js';
+import { validateEmailField } from './modules/ui/email-validation.js';
 import { APP_VERSION, LAST_SEEN_VERSION_KEY, CHANGELOG, LABELS } from './modules/constants.js';
 import { wireEvents } from './modules/bootstrap.js';
 
@@ -2071,6 +2072,7 @@ function handleWorkTimeModelChange() { return _handleWorkTimeModelChangeRaw(); }
 function renderSettings() {
   document.getElementById('setting-employee-name').value = state.settings.employeeName || '';
   document.getElementById('setting-own-email').value = state.settings.ownEmail || '';
+  validateEmailField(document.getElementById('setting-own-email'));
   document.getElementById('setting-state').value = state.settings.state || 'HE';
   // Modus-Radios
   const mode = getAppMode();

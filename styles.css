@@ -158,6 +158,29 @@ select {
 
 textarea { resize: vertical; min-height: 3rem; }
 
+/* E-Mail-Prüfung: Text und Rahmen, nicht Farbe allein. */
+:root { --email-error: #b91c1c; }
+@media (prefers-color-scheme: dark) {
+  :root { --email-error: #fca5a5; }
+}
+p.email-error {
+  color: var(--email-error);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0.4rem 0 0;
+  overflow-wrap: anywhere;
+}
+p.email-error:empty { display: none; }
+input[aria-invalid="true"] { border-color: var(--email-error); outline-color: var(--email-error); }
+.recipient-list .recipient-card:has(input[aria-invalid="true"]) {
+  border-color: var(--email-error);
+  background: var(--surface-alt);
+  transition: none;
+}
+.recipient-list .recipient-manual input[aria-invalid="true"] {
+  border-color: var(--email-error);
+}
+
 /* Automatisch mitwachsende Bemerkungsfelder (Zeit erfassen/bearbeiten, Zeitraum
    erfassen, Home-Office) — Hoehe wird per JS (modules/ui/autogrow.js) an den
    Inhalt angepasst, daher kein manueller Ziehpunkt und kein interner Scroll. */

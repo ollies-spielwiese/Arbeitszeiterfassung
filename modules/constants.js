@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.90';
+export const APP_VERSION = '3.9.91';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.91', items: [
+    'Neu: E-Mail-Adressen werden bei der eigenen Adresse, den Ansprechpartnern und in beiden Teilen-Dialogen auf ihr Format geprüft. Fehler stehen direkt am Feld; ungültige Eingaben werden nicht gespeichert oder an die E-Mail-App übergeben',
+    'Neu: Weitere Empfänger lassen sich durch Komma oder Semikolon trennen. Bestehende Adressen bleiben unverändert, optionale Felder dürfen leer bleiben und „Nur teilen“ funktioniert ohne E-Mail-Prüfung. Die Prüfung erfolgt offline und bestätigt nicht, ob ein Postfach existiert',
+  ]},
   { version: '3.9.90', items: [
     'Fix: „Jetzt aktualisieren" im Update-Hinweis lädt die neue Version jetzt auch auf iPhone/iPad zuverlässig — bisher blieb der Tap dort teilweise wirkungslos, weil sich die App allein auf ein Browser-Ereignis verlassen hat, das auf iOS/iPadOS nach dem Aktivieren der neuen Version nicht zuverlässig ausgelöst wird',
   ]},

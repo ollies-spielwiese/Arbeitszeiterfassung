@@ -25,6 +25,7 @@ import { createRequire } from 'module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { runEmailValidationTests } from './email-validation-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4527,6 +4528,7 @@ function runServiceWorkerCacheBustCheck() {
     await runShareModalIosReopenUnits(page);
     await runOverviewShareModalUnits(page);
     await runEntryNoteFieldUnits(page);
+    await runEmailValidationTests(page, { assertTrue, assertEq, assertContains });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

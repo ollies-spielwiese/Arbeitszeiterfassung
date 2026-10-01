@@ -124,6 +124,7 @@ state (AZState)
 | `modules/audit-log.js`         | Änderungsprotokoll-Helfer (seit v3.9.47)                                           |
 | `modules/range-entry.js`       | Reine Logik für Zeitraum-Bulk-Erfassung (Urlaub/Krank „von…bis“)                   |
 | `modules/share.js`             | Share-Flow: Web Share API + Mailto-Fallback + iOS-Two-Stage                        |
+| `modules/ui/email-validation.js` | Gemeinsame Offline-Formatprüfung, Empfängerlisten und barrierearme Feldhinweise; keine Postfachprüfung oder Änderung importierter Adressen |
 | `modules/lib-loader.js`        | Lazy-Loader + SRI-Pinning für CDN-Libraries (jsPDF, jspdf-autotable, docx)          |
 | `modules/sw-update.js`         | Service-Worker-Registrierung + Update-Prompt                                       |
 | `modules/whatsnew.js`          | „Was ist neu"-Modal-Logik                                                          |

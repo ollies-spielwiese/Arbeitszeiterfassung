@@ -1,4 +1,5 @@
 import { autoGrowTextarea, wireAutoGrowTextareas } from './ui/autogrow.js';
+import { validateEmailField, wireEmailField } from './ui/email-validation.js';
 
 /**
  * modules/bootstrap.js
@@ -201,6 +202,7 @@ export function wireEvents(ctx) {
       if (modal) modal.classList.remove('hidden');
     });
     document.getElementById('form-employer').addEventListener('submit', saveEmployer);
+    ['employer-contact1-email', 'employer-contact2-email'].forEach(id => wireEmailField(document.getElementById(id)));
     document.getElementById('btn-delete-employer').addEventListener('click', deleteEmployer);
     document.getElementById('employer-hours-mode').addEventListener('change', updateHoursModeVisibility);
     document.getElementById('employer-employment-scope').addEventListener('change', handleEmploymentScopeChange);
@@ -244,8 +246,12 @@ export function wireEvents(ctx) {
     document.getElementById('setting-employee-name').addEventListener('change', (e) => {
       state.settings.employeeName = e.target.value.trim(); saveState();
     });
-    document.getElementById('setting-own-email').addEventListener('change', (e) => {
-      state.settings.ownEmail = e.target.value.trim(); saveState();
+    const ownEmailInput = document.getElementById('setting-own-email');
+    wireEmailField(ownEmailInput);
+    ownEmailInput.addEventListener('change', () => {
+      if (!validateEmailField(ownEmailInput)) return;
+      ownEmailInput.value = ownEmailInput.value.trim();
+      state.settings.ownEmail = ownEmailInput.value; saveState();
     });
     document.getElementById('setting-state').addEventListener('change', (e) => {
       state.settings.state = e.target.value; saveState();

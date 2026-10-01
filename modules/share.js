@@ -40,6 +40,8 @@
 //   closeModals,
 // }
 
+import { emailFormatError, splitEmailAddresses, setEmailError, validateEmailField, wireEmailField } from './ui/email-validation.js';
+
 function isIOSPlatform() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -95,21 +97,25 @@ function buildRecipientCardsHTML(emailRecipients, escapeHtml) {
   cards.push(`
     <div class="share-hint">Mehrere Empfänger möglich – die E-Mail-App öffnet sich mit allen Adressen im An-Feld.</div>
   `);
-  cards.push(...emailRecipients.map((rc) => `
+  cards.push(...emailRecipients.map((rc, index) => `
+    <div>
     <label class="recipient-card">
-      <input type="checkbox" class="recipient-check" data-email="${escapeHtml(rc.email)}" />
+      <input type="checkbox" class="recipient-check" id="share-recipient-${index}" data-email="${escapeHtml(rc.email)}" data-email-source="${rc.source === 'own' ? 'own' : 'contact'}" aria-describedby="share-recipient-${index}-error" />
       <div class="recipient-icon">${rc.icon}</div>
       <div class="recipient-info">
         <div class="recipient-name">${escapeHtml(rc.label)}</div>
         <div class="recipient-email">${escapeHtml(rc.email)}</div>
       </div>
     </label>
+    <p id="share-recipient-${index}-error" class="email-error" aria-live="polite"></p>
+    </div>
   `));
 
   cards.push(`
     <div class="recipient-manual">
-      <label for="share-manual-emails" class="recipient-manual-label">Weitere E-Mail-Adressen (durch Komma getrennt)</label>
-      <input type="text" id="share-manual-emails" placeholder="z. B. buero@firma.de, chef@firma.de" autocomplete="off" />
+      <label for="share-manual-emails" class="recipient-manual-label">Weitere E-Mail-Adressen (durch Komma oder Semikolon getrennt)</label>
+      <input type="text" inputmode="email" id="share-manual-emails" placeholder="z. B. buero@firma.de, chef@firma.de" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="share-manual-emails-error" />
+      <p id="share-manual-emails-error" class="email-error" aria-live="polite"></p>
     </div>
   `);
 
@@ -135,30 +141,49 @@ function wireRecipientInteractions(recipientList) {
   if (systemRadio) {
     systemRadio.addEventListener('change', () => {
       if (systemRadio.checked) {
-        checks.forEach(cb => cb.checked = false);
+        checks.forEach(cb => { cb.checked = false; setEmailError(cb, ''); });
         const manual = document.getElementById('share-manual-emails');
-        if (manual) manual.value = '';
+        if (manual) { manual.value = ''; setEmailError(manual, ''); }
       }
     });
   }
   checks.forEach(cb => cb.addEventListener('change', () => {
     if (cb.checked && systemRadio) systemRadio.checked = false;
+    validateStoredRecipient(cb);
   }));
   const manualInput = document.getElementById('share-manual-emails');
+  wireEmailField(manualInput, true);
   if (manualInput) manualInput.addEventListener('input', () => {
     if (manualInput.value.trim() && systemRadio) systemRadio.checked = false;
   });
 }
 
+// Bereits gespeicherte Adressen nie ändern oder verwerfen. Nur die tatsächlich
+// ausgewählten Empfänger blockieren; Fehlermeldung bleibt direkt an ihrer Karte.
+function validateStoredRecipient(element) {
+  const email = element.dataset.email || '';
+  const invalid = element.checked && (!email.trim() || emailFormatError(email));
+  const location = element.dataset.emailSource === 'own' ? 'in den Einstellungen' : 'im Arbeitgeber/Kunden';
+  return setEmailError(element, invalid
+    ? `Gespeicherte Adresse ungültig: ${email}. Bitte ${location} korrigieren oder abwählen.`
+    : '');
+}
+
 // Liest die aktuelle Empfaenger-Auswahl (System-Dialog vs. E-Mail-Adressen) aus dem DOM.
 function readRecipientSelection(recipientList) {
   const useSystem = document.getElementById('share-mode-system')?.checked;
-  const picked = Array.from(recipientList.querySelectorAll('.recipient-check:checked'))
-    .map(cb => cb.dataset.email).filter(Boolean);
+  if (useSystem) return { useSystem: true, emails: [], valid: true };
+  const checks = Array.from(recipientList.querySelectorAll('.recipient-check'));
+  const invalid = checks.filter(cb => !validateStoredRecipient(cb));
+  const manualInput = document.getElementById('share-manual-emails');
+  const manualValid = validateEmailField(manualInput, true);
+  if (invalid.length) invalid[0].focus();
+  else if (!manualValid) manualInput.focus();
+  const picked = checks.filter(cb => cb.checked).map(cb => cb.dataset.email.trim()).filter(Boolean);
   const manualRaw = (document.getElementById('share-manual-emails')?.value || '').trim();
-  const manual = manualRaw ? manualRaw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) : [];
+  const manual = splitEmailAddresses(manualRaw);
   const emails = Array.from(new Set([...picked, ...manual]));
-  return { useSystem, emails };
+  return { useSystem, emails, valid: !invalid.length && manualValid };
 }
 
 export function openShareModal(ctx) {
@@ -184,7 +209,7 @@ export function openShareModal(ctx) {
   const state = getState();
   const emailRecipients = [];
   const own = state.settings.ownEmail;
-  if (own) emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' });
+  if (own) emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤', source: 'own' });
   const contacts = (emp.contacts || []).filter(c => c.email);
   contacts.forEach(c => emailRecipients.push({ label: c.name || 'Ansprechpartner', email: c.email, icon: '📧' }));
 
@@ -196,7 +221,8 @@ export function openShareModal(ctx) {
     const clone = sendBtn.cloneNode(true);
     sendBtn.parentNode.replaceChild(clone, sendBtn);
     clone.addEventListener('click', () => {
-      const { useSystem, emails } = readRecipientSelection(recipientList);
+      const { useSystem, emails, valid } = readRecipientSelection(recipientList);
+      if (!valid) return;
 
       const format = document.querySelector('input[name="share-format"]:checked').value;
 
@@ -282,7 +308,7 @@ export function openOverviewShareModal(ctx) {
   const emailRecipients = [];
   const seenEmails = new Set();
   const own = state.settings.ownEmail;
-  if (own) { emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤' }); seenEmails.add(own); }
+  if (own) { emailRecipients.push({ label: 'An mich selbst', email: own, icon: '👤', source: 'own' }); seenEmails.add(own); }
   (ov.rows || []).forEach((row) => {
     const emp = row && row.employer;
     if (!emp) return;
@@ -301,7 +327,8 @@ export function openOverviewShareModal(ctx) {
     const clone = sendBtn.cloneNode(true);
     sendBtn.parentNode.replaceChild(clone, sendBtn);
     clone.addEventListener('click', () => {
-      const { useSystem, emails } = readRecipientSelection(recipientList);
+      const { useSystem, emails, valid } = readRecipientSelection(recipientList);
+      if (!valid) return;
 
       if (!useSystem && emails.length === 0) {
         toast('Bitte mindestens einen Empfänger wählen oder „Nur teilen“ anklicken');
@@ -465,9 +492,15 @@ export async function shareReport(format, recipientEmails, ctx) {
   const r = getCurrentReport();
   if (!r) return;
 
-  const emails = Array.isArray(recipientEmails)
+  const rawEmails = Array.isArray(recipientEmails)
     ? recipientEmails.filter(Boolean)
     : (recipientEmails ? [recipientEmails] : []);
+  const emails = rawEmails.map(email => email.trim());
+  const invalid = emails.filter(email => !email || emailFormatError(email));
+  if (invalid.length) {
+    toast(`Bitte diese E-Mail-Adresse prüfen: ${invalid.join('; ') || '(leer)'}.`);
+    return;
+  }
 
   let blob, filename, mimeType;
   try {

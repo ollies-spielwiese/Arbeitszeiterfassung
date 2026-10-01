@@ -109,7 +109,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.90</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.91</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -674,7 +674,9 @@
       <div class="settings-block">
         <h3>Eigene E-Mail-Adresse</h3>
         <p class="hint">Für den Selbstversand der Auswertung.</p>
-        <input type="email" id="setting-own-email" placeholder="mich@example.de" data-testid="input-own-email" />
+        <input type="email" id="setting-own-email" placeholder="mich@example.de" data-testid="input-own-email" aria-label="Eigene E-Mail-Adresse" aria-describedby="setting-own-email-error setting-own-email-hint" autocapitalize="none" spellcheck="false" />
+        <p id="setting-own-email-error" class="email-error" aria-live="polite"></p>
+        <p id="setting-own-email-hint" class="hint">Optional. Prüfung beim Verlassen des Feldes. Ungültige Eingaben werden nicht gespeichert; die bisherige Adresse bleibt erhalten.</p>
       </div>
 
       <div class="settings-block" id="settings-block-state">
@@ -1014,7 +1016,8 @@
             </div>
             <div>
               <label for="employer-contact1-email">Person 1 – E-Mail</label>
-              <input type="email" id="employer-contact1-email" />
+              <input type="email" id="employer-contact1-email" aria-describedby="employer-contact1-email-error" autocapitalize="none" spellcheck="false" />
+              <p id="employer-contact1-email-error" class="email-error" aria-live="polite"></p>
             </div>
           </div>
           <div class="form-row two-col">
@@ -1024,7 +1027,8 @@
             </div>
             <div>
               <label for="employer-contact2-email">Person 2 – E-Mail</label>
-              <input type="email" id="employer-contact2-email" />
+              <input type="email" id="employer-contact2-email" aria-describedby="employer-contact2-email-error" autocapitalize="none" spellcheck="false" />
+              <p id="employer-contact2-email-error" class="email-error" aria-live="polite"></p>
             </div>
           </div>
         </fieldset>

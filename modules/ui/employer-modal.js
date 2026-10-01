@@ -17,6 +17,7 @@
 // }
 
 import { DAY_KEYS, DAY_LABELS } from '../compute.js';
+import { validateEmailField } from './email-validation.js';
 
 export function buildScheduleGrid(schedule) {
   const container = document.getElementById('schedule-grid');
@@ -253,6 +254,7 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-contact1-email').value = contacts[0]?.email || '';
   document.getElementById('employer-contact2-name').value = contacts[1]?.name || '';
   document.getElementById('employer-contact2-email').value = contacts[1]?.email || '';
+  ['employer-contact1-email', 'employer-contact2-email'].forEach(id => validateEmailField(document.getElementById(id)));
   document.getElementById('employer-hours-mode').value = e.hoursMode || 'week';
   // WICHTIG: Nicht `|| 40` — sonst überschreibt der Fallback einen explizit gespeicherten 0-Wert.
   document.getElementById('employer-weekly-hours').value = (e.weeklyHours != null ? e.weeklyHours : defWeekly);
@@ -296,6 +298,10 @@ export function openEmployerModal(emp, ctx) {
 
 export function saveEmployer(ev, ctx) {
   ev.preventDefault();
+  const emailFields = ['employer-contact1-email', 'employer-contact2-email'].map(id => document.getElementById(id));
+  const invalidEmail = emailFields.filter(field => !validateEmailField(field));
+  if (invalidEmail.length) { invalidEmail[0].focus(); return; }
+  emailFields.forEach(field => { field.value = field.value.trim(); });
   const { getState, saveState, uid, closeModals, renderEmployers, renderTracker, toast } = ctx;
   const state = getState();
   const id = document.getElementById('employer-id').value;

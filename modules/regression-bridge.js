@@ -13,9 +13,12 @@
  *   exportBridge(window, { state, saveState, loadState, ..., _runMigrationsModule });
  */
 
+import { emailFormatError, emailListError, splitEmailAddresses } from './ui/email-validation.js';
+
 export function exportBridge(target, refs) {
   if (!target || typeof target !== 'object') return;
   if (!refs || typeof refs !== 'object') return;
+  Object.assign(target, { emailFormatError, emailListError, splitEmailAddresses });
 
   const {
     // State + Persistenz
