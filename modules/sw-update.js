@@ -95,7 +95,8 @@ function registerServiceWorkerWithUpdatePrompt() {
       window.dispatchEvent(new CustomEvent('sw-ready', { detail: { registration: readyReg, elapsedMs: dt2 } }));
     });
     // A waiting worker is already available at load time
-    if (reg.waiting && navigator.serviceWorker.controller) {
+    if (reg.waiting && navigator.serviceWorker.controller
+        && reg.waiting !== navigator.serviceWorker.controller) {
       __swWaitingRegistration = reg;
       showUpdateBanner();
     }
@@ -109,7 +110,12 @@ function registerServiceWorkerWithUpdatePrompt() {
       const installing = reg.installing;
       if (!installing) return;
       installing.addEventListener('statechange', () => {
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+        // WebKit kann bei Erstinstallation den gerade installierenden Worker
+        // schon als controller melden. Das ist kein Update einer älteren Version.
+        // Nur einen tatsächlich wartenden ANDEREN Worker als Update anbieten.
+        if (installing.state === 'installed' && reg.waiting === installing
+            && navigator.serviceWorker.controller
+            && navigator.serviceWorker.controller !== installing) {
           __swWaitingRegistration = reg;
           showUpdateBanner();
         }

@@ -162,10 +162,11 @@ function wireRecipientInteractions(recipientList) {
 // ausgewählten Empfänger blockieren; Fehlermeldung bleibt direkt an ihrer Karte.
 function validateStoredRecipient(element) {
   const email = element.dataset.email || '';
-  const invalid = element.checked && (!email.trim() || emailFormatError(email));
+  const error = emailFormatError(email);
+  const invalid = element.checked && (!email.trim() || error);
   const location = element.dataset.emailSource === 'own' ? 'in den Einstellungen' : 'im Arbeitgeber/Kunden';
   return setEmailError(element, invalid
-    ? `Gespeicherte Adresse ungültig: ${email}. Bitte ${location} korrigieren oder abwählen.`
+    ? `Gespeicherte Adresse prüfen: ${email}. ${error || 'Die Adresse ist leer.'} Bitte ${location} korrigieren oder abwählen.`
     : '');
 }
 
@@ -495,12 +496,13 @@ export async function shareReport(format, recipientEmails, ctx) {
   const rawEmails = Array.isArray(recipientEmails)
     ? recipientEmails.filter(Boolean)
     : (recipientEmails ? [recipientEmails] : []);
-  const emails = rawEmails.map(email => email.trim());
-  const invalid = emails.filter(email => !email || emailFormatError(email));
+  // Rohwerte prüfen, bevor trim() etwa angehängte Steuerzeichen entfernen kann.
+  const invalid = rawEmails.filter(email => !email.trim() || emailFormatError(email));
   if (invalid.length) {
     toast(`Bitte diese E-Mail-Adresse prüfen: ${invalid.join('; ') || '(leer)'}.`);
     return;
   }
+  const emails = rawEmails.map(email => email.trim());
 
   let blob, filename, mimeType;
   try {

@@ -28,6 +28,8 @@ import { fileURLToPath } from 'url';
 import { runEmailValidationTests } from './email-validation-tests.mjs';
 import { runEmailPointerTests } from './email-pointer-tests.mjs';
 import { runEmploymentFormValidationTests } from './employment-form-validation-tests.mjs';
+import { runEmailRulesTests } from './email-rules-tests.mjs';
+import { runServiceWorkerLifecycleTests } from './sw-update-lifecycle-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4533,6 +4535,8 @@ function runServiceWorkerCacheBustCheck() {
     await runEmailValidationTests(page, { assertTrue, assertEq, assertContains });
     await runEmailPointerTests(browser, BASE_URL, { assertTrue, assertEq, assertContains });
     await runEmploymentFormValidationTests(browser, BASE_URL, { assertEq });
+    await runEmailRulesTests(browser, BASE_URL, { assertEq });
+    await runServiceWorkerLifecycleTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

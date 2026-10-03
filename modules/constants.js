@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.93';
+export const APP_VERSION = '3.9.94';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.94', items: [
+    'Verbessert: E-Mail-Adressen werden vor und nach dem @ ausdrücklich auf Zeichen, Punktregeln und Längen geprüft. Hinweise nennen den konkreten Fehler; zulässige Sonderzeichen bleiben erhalten',
+    'Fix: Bei der Erstinstallation erscheint unter WebKit kein falscher Update-Hinweis mehr. Echte Updates bleiben verfügbar und werden weiterhin nur auf Wunsch aktiviert',
+  ]},
   { version: '3.9.93', items: [
     'Fix: Ausgeblendete Arbeitszeitmodell-Felder blockieren das Speichern von Arbeitgebern und Kunden nicht mehr. Der hinterlegte Beschäftigungsgrad bleibt unverändert; bei Teilzeit werden weiterhin nur ganze Werte von 1 bis 99 akzeptiert',
   ]},

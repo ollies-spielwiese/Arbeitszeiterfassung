@@ -35,11 +35,34 @@ Postfachprüfung, Bestätigungsmail oder automatische Tippfehlerkorrektur.
 ## Technischer Umfang
 
 `modules/ui/email-validation.js` enthält Prüfer, Listenzerlegung und Feldhinweise.
-Die generische Syntaxprüfung verwendet ein natives HTML-E-Mail-Feld statt einer
-eigenen restriktiven Regex; ergänzend gibt es konkrete Meldungen für häufige
-Eingabefehler. Die Browser-Regeln erlauben auch Domains ohne Punkt
-(z. B. `name@intranet`). Internationale Adress-Sonderformen unterliegen den
-Grenzen der nativen Browserprüfung.
+Ab v3.9.94 ersetzt ein explizites ASCII-Prüfprofil die native Browserprobe
+als gemeinsame Formatprüfung. Die nativen Formularregeln bleiben zusätzlich
+bestehen. Vor und nach dem @ gelten getrennte Regeln und konkrete Fehlermeldungen.
+
+- **Vor dem @:** ASCII-Dot-Atom, höchstens 64 Zeichen; Buchstaben, Ziffern und
+  `!#$%&'*+-/=?^_` sowie Backtick, geschweifte Klammern, senkrechter Strich,
+  Tilde und trennende Punkte. Kein Punkt am Anfang/Ende oder doppelt.
+  Die Zeichenmenge folgt [RFC 5322, Abschnitt 3.2.3](https://datatracker.ietf.org/doc/html/rfc5322).
+- **Nach dem @:** Nicht leere, punktgetrennte Domainteile mit jeweils höchstens
+  63 ASCII-Zeichen; nur Buchstaben, Ziffern und Bindestriche, keine Bindestriche
+  am Anfang/Ende eines Teils. Domain-Syntax und lokale Dot-Strings sind in
+  [RFC 5321, Abschnitt 4.1.2](https://www.rfc-editor.org/info/rfc5321/) beschrieben.
+- **Gesamte Adresse:** Genau ein @, keine inneren Leerzeichen; höchstens
+  254 ASCII-Zeichen. Das Profil berücksichtigt die SMTP-Grenzen von 64 Oktetten
+  für den lokalen Teil und 256 für den Pfad einschließlich Winkelklammern
+  ([RFC 5321, Abschnitt 4.5.3.1](https://www.rfc-editor.org/info/rfc5321/)).
+  Steuerzeichen einschließlich CR/LF und DEL werden vor dem Trimmen abgewiesen.
+- **Bewusst nicht unterstützt:** Lokaler Teil in Anführungszeichen, IP-Literale
+  und Unicode vor dem @. Internationale lokale Teile benötigen SMTPUTF8
+  ([RFC 6531](https://datatracker.ietf.org/doc/html/rfc6531)).
+  Die App kennzeichnet solche Sonderformen als nicht unterstützt, nicht als
+  grundsätzlich ungültige E-Mail-Adressen.
+- **Internationale Domains:** Benötigen die vom Anbieter bestätigte
+  ASCII-/Punycode-Schreibweise. Auch `xn--`-Teile werden nur auf die oben
+  genannte ASCII-Label-Syntax geprüft; keine vollständige IDNA-Validierung.
+- **Keine Zustellgarantie:** Domains ohne Punkt, z. B. `name@intranet`, bleiben
+  syntaktisch zulässig. Keine feste TLD-Liste, keine Existenz-, DNS- oder
+  Postfachprüfung und keine automatische Kleinschreibung oder Korrektur.
 
 Fehlermeldungen werden ausschließlich über textContent ausgegeben. Sie sind
 über aria-describedby mit dem Feld verbunden; aria-invalid und aria-live
@@ -48,6 +71,20 @@ Altwerte werden weder beim Laden noch beim Backup-Import bereinigt.
 Das neue Modul steht im Service-Worker-Precache.
 
 ## Regression
+
+### Explizites Prüfprofil ab v3.9.94
+
+`scripts/email-rules-tests.mjs` ergänzt 83 Prüfungen je Engine im regulären
+Runner: zulässige Sonderzeichen, Punkte, Domainteile, 64/65-, 63/64- und
+254/255-Grenzen, Steuerzeichen, Sonderformen und konkrete Fehlermeldungen.
+Zusätzlich werden Altwertschutz, erster Speichern-Klick bei Arbeitgeber/Kunde,
+beide Teilen-Dialoge und direkte Exporte geprüft. Direkte Exporte prüfen
+die ursprünglichen Empfängerwerte, bevor sie getrimmt werden.
+
+`scripts/sw-update-lifecycle-tests.mjs` ergänzt 46 Prüfungen der tatsächlichen
+Update-Modullogik mit deterministischen Service-Worker-Testobjekten. Der
+Hauptlauf bleibt mit echten Service Workern aktiv. Ursachenanalyse und
+vollständige Ergebnisse stehen in `docs/QA_V3.9.94.md`.
 
 ### Erster Klick und Touch ab v3.9.92
 
