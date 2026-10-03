@@ -84,15 +84,22 @@ Teilen-Dialoge, Altadressen, HTML-Escaping, Korrektur/Abwahl, Mehrfachadressen,
 System-Share, wiederholte iOS-Stage2-Zyklen und den direkten Exportaufruf.
 E-Mail-Übergaben werden nicht real versendet; Share-Nebeneffekte werden isoliert.
 
-### Unabhängiger Befund im bisherigen Formular
+### Separater Formularfehler: behoben ab v3.9.93
 
 Bereits v3.9.90 belegt bei Neuanlage das ausgeblendete Beschäftigungsgrad-Feld mit
-100, während das HTML max=99 vorgibt. Dieses Feld wird beim Ausblenden nicht
-deaktiviert. Dadurch kann die native Browserprüfung Speichern verhindern
+100, während das HTML max=99 vorgibt. Dieses Feld wurde beim Ausblenden nicht
+deaktiviert. Dadurch konnte die native Browserprüfung Speichern verhindern
 („An invalid form control … is not focusable“).
 
-Dieser bestehende Fehler ist nicht Teil der E-Mail-Änderung und wurde nicht
-mitgeändert. Die neuen E-Mail-Formulartests setzen das unabhängige Prozentfeld
-explizit auf einen gültigen Testwert (60), ohne die nativen Pflichtfeldprüfungen
-auszuschalten. Eine separate Korrektur und eigene Regression für diesen Befund
-stehen noch aus.
+Die separate Korrektur in v3.9.93 deaktiviert ausgeblendete Prozent-/Referenzfelder
+und bei Kunden das gesamte ausgeblendete Arbeitszeitmodell-Fieldset.
+Beim Einblenden bzw. Öffnen als Arbeitgeber werden die passenden Felder wieder
+aktiviert. Werte, Sollstunden und Speicherlogik bleiben unverändert.
+Teilzeit100 wird sichtbar beanstandet, nicht automatisch auf 60 oder 99 gesetzt.
+
+Die E-Mail- und Pointertests verwenden nun den unveränderten Default100;
+die bisherigen Prozent60-Workarounds wurden entfernt. Zusätzlich läuft
+`scripts/employment-form-validation-tests.mjs` mit 98 Prüfungen pro Engine im
+regulären Runner: echte Desktop-Klicks und Touch-Taps, Neuanlage/Bearbeiten,
+Beschäftigungsart-/Moduswechsel, Grenzen/Schrittweite, Referenzfelder,
+Importwerte, Pflichtname und E-Mail-Validierung.

@@ -72,10 +72,8 @@ export async function runEmailValidationTests(page, { assertTrue, assertEq, asse
         switchView('employers');
       }, mode);
       await page.click('#btn-add-employer');
-      // Isolierter E-Mail-Test mit gültigen übrigen Feldern. Der bestehende
-      // Vollzeit-Default setzt im versteckten Prozentfeld 100 bei max=99;
-      // dieser unabhängig bestehende Fehler wird separat dokumentiert.
-      await page.evaluate(() => { document.getElementById('employer-parttime-percent').value = '60'; });
+      // Originaldefault100 unverändert lassen: Ausgeblendete Modellfelder
+      // dürfen seit v3.9.93 nicht mehr vor der E-Mail-Prüfung blockieren.
       await page.fill('#employer-name', 'E-Mail-Test');
       await page.fill('#employer-contact1-email', 'buero@');
       await page.fill('#employer-contact2-email', 'vertretung@');

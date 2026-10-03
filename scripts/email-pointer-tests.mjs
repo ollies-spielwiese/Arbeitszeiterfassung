@@ -30,8 +30,7 @@ export async function runEmailPointerTests(browser, baseURL, { assertTrue, asser
             switchView('employers');
             document.getElementById('btn-add-employer').click();
             document.getElementById('employer-name').value = 'Pointer-Test';
-            // Unabhängiger Altfehler: versteckter Default 100 bei max=99.
-            document.getElementById('employer-parttime-percent').value = '60';
+            // Originaldefault100 beibehalten; kein Prozentfeld-Workaround.
             document.getElementById('employer-contact1-email').value = 'buero@example.de';
           } else {
             const { openShareModal, openOverviewShareModal } = await import('/modules/share.js');

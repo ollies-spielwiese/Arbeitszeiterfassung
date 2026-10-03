@@ -148,6 +148,10 @@ export function refreshEmploymentModelUI() {
   const showRef = s.scope === 'vollzeit' || s.scope === 'teilzeit';
   if (percentRow) percentRow.classList.toggle('hidden', !showPercent);
   if (refRow) refRow.classList.toggle('hidden', !showRef);
+  // Ausgeblendete Felder dürfen die native Formularprüfung nicht blockieren.
+  // Werte bleiben erhalten; saveEmployer liest sie weiterhin explizit aus.
+  (/** @type {HTMLInputElement} */ (document.getElementById('employer-parttime-percent'))).disabled = !showPercent;
+  (/** @type {HTMLInputElement} */ (document.getElementById('employer-fulltime-reference'))).disabled = !showRef;
 
   const warnRow = document.getElementById('row-worktime-warning');
   const warnText = document.getElementById('worktime-warning-text');
@@ -229,6 +233,13 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('modal-employer-title').textContent = isNew ? L('newEmployer') : L('editEmployer');
   // Neue Employer/Kunden: Im Freelance-Modus keine Soll-Stunden vorbelegen.
   const freelanceDefault = isFreelance();
+  // Bei Kunden ist das gesamte Arbeitszeitmodell inaktiv, auch wenn ein
+  // importierter Datensatz noch einen Teilzeit-/Referenzwert enthält.
+  const employmentModelFs = /** @type {HTMLFieldSetElement} */ (document.getElementById('fs-employer-employment-model'));
+  if (employmentModelFs) {
+    employmentModelFs.classList.toggle('hidden', freelanceDefault);
+    employmentModelFs.disabled = freelanceDefault;
+  }
   const defWeekly = freelanceDefault ? 0 : 40;
   const defMonthly = freelanceDefault ? 0 : 160;
   const defaultKind = isFreelance() ? 'client' : 'employer';

@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.92';
+export const APP_VERSION = '3.9.93';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.93', items: [
+    'Fix: Ausgeblendete Arbeitszeitmodell-Felder blockieren das Speichern von Arbeitgebern und Kunden nicht mehr. Der hinterlegte Beschäftigungsgrad bleibt unverändert; bei Teilzeit werden weiterhin nur ganze Werte von 1 bis 99 akzeptiert',
+  ]},
   { version: '3.9.92', items: [
     'Fix: E-Mail-Fehlermeldungen verschieben den Speichern- oder Teilen-Button nicht mehr während eines Klicks oder Touch-Taps. Dadurch erreicht bereits die erste Betätigung ihr Ziel; ungültige Adressen bleiben gesperrt und werden zur Korrektur fokussiert',
   ]},
