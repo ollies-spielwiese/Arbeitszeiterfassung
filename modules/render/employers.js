@@ -12,6 +12,8 @@
 //   formatDate,         // seit v3.9.55, fuer die 'Ehemalig seit ...'-Badge
 // }
 
+import { safeColor } from '../util-format.js';
+
 export function buildEmployerCardsHTML(employers, ctx) {
   const { escapeHtml, formatMoney, breakModeLabel, isFreelance, isFormerEmployer, todayISO, formatDate } = ctx;
   const showRate = isFreelance();
@@ -27,12 +29,12 @@ export function buildEmployerCardsHTML(employers, ctx) {
       ? `<span class="employer-former-badge">Ehemalig seit ${escapeHtml(formatDate ? formatDate(e.employmentEndDate) : e.employmentEndDate)}</span>`
       : '';
     return `
-      <div class="employer-card" data-id="${e.id}">
-        <div class="employer-color" style="background:${e.color}"></div>
+      <div class="employer-card" data-id="${escapeHtml(e.id)}">
+        <div class="employer-color" style="background:${safeColor(e.color)}"></div>
         <div class="employer-info">
           <div class="${nameClass}">${escapeHtml(e.name)}${formerBadge}</div>
           <div class="employer-meta">
-            ${hoursDesc} • ${breakModeLabel(e.breakMode)}${rateDesc}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}${e.personnelNumber ? ` • Pers.-Nr. ${escapeHtml(e.personnelNumber)}` : ''}
+            ${escapeHtml(hoursDesc)} • ${escapeHtml(breakModeLabel(e.breakMode))}${escapeHtml(rateDesc)}${e.phone ? ` • ☎ ${escapeHtml(e.phone)}` : ''}${e.personnelNumber ? ` • Pers.-Nr. ${escapeHtml(e.personnelNumber)}` : ''}
           </div>
           ${contacts ? `<div class="employer-meta">👤 ${escapeHtml(contacts)}</div>` : ''}
         </div>

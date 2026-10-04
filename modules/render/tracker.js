@@ -10,6 +10,8 @@
 //   renderSummaryHTML,
 // }
 
+import { escapeHtml } from '../util-format.js';
+
 export function buildTodaySummaryHTML(data, ctx) {
   const { formatMonthYear, renderSummaryHTML } = ctx;
   const { ym, summaryFields } = data;
@@ -26,9 +28,9 @@ export function buildHomeofficeSegmentsHTML(segs) {
   return rows.map((s, idx) => `
     <div class="ho-segment-row" data-idx="${idx}">
       <span class="ho-segment-label">${idx + 1}.</span>
-      <input type="time" data-seg-start value="${s.start || ''}" aria-label="Beginn Block ${idx + 1}" data-testid="input-ho-start-${idx}" />
+      <input type="time" data-seg-start value="${escapeHtml(s.start)}" aria-label="Beginn Block ${idx + 1}" data-testid="input-ho-start-${idx}" />
       <span class="ho-segment-sep">–</span>
-      <input type="time" data-seg-end value="${s.end || ''}" aria-label="Ende Block ${idx + 1}" data-testid="input-ho-end-${idx}" />
+      <input type="time" data-seg-end value="${escapeHtml(s.end)}" aria-label="Ende Block ${idx + 1}" data-testid="input-ho-end-${idx}" />
       <button type="button" class="btn-icon" data-remove-segment="${idx}" aria-label="Block entfernen" data-testid="button-remove-ho-segment-${idx}">✕</button>
     </div>
   `).join('');

@@ -11,8 +11,9 @@
  *   - getState()/setState(s) sind für Konsumenten, die einen einzelnen Reassign
  *     brauchen (z. B. Backup-Import). Der Aufrufer muss danach sein lokales
  *     `state` und `window.state` synchron halten.
- *   - Storage-Abstraktion unverändert aus app.js übernommen (Sandbox-Fallback
- *     auf In-Memory, wenn localStorage geblockt ist).
+ *   - Schreibfehler werden weitergereicht, nicht als Persistenzerfolg behandelt.
+ *     Ohne localStorage bleibt nur RAM; storage.isPersistent ist dann false.
+ *   - replaceStateAtomically() schützt Import und bestehende Zustandsreferenzen.
  */
 
 import { SCHEMA_VERSION, runMigrations } from './migrations.js';
@@ -22,23 +23,34 @@ export const STORAGE_KEY = 'arbeitszeit_v1';
 /* ---------- Storage Abstraction ----------
    Uses the browser's persistent key/value store when available (installed PWA, direct access).
    Falls back to in-memory storage in sandboxed environments where the API is blocked.
-   The user is warned once when persistence is not available. */
+   Failure status stays visible until a complete state write succeeds. */
 
 export const storage = (() => {
   let backend = null;
-  const memoryStore = {};
+  const memoryStore = Object.create(null);
+  let lastError = null;
+  function notify(error) {
+    lastError = error;
+    window.dispatchEvent(new Event('arbeitszeit-storage-status'));
+  }
   try {
     const key = ['local', 'Storage'].join('');
     const candidate = window[key];
+    // Read access can still work when storage is full. Keep that backend so a
+    // failed write probe never hides the last successfully saved data at startup.
+    candidate.getItem(STORAGE_KEY);
+    backend = candidate;
     const testKey = '__az_test__';
     candidate.setItem(testKey, '1');
     candidate.removeItem(testKey);
-    backend = candidate;
   } catch (e) {
-    console.warn('Persistent storage not available, using in-memory fallback');
+    lastError = e;
+    console.warn(backend ? 'Persistent storage is readable but not writable' :
+      'Persistent storage not available, using in-memory fallback');
   }
   return {
-    isPersistent: !!backend,
+    get isPersistent() { return !!backend && !lastError; },
+    get canPersist() { return !!backend; },
     get(key) {
       try {
         return backend ? backend.getItem(key) : (memoryStore[key] ?? null);
@@ -47,8 +59,15 @@ export const storage = (() => {
     set(key, val) {
       try {
         if (backend) backend.setItem(key, val);
-        else memoryStore[key] = val;
-      } catch (e) { memoryStore[key] = val; }
+        else {
+          memoryStore[key] = val;
+          throw new Error('Dauerhafter Speicher ist nicht verfügbar');
+        }
+        if (key === STORAGE_KEY) notify(null);
+      } catch (e) {
+        if (key === STORAGE_KEY) notify(e);
+        throw e;
+      }
     },
   };
 })();
@@ -99,6 +118,7 @@ export const DEFAULT_STATE = {
 /* ---------- State-Handle ---------- */
 
 let _currentState = null;
+let _replacingState = false;
 
 // Seit v3.9.49: Sichtbarkeit statt stillem Reset bei defektem localStorage.
 // Ohne diese beiden Flags fiel ein kaputter Speicherinhalt (z.B. durch einen
@@ -198,12 +218,34 @@ export function loadState(helpers) {
  * @returns {void}
  */
 export function saveState() {
-  if (!_currentState) return;
+  if (!_currentState || _replacingState) return;
+  _currentState.schemaVersion = SCHEMA_VERSION;
+  storage.set(STORAGE_KEY, JSON.stringify(_currentState));
+}
+
+/**
+ * Import transaction: render/synchronize first, then one atomic localStorage write.
+ * Rendering may call saveState(); these intermediate writes are suppressed.
+ * On any error both state references and UI are restored; persisted bytes never changed.
+ * @param {any} candidate
+ * @param {(state:any)=>void} apply
+ */
+export function replaceStateAtomically(candidate, apply) {
+  if (_replacingState) throw new Error('Ein Import läuft bereits');
+  if (!storage.canPersist) throw new Error('Import benötigt dauerhaften Speicher. Bisherige Daten bleiben erhalten.');
+  const previous = _currentState;
+  _replacingState = true;
   try {
-    _currentState.schemaVersion = SCHEMA_VERSION;
-    storage.set(STORAGE_KEY, JSON.stringify(_currentState));
-  } catch (e) {
-    console.error('State save failed', e);
+    _currentState = candidate;
+    apply(candidate);
+    candidate.schemaVersion = SCHEMA_VERSION;
+    storage.set(STORAGE_KEY, JSON.stringify(candidate));
+  } catch (error) {
+    _currentState = previous;
+    try { apply(previous); } catch (_) { /* Preserve the original error; state/storage are restored. */ }
+    throw error;
+  } finally {
+    _replacingState = false;
   }
 }
 

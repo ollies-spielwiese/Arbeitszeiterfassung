@@ -34,7 +34,7 @@ export function openRangeEntryModal(ctx) {
   const visibleEmployers = filterVisibleEmployers(state.employers, todayISO());
   const empSel = document.getElementById('range-employer');
   empSel.innerHTML = visibleEmployers.map((e) =>
-    `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+    `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
   const activeIsVisible = visibleEmployers.some((e) => e.id === state.activeEmployerId);
   empSel.value = (activeIsVisible ? state.activeEmployerId : '') || (visibleEmployers[0] && visibleEmployers[0].id) || '';
 

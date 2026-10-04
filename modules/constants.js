@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.94';
+export const APP_VERSION = '3.9.95';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.95', items: [
+    'Sicherheit: Backups werden vor und nach der Migration auf gültige Strukturen und sichere Werte geprüft. HTML-Ausgaben sind zusätzlich gegen manipulierte Importwerte abgesichert',
+    'Fix: Nach einem Backup-Import verwenden Einstellungen und Bedienfunktionen zuverlässig den aktuellen Datenbestand. Fehlgeschlagene Importe erhalten den vorherigen Zustand und die gespeicherten Daten',
+    'Neu: Speicherfehler werden dauerhaft angezeigt. Ein Notfall-Backup sichert auch noch ungespeicherte Änderungen; Speichern lässt sich erneut versuchen. Bereits gespeicherte Daten bleiben bei vollem Speicher lesbar',
+  ]},
   { version: '3.9.94', items: [
     'Verbessert: E-Mail-Adressen werden vor und nach dem @ ausdrücklich auf Zeichen, Punktregeln und Längen geprüft. Hinweise nennen den konkreten Fehler; zulässige Sonderzeichen bleiben erhalten',
     'Fix: Bei der Erstinstallation erscheint unter WebKit kein falscher Update-Hinweis mehr. Echte Updates bleiben verfügbar und werden weiterhin nur auf Wunsch aktiviert',

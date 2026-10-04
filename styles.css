@@ -1627,3 +1627,13 @@ textarea.note-autogrow {
   background: color-mix(in oklab, var(--primary) 18%, var(--surface));
   color: var(--primary);
 }
+/* Persistent storage failure is independent of the short-lived toast. */
+.storage-warning {
+  background: #fff3cd;
+  color: #593c00;
+  border-bottom: 2px solid #9b6a00;
+  padding: 0.8rem 1rem;
+  line-height: 1.5;
+}
+.storage-warning[hidden] { display: none; }
+.storage-warning button { margin: 0.3rem; }

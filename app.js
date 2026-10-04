@@ -50,7 +50,7 @@ import {
   loadState as _loadStateRaw,
   saveState as _saveState,
   getState as _getState,
-  setState as _setState,
+  replaceStateAtomically,
   wasLastLoadCorrupted,
   getCorruptedBackupKey,
 } from './modules/state.js';
@@ -344,14 +344,15 @@ function loadState() {
 
 /**
  * Persistiert den internen State. Fehler werden zusätzlich per Toast gemeldet.
- * @returns {void}
+ * @returns {boolean}
  */
 function saveState() {
   try {
     _saveState();
+    return true;
   } catch (e) {
-    console.error('State save failed', e);
-    toast('Fehler beim Speichern');
+    toast('Nicht dauerhaft gespeichert. Bitte jetzt ein Backup sichern.');
+    return false;
   }
 }
 
@@ -610,7 +611,7 @@ function renderTracker() {
     includeIds: [state.activeEmployerId],
   });
   sel.innerHTML = state.employers.length
-    ? visibleEmployers.map(e => `<option value="${e.id}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : `<option value="">— Bitte ${L('employer')} anlegen —</option>`;
 
   const hint = document.getElementById('onboarding-hint');
@@ -1074,7 +1075,7 @@ function renderEntries() {
   });
   filterSel.innerHTML =
     `<option value="">Alle Arbeitgeber</option>` +
-    visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
+    visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
   filterSel.value = currentEmpFilter || '';
 
   if (!monthInput.value) monthInput.value = currentYearMonth();
@@ -1152,7 +1153,7 @@ function renderWeek() {
     includeIds: [currentEmp, state.activeEmployerId],
   });
   sel.innerHTML = state.employers.length
-    ? visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
   sel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
 
@@ -1333,7 +1334,7 @@ function renderReport() {
     includeIds: [currentEmp, state.activeEmployerId],
   });
   empSel.innerHTML = state.employers.length
-    ? visibleEmployers.map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
+    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
   empSel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
 
@@ -2311,8 +2312,7 @@ async function handleConfirmBackupFolderAccess() {
 
 function importBackup(file) {
   _importBackupRaw(file, {
-    setState: _setState,
-    saveState,
+    commitImport: replaceStateAtomically,
     toast,
     DEFAULT_STATE,
     normalizeHolidayOverrides,
@@ -2320,8 +2320,9 @@ function importBackup(file) {
     uid,
     normalizeSegments,
     onImport: (imported) => {
-      state = _getState();
+      state = imported;
       if (typeof window !== 'undefined') window.state = state;
+      updateModeVisibility();
       renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
     },
   });
@@ -2369,7 +2370,12 @@ function toast(msg, opts) {
 // Siehe modules/bootstrap.js (extrahiert in Phase 3.10b).
 // DOMContentLoaded-Wrapper bleibt hier, damit type=module (defer) das Event nicht verpasst.
 document.addEventListener('DOMContentLoaded', () => wireEvents({
-  state, saveState, storage,
+  getState: _getState, saveState, storage,
+  exportEmergencyBackup: () => {
+    downloadBlob(new Blob([JSON.stringify(_getState(), null, 2)], { type: 'application/json' }),
+      `arbeitszeit-notfall-backup-${todayISO()}.json`);
+    toast('Backup heruntergeladen. Bitte die Datei sicher aufbewahren.');
+  },
   stateWasCorrupted, corruptedBackupKey,
   switchView, renderTracker, renderEntries, renderEmployers, renderReport,
   renderTemplates, renderWeek, renderOverview, renderHolidayList, renderVacationPlanning, renderGleitzeitkonto,

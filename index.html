@@ -91,6 +91,12 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div id="storage-warning" class="storage-warning" role="alert" hidden>
+    <strong>Daten nicht dauerhaft gespeichert.</strong>
+    Änderungen können beim Schließen oder Neuladen verloren gehen. Bitte jetzt ein Backup herunterladen.
+    <button type="button" id="btn-storage-backup" class="btn-secondary">Backup herunterladen</button>
+    <button type="button" id="btn-storage-retry" class="btn-secondary">Speichern wiederholen</button>
+  </div>
   <header class="app-header">
     <div class="brand">
       <svg class="logo" viewBox="0 0 64 64" width="30" height="30" aria-label="Arbeitszeit Logo">
@@ -109,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.94</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.95</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>

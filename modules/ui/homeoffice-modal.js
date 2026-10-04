@@ -48,7 +48,7 @@ export function openHomeofficeModal(entry, opts, ctx) {
     includeIds: (entry && entry.id) ? [entry.employerId] : [],
   });
   empSel.innerHTML = visibleEmployers
-    .map(e => `<option value="${e.id}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
+    .map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
 
   if (entry && entry.id) {
     title.textContent = 'Home-Office-Tag bearbeiten';

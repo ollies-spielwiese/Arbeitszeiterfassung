@@ -18,6 +18,7 @@
 
 import { DAY_KEYS, DAY_LABELS } from '../compute.js';
 import { validateEmailField } from './email-validation.js';
+import { escapeHtml } from '../util-format.js';
 
 export function buildScheduleGrid(schedule) {
   const container = document.getElementById('schedule-grid');
@@ -31,9 +32,9 @@ export function buildScheduleGrid(schedule) {
             ${DAY_LABELS[i]}
           </label>
         </div>
-        <input type="time" class="day-start" value="${s.start || ''}" ${s.enabled ? '' : 'disabled'} />
-        <input type="time" class="day-end" value="${s.end || ''}" ${s.enabled ? '' : 'disabled'} />
-        <input type="number" class="day-break" min="0" value="${s.break || 0}" style="width: 4rem;" placeholder="Pause" title="Pause in Minuten" ${s.enabled ? '' : 'disabled'} />
+        <input type="time" class="day-start" value="${escapeHtml(s.start)}" ${s.enabled ? '' : 'disabled'} />
+        <input type="time" class="day-end" value="${escapeHtml(s.end)}" ${s.enabled ? '' : 'disabled'} />
+        <input type="number" class="day-break" min="0" value="${escapeHtml(s.break || 0)}" style="width: 4rem;" placeholder="Pause" title="Pause in Minuten" ${s.enabled ? '' : 'disabled'} />
       </div>
     `;
   }).join('');

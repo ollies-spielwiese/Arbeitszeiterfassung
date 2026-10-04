@@ -48,9 +48,9 @@ export function renderTemplates(ctx) {
   container.innerHTML = state.templates.map(t => {
     const scope = t.scope || 'both';
     const scopeLabel = scope === 'employee' ? 'Nur Angestellt' : scope === 'freelance' ? 'Nur Freiberuflich' : 'Beide Modi';
-    const scopeCls = `tpl-scope tpl-scope-${scope}`;
+    const scopeCls = `tpl-scope tpl-scope-${escapeHtml(scope)}`;
     return `
-    <div class="template-card" data-id="${t.id}">
+    <div class="template-card" data-id="${escapeHtml(t.id)}">
       <div class="template-body" data-role="edit">
         <div class="label">${escapeHtml(t.label)} <span class="${scopeCls}">${scopeLabel}</span></div>
         <div class="preview">${escapeHtml(t.text)}</div>

@@ -23,9 +23,9 @@ export function buildArchiveHTML(archives, ctx) {
           </div>
         </div>
         <div class="archive-actions">
-          <button class="btn-secondary" data-action="word" data-id="${a.id}">Word</button>
-          <button class="btn-secondary" data-action="pdf" data-id="${a.id}">PDF</button>
-          <button class="btn-danger" data-action="delete" data-id="${a.id}">Löschen</button>
+          <button class="btn-secondary" data-action="word" data-id="${escapeHtml(a.id)}">Word</button>
+          <button class="btn-secondary" data-action="pdf" data-id="${escapeHtml(a.id)}">PDF</button>
+          <button class="btn-danger" data-action="delete" data-id="${escapeHtml(a.id)}">Löschen</button>
         </div>
       </div>
     `;

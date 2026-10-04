@@ -15,6 +15,12 @@ export function escapeHtml(s) {
   ));
 }
 
+/** Only color literals, never CSS declarations or URLs, may enter style attributes. */
+export function safeColor(value) {
+  return typeof value === 'string' && /^#(?:[a-f\d]{3}|[a-f\d]{6}|[a-f\d]{8})$/i.test(value)
+    ? value : '#3b82f6';
+}
+
 /**
  * Formatiert einen Betrag als Währungsstring (de-DE-Locale).
  * Pure Version — currency muss explizit übergeben werden.

@@ -102,11 +102,11 @@ export function renderHolidayList(ctx) {
       if (r.disabled) badges.push('<span class="holiday-tag holiday-tag-disabled">deaktiviert</span>');
       if (r.renamed && !r.disabled) badges.push('<span class="holiday-tag holiday-tag-renamed">umbenannt</span>');
       const actions = r.disabled
-        ? `<button type="button" class="btn-secondary btn-small" data-holiday-action="enable" data-date="${r.date}">Aktivieren</button>`
-        : `<button type="button" class="btn-secondary btn-small" data-holiday-action="rename" data-date="${r.date}">Umbenennen</button>
-           <button type="button" class="btn-secondary btn-small" data-holiday-action="disable" data-date="${r.date}">Deaktivieren</button>`;
+        ? `<button type="button" class="btn-secondary btn-small" data-holiday-action="enable" data-date="${escapeHtml(r.date)}">Aktivieren</button>`
+        : `<button type="button" class="btn-secondary btn-small" data-holiday-action="rename" data-date="${escapeHtml(r.date)}">Umbenennen</button>
+           <button type="button" class="btn-secondary btn-small" data-holiday-action="disable" data-date="${escapeHtml(r.date)}">Deaktivieren</button>`;
       const resetBtn = (r.renamed || r.disabled)
-        ? `<button type="button" class="btn-secondary btn-small" data-holiday-action="reset" data-date="${r.date}">Zurücksetzen</button>`
+        ? `<button type="button" class="btn-secondary btn-small" data-holiday-action="reset" data-date="${escapeHtml(r.date)}">Zurücksetzen</button>`
         : '';
       return `
         <div class="holiday-row ${r.disabled ? 'is-disabled' : ''}">
@@ -124,8 +124,8 @@ export function renderHolidayList(ctx) {
           <div class="holiday-name">${escapeHtml(r.display)} <span class="holiday-tag holiday-tag-custom">${r.stateCode ? escapeHtml(r.stateCode) : 'eigener'}</span></div>
         </div>
         <div class="holiday-actions">
-          <button type="button" class="btn-secondary btn-small" data-holiday-action="edit-custom" data-date="${r.date}">Bearbeiten</button>
-          <button type="button" class="btn-secondary btn-small" data-holiday-action="delete-custom" data-date="${r.date}">Löschen</button>
+          <button type="button" class="btn-secondary btn-small" data-holiday-action="edit-custom" data-date="${escapeHtml(r.date)}">Bearbeiten</button>
+          <button type="button" class="btn-secondary btn-small" data-holiday-action="delete-custom" data-date="${escapeHtml(r.date)}">Löschen</button>
         </div>
       </div>`;
   }).join('');

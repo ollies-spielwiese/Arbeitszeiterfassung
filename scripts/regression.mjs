@@ -30,6 +30,7 @@ import { runEmailPointerTests } from './email-pointer-tests.mjs';
 import { runEmploymentFormValidationTests } from './employment-form-validation-tests.mjs';
 import { runEmailRulesTests } from './email-rules-tests.mjs';
 import { runServiceWorkerLifecycleTests } from './sw-update-lifecycle-tests.mjs';
+import { runBackupSafetyTests } from './backup-safety-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1529,8 +1530,7 @@ async function runBackupImportMigrationUnits(page) {
 
     await new Promise((resolve) => {
       importBackup(file, {
-        setState,
-        saveState: () => {},
+        commitImport: (candidate, apply) => { setState(candidate); apply(candidate); },
         toast: () => {},
         DEFAULT_STATE,
         normalizeHolidayOverrides: window.normalizeHolidayOverrides,
@@ -1586,8 +1586,7 @@ async function runBackupImportMigrationUnits(page) {
 
     await new Promise((resolve) => {
       importBackup(file, {
-        setState,
-        saveState: () => {},
+        commitImport: (candidate, apply) => { setState(candidate); apply(candidate); },
         toast: () => {},
         DEFAULT_STATE,
         normalizeHolidayOverrides: window.normalizeHolidayOverrides,
@@ -4537,6 +4536,7 @@ function runServiceWorkerCacheBustCheck() {
     await runEmploymentFormValidationTests(browser, BASE_URL, { assertEq });
     await runEmailRulesTests(browser, BASE_URL, { assertEq });
     await runServiceWorkerLifecycleTests(browser, BASE_URL, { assertEq });
+    await runBackupSafetyTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

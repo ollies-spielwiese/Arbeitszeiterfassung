@@ -8,12 +8,12 @@ import { validateEmailField, wireEmailField } from './ui/email-validation.js';
  *
  * Verdrahtet ALLE addEventListener-Calls auf UI-Elemente und startet
  * das initiale Rendering. Nimmt ctx mit allen benötigten Handler-Referenzen
- * (state, saveState, Renderer, Modal-Öffner, Export/Backup, Toast, Storage,
+ * (getState, saveState, Renderer, Modal-Öffner, Export/Backup, Toast, Storage,
  * SW-Init, What's-New).
  *
  * Aufruf in app.js:
  *   import { wireEvents } from './modules/bootstrap.js';
- *   document.addEventListener('DOMContentLoaded', () => wireEvents({ state, ... }));
+ *   document.addEventListener('DOMContentLoaded', () => wireEvents({ getState, ... }));
  *
  * WICHTIG: Der DOMContentLoaded-Handler muss in app.js registriert werden,
  * nicht hier. In type=module (defer-Semantik) lädt bootstrap.js nachträglich,
@@ -29,7 +29,7 @@ import { validateEmailField, wireEmailField } from './ui/email-validation.js';
 export function wireEvents(ctx) {
   const {
     // State + Storage
-    state, saveState, storage,
+    getState, saveState, storage, exportEmergencyBackup,
     stateWasCorrupted, corruptedBackupKey,
     // Views + Rendering
     switchView, renderTracker, renderEntries, renderEmployers, renderReport,
@@ -78,8 +78,8 @@ export function wireEvents(ctx) {
 
     // Tracker
     document.getElementById('active-employer').addEventListener('change', (e) => {
-      if (state.runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); e.target.value = state.activeEmployerId; return; }
-      state.activeEmployerId = e.target.value;
+      if (getState().runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); e.target.value = getState().activeEmployerId; return; }
+      getState().activeEmployerId = e.target.value;
       saveState();
       renderTracker();
     });
@@ -102,11 +102,11 @@ export function wireEvents(ctx) {
     const modeP = document.getElementById('mode-praesenz');
     const modeH = document.getElementById('mode-homeoffice');
     if (modeP) modeP.addEventListener('click', () => {
-      if (state.runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
+      if (getState().runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
       setMode('praesenz');
     });
     if (modeH) modeH.addEventListener('click', () => {
-      if (state.runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
+      if (getState().runningTimer) { toast('Nicht möglich während laufender Zeiterfassung'); return; }
       setMode('homeoffice');
     });
 
@@ -244,17 +244,17 @@ export function wireEvents(ctx) {
 
     // Settings
     document.getElementById('setting-employee-name').addEventListener('change', (e) => {
-      state.settings.employeeName = e.target.value.trim(); saveState();
+      getState().settings.employeeName = e.target.value.trim(); saveState();
     });
     const ownEmailInput = document.getElementById('setting-own-email');
     wireEmailField(ownEmailInput);
     ownEmailInput.addEventListener('change', () => {
       if (!validateEmailField(ownEmailInput)) return;
       ownEmailInput.value = ownEmailInput.value.trim();
-      state.settings.ownEmail = ownEmailInput.value; saveState();
+      getState().settings.ownEmail = ownEmailInput.value; saveState();
     });
     document.getElementById('setting-state').addEventListener('change', (e) => {
-      state.settings.state = e.target.value; saveState();
+      getState().settings.state = e.target.value; saveState();
       // Recompute if any view depends on it
       renderTracker();
       renderHolidayList();
@@ -264,7 +264,7 @@ export function wireEvents(ctx) {
     document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
       r.addEventListener('change', (e) => {
         if (!e.target.checked) return;
-        state.settings.appMode = e.target.value === 'freelance' ? 'freelance' : 'employee';
+        getState().settings.appMode = e.target.value === 'freelance' ? 'freelance' : 'employee';
         saveState();
         updateModeVisibility();
         // Views neu rendern, da Labels sich ändern können
@@ -319,7 +319,7 @@ export function wireEvents(ctx) {
     const btnBackupReminderSnooze = document.getElementById('btn-backup-reminder-snooze');
     if (btnBackupReminderSnooze) btnBackupReminderSnooze.addEventListener('click', () => {
       const snoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      state.settings.backupReminderSnoozeUntil = snoozeUntil;
+      getState().settings.backupReminderSnoozeUntil = snoozeUntil;
       saveState();
       if (typeof updateBackupReminderBanner === 'function') updateBackupReminderBanner();
       toast('Erinnerung für 7 Tage verschoben');
@@ -335,21 +335,21 @@ export function wireEvents(ctx) {
       const customInput = document.getElementById(`setting-sw-${basis}-threshold-custom`);
 
       const syncChipActive = () => {
-        const current = Number(state.settings[thresholdKey]) || 0;
+        const current = Number(getState().settings[thresholdKey]) || 0;
         chipButtons.forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.value) === current));
         if (customInput) customInput.value = current || '';
       };
 
       if (enabledCb) {
-        enabledCb.checked = !!state.settings[enabledKey];
+        enabledCb.checked = !!getState().settings[enabledKey];
         enabledCb.addEventListener('change', (e) => {
-          state.settings[enabledKey] = e.target.checked;
+          getState().settings[enabledKey] = e.target.checked;
           saveState();
           if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
         });
       }
       chipButtons.forEach((btn) => btn.addEventListener('click', () => {
-        state.settings[thresholdKey] = Number(btn.dataset.value);
+        getState().settings[thresholdKey] = Number(btn.dataset.value);
         saveState();
         syncChipActive();
         if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
@@ -361,9 +361,9 @@ export function wireEvents(ctx) {
         const minPct = (basis === 'month' && typeof MONTH_THRESHOLD_MIN_PCT === 'number') ? MONTH_THRESHOLD_MIN_PCT : 1;
         customInput.addEventListener('change', (e) => {
           let v = parseInt(e.target.value, 10);
-          if (!Number.isFinite(v)) v = state.settings[thresholdKey];
+          if (!Number.isFinite(v)) v = getState().settings[thresholdKey];
           v = Math.max(minPct, Math.min(100, v));
-          state.settings[thresholdKey] = v;
+          getState().settings[thresholdKey] = v;
           saveState();
           syncChipActive();
           if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
@@ -380,7 +380,7 @@ export function wireEvents(ctx) {
     ['btn-sollwarning-snooze', 'btn-sollwarning-snooze-overview'].forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.addEventListener('click', () => {
-        state.settings.sollWarningSnoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        getState().settings.sollWarningSnoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         saveState();
         if (typeof updateSollWarningBanner === 'function') updateSollWarningBanner();
         toast('Erinnerung für 7 Tage verschoben');
@@ -432,13 +432,15 @@ export function wireEvents(ctx) {
       });
     });
 
-    // Warn if not persistent
-    if (!storage.isPersistent) {
-      const banner = document.createElement('div');
-      banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:0.65rem 1rem;font-size:0.85rem;text-align:center;border-bottom:1px solid #fbbf24;';
-      banner.innerHTML = '⚠️ Vorschaumodus – Daten werden nur während der Sitzung behalten. Auf dem Handy/Tablet installiert bleiben Daten dauerhaft gespeichert.';
-      document.body.insertBefore(banner, document.body.firstChild);
-    }
+    // Stays visible across tabs/toasts until the complete current state was saved.
+    const storageWarning = document.getElementById('storage-warning');
+    const syncStorageWarning = () => { storageWarning.hidden = storage.isPersistent; };
+    window.addEventListener('arbeitszeit-storage-status', syncStorageWarning);
+    document.getElementById('btn-storage-backup').addEventListener('click', exportEmergencyBackup);
+    document.getElementById('btn-storage-retry').addEventListener('click', () => {
+      if (saveState()) toast('Daten dauerhaft gespeichert');
+    });
+    syncStorageWarning();
 
     // Warn if stored data was corrupted and reset to defaults (seit v3.9.49).
     // Ohne diesen Hinweis würde ein defekter Speicherinhalt unbemerkt zu einem

@@ -4,8 +4,8 @@
 //
 // ctx = {
 //   getState,                    // liefert aktuellen State (fuer Export-Serialisierung)
-//   setState,                    // schreibt neuen State ins State-Modul
-//   saveState,                   // persistiert in localStorage
+//   saveState,                   // persistiert beim Export (optional)
+//   commitImport,                // transaktionale Übernahme + onImport, wirft bei Fehler
 //   downloadBlob,                // Blob-Download
 //   todayISO,                    // Datum fuer Dateiname
 //   toast,                       // User-Feedback
@@ -16,6 +16,7 @@
 //   uid,                         // an runMigrations weitergereicht
 //   normalizeSegments,           // an runMigrations weitergereicht
 // }
+import { validateBackup } from './backup-validation.js';
 
 export function exportBackup(ctx) {
   const { getState, saveState, downloadBlob, todayISO, toast } = ctx;
@@ -30,8 +31,7 @@ export function exportBackup(ctx) {
 
 export function importBackup(file, ctx) {
   const {
-    setState,
-    saveState,
+    commitImport,
     toast,
     DEFAULT_STATE,
     normalizeHolidayOverrides,
@@ -45,10 +45,9 @@ export function importBackup(file, ctx) {
   reader.onload = () => {
     try {
       const data = JSON.parse(/** @type {string} */ (reader.result));
-      if (!data.employers || !Array.isArray(data.employers)) throw new Error('Ungültiges Format');
-      if (!confirm('Aktuelle Daten überschreiben?')) return;
+      validateBackup(data);
       let imported = {
-        ...DEFAULT_STATE,
+        ...JSON.parse(JSON.stringify(DEFAULT_STATE)),
         ...data,
         settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
       };
@@ -63,13 +62,15 @@ export function importBackup(file, ctx) {
         const { state: migrated } = runMigrations(imported, { uid, normalizeSegments });
         imported = migrated;
       }
-      setState(imported);
-      saveState();
-      if (typeof onImport === 'function') onImport(imported);
+      validateBackup(imported);
+      if (!confirm('Aktuelle Daten überschreiben?')) return;
+      commitImport(imported, onImport);
       toast('Backup importiert');
     } catch (e) {
       toast('Import fehlgeschlagen: ' + e.message);
     }
   };
+  reader.onerror = () => toast('Import fehlgeschlagen: Datei konnte nicht gelesen werden');
+  reader.onabort = () => toast('Import abgebrochen: Bisherige Daten bleiben erhalten');
   reader.readAsText(file);
 }
