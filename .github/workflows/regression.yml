@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Nur Lesezugriff: die Jobs checken aus, testen und laden Artefakte hoch,
+# schreiben aber nichts ins Repository (behebt CodeQL actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 jobs:
   qa:
     name: Playwright-Regression
