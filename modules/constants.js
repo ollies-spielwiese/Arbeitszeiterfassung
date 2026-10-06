@@ -11,11 +11,19 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.95';
+export const APP_VERSION = '3.9.96';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.96', items: [
+    'Fix: Home-Office-Blöcke werden über Mitternacht und Zeitumstellungen ohne Minutenverlust oder doppelte Tage aufgeteilt. Das Tagesende 24:00 lässt sich im Formular ausdrücklich wählen',
+    'Fix: Gleitzeitsaldo und Warnungen berücksichtigen Beschäftigungsbeginn, Beschäftigungsende und den aktuellen Stichtag. Tages-Soll und Urlaubsgutschriften sind in Tracker, Woche und Monat vereinheitlicht, auch für geplante Wochenendtage',
+    'Fix: Ganztägige Abwesenheiten sind gegen widersprüchliche Arbeits- und Home-Office-Einträge geschützt. Neue Standardschemata berücksichtigen Pausen zusätzlich zur Netto-Sollzeit; überlange Pausen werden abgewiesen',
+    'Fix: Archivexporte enthalten wieder vollständige Home-Office-Tagesnachweise. Gleitzeit-PDF und App zeigen denselben aktuellen Saldo; Einzelberichte verwenden in Bildschirm, PDF, Word, CSV und E-Mail denselben Berichtstyp',
+    'Fix: Die Übersicht zählt eindeutige Arbeitstage einschließlich Home-Office. Ausgeblendete Formularfelder blockieren das Speichern nicht; gelöschte Vorlagen bleiben gelöscht und fehlgeschlagene Exportbibliotheken können erneut geladen werden',
+    'Verbessert: Offline-Updates benötigen einen vollständigen App-Kern und löschen keine fremden App-Caches. Die Regression ist um 111 Audit-Prüfungen erweitert; Compiler-Prozessfehler werden zuverlässig als Fehler erkannt',
+  ]},
   { version: '3.9.95', items: [
     'Sicherheit: Backups werden vor und nach der Migration auf gültige Strukturen und sichere Werte geprüft. HTML-Ausgaben sind zusätzlich gegen manipulierte Importwerte abgesichert',
     'Fix: Nach einem Backup-Import verwenden Einstellungen und Bedienfunktionen zuverlässig den aktuellen Datenbestand. Fehlgeschlagene Importe erhalten den vorherigen Zustand und die gespeicherten Daten',

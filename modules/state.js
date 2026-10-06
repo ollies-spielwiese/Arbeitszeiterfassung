@@ -182,7 +182,7 @@ export function loadState(helpers) {
         ...DEFAULT_STATE,
         ...loaded,
         settings: mergedSettings,
-        templates: loaded.templates && loaded.templates.length ? loaded.templates : DEFAULT_STATE.templates,
+        templates: Array.isArray(loaded.templates) ? loaded.templates : DEFAULT_STATE.templates,
       };
       const { state: migrated, changed } = runMigrations(merged, {
         uid: helpers.uid,

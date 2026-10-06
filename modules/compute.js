@@ -132,18 +132,18 @@ export function computeSuggestedBreak(startHHMM, endHHMM, breakMode) {
  */
 export function defaultSchedule(weeklyHours = 40) {
   const perDay = weeklyHours / 5;
-  const h = Math.floor(perDay);
-  const m = Math.round((perDay - h) * 60);
-  const endH = 9 + h;
-  const endM = m;
+  const pause = perDay > 9 ? 45 : perDay > 6 ? 30 : 0;
+  const endMinutes = 9 * 60 + Math.round(perDay * 60) + pause;
+  const endH = Math.floor(endMinutes / 60) % 24;
+  const endM = endMinutes % 60;
   const startTime = '09:00';
   const endTime = `${pad(endH)}:${pad(endM)}`;
   return {
-    mon: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    tue: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    wed: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    thu: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
-    fri: { enabled: true, start: startTime, end: endTime, break: perDay > 6 ? 30 : 0 },
+    mon: { enabled: true, start: startTime, end: endTime, break: pause },
+    tue: { enabled: true, start: startTime, end: endTime, break: pause },
+    wed: { enabled: true, start: startTime, end: endTime, break: pause },
+    thu: { enabled: true, start: startTime, end: endTime, break: pause },
+    fri: { enabled: true, start: startTime, end: endTime, break: pause },
     sat: { enabled: false, start: '', end: '', break: 0 },
     sun: { enabled: false, start: '', end: '', break: 0 },
   };
@@ -160,6 +160,7 @@ export function defaultSchedule(weeklyHours = 40) {
  *   diesen Employer — werden wie Feiertage vom Soll ausgenommen (seit v3.9.47, "Freier Tag").
  * @property {AZEmployer[]} [employers] explizite Employer-Liste fuer computeMonthOverview,
  *   z.B. bereits durch filterVisibleEmployers gefiltert (seit v3.9.55, "Beschäftigt bis").
+ * @property {string} [throughDate] Inklusive obere Berichtsgrenze.
  */
 
 /**
@@ -188,51 +189,15 @@ function mergeOffDayDates(holidays, ctx) {
  * @returns {number}
  */
 export function computeMonthTargetMinutes(employer, ym, ctx) {
-  const stateCode = (ctx && ctx.stateCode) || 'HE';
-  const overrides = ctx && ctx.holidayOverrides;
-  const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
-  const dates = monthDates(ym);
+  return Math.round(monthDates(ym).reduce((sum, date) =>
+    sum + computeDayTargetMinutes(employer, date, ctx), 0));
+}
 
-  // hoursMode='year' wird beim Speichern (employer-modal.js) bereits gleichmäßig auf monthlyHours
-  // umgerechnet (yearlyHours / 12) und verhält sich hier daher wie 'month'.
-  if (employer.hoursMode === 'month' || employer.hoursMode === 'year' || !employer.hoursMode) {
-    const monthlyMin = Math.round((employer.monthlyHours || 0) * 60);
-    if (!monthlyMin) return 0;
-    const weekdays = dates.filter(d => dayOfWeekISO(d) < 5);
-    const weekdayHolidays = weekdays.filter(d => holidays.has(d));
-    if (!weekdays.length) return monthlyMin;
-    const perDay = monthlyMin / weekdays.length;
-    return Math.round(monthlyMin - weekdayHolidays.length * perDay);
-  }
-
-  const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
-  const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
-  const perDayMin = {};
-  if (activeDays.length) {
-    for (const k of DAY_KEYS) {
-      const s = schedule[k];
-      if (!s?.enabled) { perDayMin[k] = 0; continue; }
-      if (s.start && s.end) {
-        let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
-        if (gross < 0) gross += 24 * 60;
-        perDayMin[k] = gross - (s.break || 0);
-      } else {
-        perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
-      }
-    }
-  } else {
-    const perDay = Math.round(((employer.weeklyHours || 0) * 60) / 5);
-    ['mon','tue','wed','thu','fri'].forEach(k => perDayMin[k] = perDay);
-    ['sat','sun'].forEach(k => perDayMin[k] = 0);
-  }
-
-  let total = 0;
-  for (const d of dates) {
-    if (holidays.has(d)) continue;
-    const key = DAY_KEYS[dayOfWeekISO(d)];
-    total += (perDayMin[key] || 0);
-  }
-  return total;
+/** Employment and report boundaries apply to both targets and recorded entries. */
+function withinEmployment(employer, date, ctx) {
+  return (!employer?.hiredSince || date >= employer.hiredSince) &&
+    (!employer?.employmentEndDate || date <= employer.employmentEndDate) &&
+    (!ctx?.throughDate || date <= ctx.throughDate);
 }
 
 /**
@@ -243,29 +208,8 @@ export function computeMonthTargetMinutes(employer, ym, ctx) {
  * @returns {number}
  */
 export function computeWeekTargetMinutes(employer, weekDates, ctx) {
-  const stateCode = (ctx && ctx.stateCode) || 'HE';
-  const overrides = ctx && ctx.holidayOverrides;
-  const holidays = mergeOffDayDates(new Set(weekDates.flatMap(d => {
-    const y = Number(d.slice(0, 4));
-    return getHolidays(y, stateCode, overrides).map(h => h.date);
-  })), ctx);
-
-  if (employer.hoursMode === 'week') {
-    const perDayMin = weekModePerDayMinutesMap(employer);
-    let total = 0;
-    for (const d of weekDates) {
-      if (holidays.has(d)) continue;
-      const key = DAY_KEYS[dayOfWeekISO(d)];
-      total += (perDayMin[key] || 0);
-    }
-    return total;
-  }
-
-  // month mode: monthlyHours * 12/52, minus Wochentag-Feiertage anteilig
-  const weeklyMin = Math.round((employer.monthlyHours || 0) * 60 * 12 / 52);
-  const holidayCount = weekDates.filter(d => holidays.has(d) && dayOfWeekISO(d) < 5).length;
-  const perDay = weeklyMin / 5;
-  return Math.max(0, Math.round(weeklyMin - holidayCount * perDay));
+  return Math.round(weekDates.reduce((sum, date) =>
+    sum + computeDayTargetMinutes(employer, date, ctx), 0));
 }
 
 /**
@@ -289,7 +233,7 @@ function weekModePerDayMinutesMap(employer) {
       if (s.start && s.end) {
         let gross = timeToMinutes(s.end) - timeToMinutes(s.start);
         if (gross < 0) gross += 24 * 60;
-        perDayMin[k] = gross - (s.break || 0);
+        perDayMin[k] = Math.max(0, gross - Math.max(0, s.break || 0));
       } else {
         perDayMin[k] = Math.round(((employer.weeklyHours || 0) * 60) / activeDays.length);
       }
@@ -315,9 +259,9 @@ function weekModePerDayMinutesMap(employer) {
  *
  * Diese Funktion liefert stattdessen das ECHTE, tagesgenaue Soll aus dem
  * individuellen Wochenschema (employer.schedule bzw. defaultSchedule als
- * Fallback) — nur fuer hoursMode='week'. Feiertage liefern 0. Fuer
- * hoursMode='month' gibt es kein individuelles Tagesschema; Aufrufer bleiben
- * dort bei ihrer bisherigen (unveraenderten) Durchschnittsformel.
+ * Fallback). Feiertage, freie Tage und Tage außerhalb der Beschäftigung liefern 0.
+ * Im Monatsmodell wird das Monatsvolumen durch alle Montag-bis-Freitag-Tage
+ * des Kalendermonats geteilt. Erst die Summe des Berichts wird gerundet.
  *
  * @param {AZEmployer} employer
  * @param {string} dateISO
@@ -325,6 +269,7 @@ function weekModePerDayMinutesMap(employer) {
  * @returns {number}
  */
 export function computeDayTargetMinutes(employer, dateISO, ctx) {
+  if (!withinEmployment(employer, dateISO, ctx)) return 0;
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
   const year = Number(dateISO.slice(0, 4));
@@ -332,6 +277,11 @@ export function computeDayTargetMinutes(employer, dateISO, ctx) {
   const offDayDates = ctx && ctx.offDayDates;
   const isOffDay = !!offDayDates && (offDayDates instanceof Set ? offDayDates.has(dateISO) : offDayDates.includes(dateISO));
   if (isHol || isOffDay) return 0;
+  if (employer.hoursMode !== 'week') {
+    if (dayOfWeekISO(dateISO) > 4) return 0;
+    const weekdays = monthDates(dateISO.slice(0, 7)).filter(d => dayOfWeekISO(d) < 5).length;
+    return Math.max(0, (Number(employer.monthlyHours) || 0) * 60 / weekdays);
+  }
   const perDayMin = weekModePerDayMinutesMap(employer);
   const key = DAY_KEYS[dayOfWeekISO(dateISO)];
   return perDayMin[key] || 0;
@@ -348,7 +298,7 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
   const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
-  const dates = monthDates(ym);
+  const dates = monthDates(ym).filter(d => withinEmployment(employer, d, ctx));
   if (employer && employer.hoursMode === 'week') {
     const schedule = employer.schedule || defaultSchedule(employer.weeklyHours || 40);
     const activeDays = DAY_KEYS.filter(k => schedule[k]?.enabled);
@@ -372,9 +322,9 @@ export function countWorkdaysInMonth(ym, employer, ctx) {
  *
  * - `hoursMode='week'`: proratedTargetMin wird TAGESGENAU aus computeDayTargetMinutes
  *   aufsummiert (exakt, auch bei unregelmaessigem Wochenschema).
- * - sonst ('month'/'year'): es gibt kein individuelles Tagesschema, daher NAEHERUNGSWEISE
- *   per Verhaeltnis (Gesamt-Soll * vergangene Arbeitstage / Gesamt-Arbeitstage) — siehe
- *   Docstring von computeDayTargetMinutes zu dieser Einschraenkung.
+ * - sonst ('month'/'year'): Summe derselben monatlichen Durchschnitts-Tageswerte
+ *   wie im Monatsbericht. Beschäftigungsgrenzen, freie Tage und Feiertage gelten
+ *   für beide Wege identisch; gerundet wird die Summe.
  *
  * `todayISOStr` VOR dem Monat -> 0 vergangene Tage. NACH Monatsende -> ganzer Monat zaehlt
  * als vergangen (elapsedWorkdays === totalWorkdays).
@@ -390,7 +340,7 @@ export function computeElapsedMonthProgress(employer, ym, todayISOStr, ctx) {
   const stateCode = (ctx && ctx.stateCode) || 'HE';
   const overrides = ctx && ctx.holidayOverrides;
   const holidays = mergeOffDayDates(new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date)), ctx);
-  const elapsedDatesAll = monthDates(ym).filter(d => d <= todayISOStr);
+  const elapsedDatesAll = monthDates(ym).filter(d => d <= todayISOStr && withinEmployment(employer, d, ctx));
 
   let elapsedDates;
   if (employer && employer.hoursMode === 'week') {
@@ -409,13 +359,7 @@ export function computeElapsedMonthProgress(employer, ym, todayISOStr, ctx) {
   }
   const elapsedWorkdays = elapsedDates.length;
 
-  let proratedTargetMin;
-  if (employer && employer.hoursMode === 'week') {
-    proratedTargetMin = elapsedDates.reduce((sum, d) => sum + computeDayTargetMinutes(employer, d, ctx), 0);
-  } else {
-    const fullTargetMin = computeMonthTargetMinutes(employer, ym, ctx);
-    proratedTargetMin = totalWorkdays > 0 ? Math.round((fullTargetMin * elapsedWorkdays) / totalWorkdays) : 0;
-  }
+  const proratedTargetMin = Math.round(elapsedDates.reduce((sum, d) => sum + computeDayTargetMinutes(employer, d, ctx), 0));
 
   return { elapsedWorkdays, totalWorkdays, proratedTargetMin };
 }
@@ -596,7 +540,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   const overrides = state.settings?.holidayOverrides;
 
   const entries = state.entries
-    .filter(e => e.employerId === employerId && e.date.startsWith(ym))
+    .filter(e => e.employerId === employerId && e.date.startsWith(ym) && withinEmployment(emp, e.date, ctx))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   const workEntries = entries.filter(e => e.type === 'work');
@@ -610,7 +554,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   // / computeDayTargetMinutes / countWorkdaysInMonth) statt wie Urlaub/Krank gutgeschrieben zu werden.
   const offDayEntries = entries.filter(e => e.type === 'off_day');
   const offDayDates = new Set(offDayEntries.map(e => e.date));
-  const innerCtx = { stateCode, holidayOverrides: overrides, offDayDates };
+  const innerCtx = { stateCode, holidayOverrides: overrides, offDayDates, throughDate: ctx.throughDate };
 
   const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
     + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
@@ -624,8 +568,8 @@ export function computeMonthReport(employerId, ym, ctx) {
   //     Wochenschema (employer.schedule bzw. defaultSchedule) für den jeweiligen Wochentag
   //     des Abwesenheitseintrags — siehe computeDayTargetMinutes().
   //   hoursMode='month':          perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat
-  //     (unverändert — es gibt im Monatsmodus kein individuelles Tagesschema).
-  //   Gutschrift an Sa/So/Feiertag = 0
+  //     (Durchschnitt über alle Mo–Fr-Daten, auch wenn einzelne Feiertage sind).
+  //   Gutschrift folgt den aktiven Tagen; Feiertage und planmäßig freie Tage = 0.
   //
   // Rechtlicher Kontext (§ 3 EntgFG, Grundsatz "Krank wie gearbeitet"):
   //   - Fall 1 (feste Zeiten Mo–Fr gleichmäßig): ABGEDECKT.
@@ -638,8 +582,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   //   - hoursMode='month' ohne Wochenschema: weiterhin NICHT tagesgenau (Durchschnitt).
   //
   // Details: docs/ARCHITECTURE.md → "Berechnungsregel Urlaub/Krank".
-  const monthHolidays = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides).map(h => h.date));
-  const monthWorkdayDates = monthDates(ym).filter(d => dayOfWeekISO(d) < 5 && !monthHolidays.has(d));
+  const monthWorkdayDates = monthDates(ym).filter(d => dayOfWeekISO(d) < 5);
   const isWeekModeCredit = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
   const perWorkdayMin = (() => {
     if (isWeekModeCredit) {
@@ -650,19 +593,6 @@ export function computeMonthReport(employerId, ym, ctx) {
     return Math.round(((Number(emp.monthlyHours) || 0) * 60) / monthWorkdayDates.length);
   })();
   const dailyTargetMin = perWorkdayMin; // für Rückwärtskompatibilität im Report (Durchschnitt, siehe oben)
-  const isCreditableAbsenceDate = (dateISO) => {
-    const dow = dayOfWeekISO(dateISO);
-    if (dow > 4) return false; // Sa/So
-    if (monthHolidays.has(dateISO)) return false; // Feiertag
-    return true;
-  };
-  // Tagesgenaue Summe für hoursMode='week' (via computeDayTargetMinutes), sonst weiterhin
-  // der bisherige Durchschnitt (perWorkdayMin) pro kreditierbarem Tag.
-  const sumCreditedAbsenceMin = (arr) => arr.reduce((sum, e) => {
-    if (!isCreditableAbsenceDate(e.date)) return sum;
-    if (isWeekModeCredit) return sum + computeDayTargetMinutes(emp, e.date, innerCtx);
-    return sum + perWorkdayMin;
-  }, 0);
   // Gleitzeit-Überstundenabbau (seit v3.9.46): ANDERS als Urlaub/Krank NICHT gutgeschrieben.
   // Urlaub/Krank sind gesetzlich als "wie gearbeitet" zu vergüten (§ 3 EntgFG) und dürfen den
   // Saldo nicht belasten. Ein Überstundenabbau-Tag ("Gleittag") hat den GEGENTEILIGEN Zweck:
@@ -671,8 +601,8 @@ export function computeMonthReport(employerId, ym, ctx) {
   // Betrag sinkt — das ist der eigentliche "Abbau". overtime_reduction zählt weiterhin bewusst
   // NICHT in computeVacationRemaining/computeYearlyVacationPlanning, da es kein Urlaubstag ist
   // und den Urlaubsanspruch nicht mindert.
-  const creditedAbsenceMin = sumCreditedAbsenceMin(vacationEntries)
-    + sumCreditedAbsenceMin(sickEntries);
+  const creditedAbsenceMin = Math.round([...vacationEntries, ...sickEntries]
+    .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date, innerCtx), 0));
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);
@@ -714,7 +644,7 @@ export function computeMonthOverview(ym, ctx) {
       sickDays: r.sickEntries.length,
       overtimeReductionDays: r.overtimeReductionEntries.length,
       offDayDays: r.offDayEntries.length,
-      workEntriesCount: r.workEntries.length,
+      workEntriesCount: new Set([...r.workEntries, ...r.homeofficeEntries].map(e => e.date)).size,
     };
   }).filter(Boolean);
 
@@ -839,6 +769,9 @@ export function computeGleitzeitkontoAsOfToday(emp, year, todayISOStr, ctx) {
   const full = computeGleitzeitkontoRows(emp, year, ctx);
   const { rows, hiredAfterYear, endedBeforeYear } = full;
   const currentYm = todayISOStr.slice(0, 7);
+  if (year > Number(todayISOStr.slice(0, 4))) {
+    return { rows, cumulativeBalance: 0, cumulativeTargetMin: 0, asOfYm: currentYm, truncated: true };
+  }
 
   if (!currentYm.startsWith(String(year)) || hiredAfterYear || endedBeforeYear || !rows.length) {
     const last = rows.length ? rows[rows.length - 1] : null;
@@ -851,22 +784,19 @@ export function computeGleitzeitkontoAsOfToday(emp, year, todayISOStr, ctx) {
     };
   }
 
-  const priorRows = rows.filter(r => r.ym < currentYm);
-  const lastPrior = priorRows.length ? priorRows[priorRows.length - 1] : null;
-  let cumulativeBalance = lastPrior ? lastPrior.cumulativeBalance : 0;
-  let cumulativeTargetMin = lastPrior ? lastPrior.cumulativeTargetMin : 0;
-
-  const stateCode = (ctx && ctx.state && ctx.state.settings?.state) || 'HE';
-  const holidayOverrides = ctx && ctx.state && ctx.state.settings?.holidayOverrides;
-  const progress = computeElapsedMonthProgress(emp, currentYm, todayISOStr, { stateCode, holidayOverrides });
-  const currentReport = computeMonthReport(emp.id, currentYm, ctx);
-  if (currentReport) {
-    const actualCurrent = currentReport.workedMin + currentReport.creditedAbsenceMin;
-    cumulativeBalance += actualCurrent - progress.proratedTargetMin;
-    cumulativeTargetMin += progress.proratedTargetMin;
+  let cumulativeBalance = 0;
+  let cumulativeTargetMin = 0;
+  const throughDate = emp.employmentEndDate && emp.employmentEndDate < todayISOStr
+    ? emp.employmentEndDate : todayISOStr;
+  for (let ym = full.effectiveStartYm; ym <= throughDate.slice(0, 7); ym = shiftYearMonth(ym, 1)) {
+    const report = computeMonthReport(emp.id, ym, { ...ctx, throughDate });
+    if (report) {
+      cumulativeBalance += report.balance;
+      cumulativeTargetMin += report.targetMin;
+    }
   }
 
-  return { rows, cumulativeBalance, cumulativeTargetMin, asOfYm: currentYm, truncated: true };
+  return { rows, cumulativeBalance, cumulativeTargetMin, asOfYm: throughDate.slice(0, 7), truncated: true };
 }
 
 /**
@@ -893,14 +823,18 @@ export function computeGleitzeitkontoRollingWindow(emp, todayISOStr, ctx, window
   const currentYm = todayISOStr.slice(0, 7);
   const stateCode = (ctx && ctx.state && ctx.state.settings?.state) || 'HE';
   const holidayOverrides = ctx && ctx.state && ctx.state.settings?.holidayOverrides;
-  const progress = computeElapsedMonthProgress(emp, currentYm, todayISOStr, { stateCode, holidayOverrides });
-  const includeCurrentPartial = progress.elapsedWorkdays >= minGateWorkdays;
+  const offDayDates = new Set((ctx.state?.entries || [])
+    .filter(e => e.employerId === emp.id && e.type === 'off_day').map(e => e.date));
+  const progress = computeElapsedMonthProgress(emp, currentYm, todayISOStr, { stateCode, holidayOverrides, offDayDates });
+  const includeCurrentPartial = progress.elapsedWorkdays >= minGateWorkdays &&
+    (!emp.employmentEndDate || emp.employmentEndDate >= `${currentYm}-01`);
   const completeMonthsCount = includeCurrentPartial ? windowMonths - 1 : windowMonths;
 
   const months = [];
   let cursor = shiftYearMonth(currentYm, -1);
   for (let i = 0; i < completeMonthsCount; i++) {
-    months.unshift(cursor);
+    if ((!emp.hiredSince || cursor >= emp.hiredSince.slice(0, 7)) &&
+        (!emp.employmentEndDate || cursor <= emp.employmentEndDate.slice(0, 7))) months.unshift(cursor);
     cursor = shiftYearMonth(cursor, -1);
   }
 
@@ -915,7 +849,7 @@ export function computeGleitzeitkontoRollingWindow(emp, todayISOStr, ctx, window
   }
 
   if (includeCurrentPartial) {
-    const r = computeMonthReport(emp.id, currentYm, ctx);
+    const r = computeMonthReport(emp.id, currentYm, { ...ctx, throughDate: todayISOStr });
     if (r) actualMin += r.workedMin + r.creditedAbsenceMin;
     targetMin += progress.proratedTargetMin;
     months.push(currentYm);

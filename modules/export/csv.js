@@ -11,6 +11,7 @@
 //   isFreelance, formatEmploymentModelSummary,   // seit v3.9.73: Arbeitszeitmodell-Zusammenfassung
 // }
 
+import { reportMode } from '../report-mode.js';
 const CSV_HEADER = ['Datum', 'Typ', 'Beginn', 'Ende', 'Pause (Min)', 'Stunden', 'Grund/Bemerkung'];
 
 const TYPE_LABELS = {
@@ -76,7 +77,7 @@ export function generateCsvBlob(report, ctx) {
   const empName = (employeeName || '').trim();
   const personnelNumber = (report.employer.personnelNumber || '').trim();
   const metaRows = [];
-  const csvFreelance = typeof ctx.isFreelance === 'function' ? ctx.isFreelance() : false;
+  const csvFreelance = reportMode(report.employer) === 'freelance';
   if (empName) metaRows.push([csvFreelance ? 'Freiberufler/in' : 'Arbeitnehmer/in', empName]);
   if (personnelNumber) metaRows.push(['Pers.-Nr.', personnelNumber]);
   // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73).

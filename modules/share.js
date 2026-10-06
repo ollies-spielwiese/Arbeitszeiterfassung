@@ -41,6 +41,7 @@
 // }
 
 import { emailFormatError, splitEmailAddresses, setEmailError, validateEmailField, wireEmailField } from './ui/email-validation.js';
+import { reportMode } from './report-mode.js';
 
 function isIOSPlatform() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -51,6 +52,7 @@ function isIOSPlatform() {
 function buildMailBody(report, ctx) {
   const { formatMonthYear, renderSummaryPlaintext, getSummaryFields } = ctx;
   const summaryLines = renderSummaryPlaintext(getSummaryFields({
+    mode: reportMode(report.employer),
     workedMin: report.workedMin,
     targetMin: report.targetMin,
     balance: report.balance,

@@ -11,14 +11,17 @@
 //   isFreelance, formatEmploymentModelSummary,   // seit v3.9.73
 // }
 
+import { reportMode } from '../report-mode.js';
+
 export async function generateWordBlob(report, ctx) {
   const {
     docx, state,
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryWordParagraphs,
-    isFreelance, formatEmploymentModelSummary,
+    formatEmploymentModelSummary,
   } = ctx;
+  const isFreelance = () => reportMode(report.employer) === 'freelance';
 
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, AlignmentType, WidthType, BorderStyle } = docx;
 
@@ -155,6 +158,7 @@ export async function generateWordBlob(report, ctx) {
   headerLines.push(new Paragraph({ text: '' }));
 
   const wordSummaryFields = getSummaryFields({
+    mode: reportMode(report.employer),
     workedMin: report.workedMin,
     targetMin: report.targetMin,
     balance: report.balance,

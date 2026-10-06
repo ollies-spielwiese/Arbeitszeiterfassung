@@ -45,6 +45,11 @@ const raw = (res.stdout || '') + (res.stderr || '');
 const lines = raw.split(/\r?\n/).filter(Boolean);
 
 const errorLines = lines.filter((l) => /error TS\d+/.test(l));
+if (res.error || res.signal || res.status === null ||
+    (res.status !== 0 && (res.status !== 2 || errorLines.length === 0))) {
+  console.error('[typecheck] Compiler konnte nicht erfolgreich ausgeführt werden:', res.error || res.signal || res.status, raw);
+  process.exit(1);
+}
 const realErrors = errorLines.filter((l) => !noiseRegex.test(l));
 const noiseCount = errorLines.length - realErrors.length;
 

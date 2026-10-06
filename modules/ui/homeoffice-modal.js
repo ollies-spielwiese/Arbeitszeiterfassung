@@ -26,6 +26,7 @@
 // }
 
 import { pushAuditLog } from '../audit-log.js';
+import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from '../entry-conflicts.js';
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 import { autoGrowTextarea } from './autogrow.js';
 
@@ -132,7 +133,8 @@ export function readHomeofficeSegmentsFromDom() {
   const segs = [];
   rows.forEach(row => {
     const start = row.querySelector('input[data-seg-start]').value || '';
-    const end = row.querySelector('input[data-seg-end]').value || '';
+    const end = row.querySelector('input[data-seg-midnight]')?.checked ? '24:00' :
+      (row.querySelector('input[data-seg-end]').value || '');
     segs.push({ start, end });
   });
   return segs;
@@ -150,6 +152,12 @@ export function renderHomeofficeSegments(ctx) {
   let segs;
   try { segs = JSON.parse(modal.dataset.segments || '[]'); } catch (e) { segs = []; }
   container.innerHTML = buildHomeofficeSegmentsHTML(segs);
+  container.querySelectorAll('input[data-seg-midnight]').forEach(toggle => toggle.addEventListener('change', () => {
+    const end = toggle.closest('.ho-segment-row').querySelector('input[data-seg-end]');
+    end.disabled = toggle.checked;
+    if (toggle.checked) end.value = '00:00';
+    updateHomeofficeLiveTotal(ctx);
+  }));
   updateHomeofficeLiveTotal(ctx);
 }
 
@@ -201,12 +209,15 @@ export function saveHomeoffice(e, ctx) {
   if (!employerId) { toast('Bitte Arbeitgeber wählen'); return; }
   if (!date) { toast('Bitte Datum wählen'); return; }
   if (!segments.length) { toast('Bitte mindestens einen Arbeitsblock erfassen'); return; }
+  if (findEntryConflict(state.entries, { id, employerId, date, type: 'homeoffice' })) {
+    toast(ENTRY_CONFLICT_MESSAGE); return;
+  }
 
   for (const s of segments) {
     const sm = hhmmToMinutes(s.start);
     const em = hhmmToMinutes(s.end);
     if (em <= sm) {
-      toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen. Für Über-Mitternacht bitte zwei Blöcke erfassen (bis 23:59 und ab 00:00 am Folgetag).`);
+      toast(`Ungültiger Block ${s.start}–${s.end}: Ende muss nach Beginn liegen. Für Über-Mitternacht bitte zwei Tage erfassen (bis 24:00 und ab 00:00 am Folgetag).`);
       return;
     }
   }

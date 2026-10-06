@@ -19,6 +19,7 @@
 import { DAY_KEYS, DAY_LABELS } from '../compute.js';
 import { validateEmailField } from './email-validation.js';
 import { escapeHtml } from '../util-format.js';
+import { timeToMinutes } from '../util-time.js';
 
 export function buildScheduleGrid(schedule) {
   const container = document.getElementById('schedule-grid');
@@ -81,6 +82,9 @@ export function updateHoursModeVisibility() {
   document.getElementById('row-monthly-hours').style.display = mode === 'month' ? '' : 'none';
   const yearlyRow = document.getElementById('row-yearly-hours');
   if (yearlyRow) yearlyRow.style.display = mode === 'year' ? '' : 'none';
+  ['week', 'month', 'year'].forEach((kind, i) => {
+    document.getElementById(['employer-weekly-hours', 'employer-monthly-hours', 'employer-yearly-hours'][i]).disabled = mode !== kind;
+  });
 }
 
 /* ---------- Arbeitszeitmodell (Beschäftigungsart / Arbeitszeitorganisation, Phase 3.9.72) ----------
@@ -359,6 +363,19 @@ export function saveEmployer(ev, ctx) {
     data.monthlyHours = Math.round((data.yearlyHours / 12) * 10) / 10;
   }
   if (!data.name) { toast('Bitte Namen eingeben'); return; }
+  if (data.hoursMode === 'week') {
+    for (const key of DAY_KEYS) {
+      const day = data.schedule[key];
+      if (!day.enabled || !day.start || !day.end) continue;
+      let gross = timeToMinutes(day.end) - timeToMinutes(day.start);
+      if (gross < 0) gross += 1440;
+      if (day.break < 0 || day.break > gross) {
+        toast(`${DAY_LABELS[DAY_KEYS.indexOf(key)]}: Die Pause darf nicht länger als die Arbeitszeit sein.`);
+        document.querySelector(`#schedule-grid [data-day="${key}"] .day-break`).focus();
+        return;
+      }
+    }
+  }
   if (data.hiredSince && data.employmentEndDate && data.employmentEndDate < data.hiredSince) {
     toast('„Beschäftigt bis" darf nicht vor „Angestellt seit" liegen');
     return;

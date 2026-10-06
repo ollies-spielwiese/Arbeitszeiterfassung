@@ -1433,6 +1433,16 @@ textarea.note-autogrow {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+.ho-midnight {
+  grid-column: 4;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+}
+.ho-midnight input { width: auto; }
+.ho-segment-row [data-remove-segment] { grid-column: 5; grid-row: 1; }
 .ho-segment-sep {
   color: var(--text-muted);
   text-align: center;

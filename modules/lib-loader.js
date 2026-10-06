@@ -57,7 +57,11 @@ function loadScript(key) {
       s.crossOrigin = 'anonymous';
     }
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Fehler beim Laden von ' + key + ' (Netzwerkfehler oder Integritätsprüfung fehlgeschlagen)'));
+    s.onerror = () => {
+      s.remove();
+      _pending.delete(key);
+      reject(new Error('Fehler beim Laden von ' + key + ' (Netzwerkfehler oder Integritätsprüfung fehlgeschlagen)'));
+    };
     document.head.appendChild(s);
   });
   _pending.set(key, p);

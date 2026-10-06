@@ -43,6 +43,9 @@
  */
 
 import { SCHEMA_VERSION, migrateHomeofficeEntries as _migrateHomeofficeEntriesRaw, runMigrations as _runMigrationsModule } from './modules/migrations.js';
+import { splitAcrossMidnight } from './modules/util-time.js';
+import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from './modules/entry-conflicts.js';
+import { restoreArchiveReport } from './modules/archive-report.js';
 import {
   STORAGE_KEY,
   DEFAULT_STATE,
@@ -681,24 +684,11 @@ function renderTodaySummary() {
   container.style.display = '';
   const emp = getEmployer(empId);
   const ym = currentYearMonth();
-  const entries = state.entries.filter(e => e.employerId === empId && e.date.startsWith(ym));
-
-  const workedMin = entries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
-  const vacationDays = entries.filter(e => e.type === 'vacation').length;
-  const sickDays = entries.filter(e => e.type === 'sick').length;
-  const overtimeReductionDays = entries.filter(e => e.type === 'overtime_reduction').length;
-  const targetMin = computeMonthTargetMinutes(emp, ym);
-  // Seit v3.9.45 bei hoursMode='week' tagesgenau (siehe computeDayTargetMinutes) statt
-  // pauschalem Monatsdurchschnitt — analog zu Woche/Monat-Ansicht.
-  // Seit v3.9.46: Überstundenabbau-Tage werden NICHT mehr gutgeschrieben (anders als
-  // Urlaub/Krank) — ein Gleittag soll den Saldo tatsächlich verringern, nicht neutral bleiben.
-  const isWeekModeCreditToday = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
-  const creditedAbsenceMin = isWeekModeCreditToday
-    ? entries
-        .filter(e => e.type === 'vacation' || e.type === 'sick')
-        .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0)
-    : Math.round((vacationDays + sickDays) * (targetMin ? targetMin / countWorkdaysInMonth(ym, emp) : 0));
-  const balance = workedMin + creditedAbsenceMin - targetMin;
+  const report = computeMonthReport(empId, ym);
+  const { workedMin, targetMin, balance } = report;
+  const vacationDays = report.vacationEntries.length;
+  const sickDays = report.sickEntries.length;
+  const overtimeReductionDays = report.overtimeReductionEntries.length;
 
   const summaryFields = getSummaryFields({
     workedMin,
@@ -726,6 +716,9 @@ function countWorkdaysInMonth(ym, employer) {
 function startWork() {
   if (!state.activeEmployerId) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return; }
   if (state.runningTimer) return;
+  if (findEntryConflict(state.entries, { employerId: state.activeEmployerId, date: todayISO(), type: 'work' })) {
+    toast(ENTRY_CONFLICT_MESSAGE); return;
+  }
   state.runningTimer = {
     employerId: state.activeEmployerId,
     startISO: new Date().toISOString(),
@@ -736,48 +729,16 @@ function startWork() {
   toast(currentMode === 'homeoffice' ? 'Home-Office-Block gestartet' : 'Arbeitsbeginn erfasst');
 }
 
-/**
- * Splittet ein Segment am Mitternachtsgrenze. Wenn Start und Ende am selben Tag
- * liegen, wird nur ein Eintrag zurückgegeben. Bei Über-Mitternacht wird das Segment
- * am Start-Tag um 23:59 (bzw. am Grenzwert 24:00 = 00:00 des Folgetages) geteilt.
- * Rückgabe: Array von { date, start, end } jeweils innerhalb eines Kalendertags.
- */
-function splitAcrossMidnight(startJSDate, endJSDate) {
-  const parts = [];
-  const startDay = new Date(startJSDate.getFullYear(), startJSDate.getMonth(), startJSDate.getDate());
-  const endDay = new Date(endJSDate.getFullYear(), endJSDate.getMonth(), endJSDate.getDate());
-  const sameDay = startDay.getTime() === endDay.getTime();
-  const startHHMM = `${pad(startJSDate.getHours())}:${pad(startJSDate.getMinutes())}`;
-  const endHHMM = `${pad(endJSDate.getHours())}:${pad(endJSDate.getMinutes())}`;
-  const startISO = `${startDay.getFullYear()}-${pad(startDay.getMonth()+1)}-${pad(startDay.getDate())}`;
-  if (sameDay) {
-    parts.push({ date: startISO, start: startHHMM, end: endHHMM });
-    return parts;
-  }
-  // Startsegment bis 23:59 des Start-Tages
-  parts.push({ date: startISO, start: startHHMM, end: '23:59' });
-  // Zwischentage komplett (00:00 - 23:59) — in der Praxis bei Home-Office extrem selten,
-  // aber sauber implementieren für den Fall, dass jemand über mehrere Tage läuft.
-  let cursor = new Date(startDay.getTime() + 24*60*60*1000);
-  while (cursor.getTime() < endDay.getTime()) {
-    const iso = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
-    parts.push({ date: iso, start: '00:00', end: '23:59' });
-    cursor = new Date(cursor.getTime() + 24*60*60*1000);
-  }
-  // End-Segment vom Folgetag ab 00:00 bis zur Endzeit
-  const endISO = `${endDay.getFullYear()}-${pad(endDay.getMonth()+1)}-${pad(endDay.getDate())}`;
-  if (endHHMM !== '00:00') {
-    parts.push({ date: endISO, start: '00:00', end: endHHMM });
-  }
-  return parts;
-}
-
 function endWork() {
   const r = state.runningTimer;
   if (!r) return;
   const startDate = new Date(r.startISO);
   const endDate = new Date();
   const parts = splitAcrossMidnight(startDate, endDate);
+  if (!parts.length) { toast('Bitte mindestens eine Minute erfassen.'); return; }
+  if (parts.some(p => findEntryConflict(state.entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
+    toast(ENTRY_CONFLICT_MESSAGE + ' Der Timer bleibt erhalten.'); return;
+  }
 
   if (r.type === 'homeoffice') {
     // Für jeden Kalendertag: Segment am bestehenden HO-Entry anhängen oder neuen anlegen
@@ -1201,45 +1162,15 @@ function renderWeek() {
   const targetMin = computeWeekTargetMinutes(emp, dates);
   const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
 
-  // Urlaubs-/Krank-/Überstundenabbau-Gutschrift analog zum Monatsbericht:
-  // seit v3.9.45 bei hoursMode='week' TAGESGENAU (echtes Tages-Soll aus dem individuellen
-  // Wochenschema statt Durchschnitt weeklyHours ÷ 5) — siehe computeDayTargetMinutes().
-  // hoursMode='month' bleibt unverändert beim Durchschnitt (kein Tagesschema vorhanden).
-  // Urlaub an Sa/So oder Feiertag bringt weiterhin 0.
-  const holidaySetWeek = new Set(holidaysInWeek.map(h => h.date));
-  const isWeekModeCreditWeek = emp.hoursMode === 'week' || (!emp.hoursMode && !emp.monthlyHours);
-  const perWorkdayMinWeek = (() => {
-    if (isWeekModeCreditWeek) {
-      return Math.round(((Number(emp.weeklyHours) || 0) * 60) / 5);
-    }
-    // hoursMode='month': gleiche Verteilung über Werktage im Kalendermonat der Wochenmitte
-    const mid = dates[3] || dates[0];
-    const ym = mid.slice(0, 7);
-    const overrides = state.settings?.holidayOverrides;
-    const monthDs = [];
-    const [yy, mm] = ym.split('-').map(Number);
-    const daysInMonth = new Date(yy, mm, 0).getDate();
-    for (let d = 1; d <= daysInMonth; d++) monthDs.push(`${ym}-${String(d).padStart(2,'0')}`);
-    // @ts-ignore — getHolidaysInRange akzeptiert 4. Argument overrides zur Laufzeit
-    const monthHols = new Set(getHolidaysInRange(`${ym}-01`, `${ym}-${String(daysInMonth).padStart(2,'0')}`, stateCode, overrides).map(h => h.date));
-    const wds = monthDs.filter(d => { const dt = new Date(d + 'T00:00:00'); const dow = (dt.getDay() + 6) % 7; return dow < 5 && !monthHols.has(d); });
-    if (!wds.length) return 0;
-    return Math.round(((Number(emp.monthlyHours) || 0) * 60) / wds.length);
-  })();
-  const isCreditableAbsenceDay = (dateISO) => {
-    const dt = new Date(dateISO + 'T00:00:00');
-    const dow = (dt.getDay() + 6) % 7;
-    if (dow > 4) return false;
-    if (holidaySetWeek.has(dateISO)) return false;
-    return true;
-  };
+  // Same daily values as tracker/month; month-crossing weeks use each date's month.
+  const isCreditableAbsenceDay = date => computeDayTargetMinutes(emp, date) > 0;
   const sumCreditedAbsenceMinWeek = (type) => state.entries
     .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
-    .reduce((sum, e) => sum + (isWeekModeCreditWeek ? computeDayTargetMinutes(emp, e.date) : perWorkdayMinWeek), 0);
+    .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0);
   // Überstundenabbau (seit v3.9.46): NICHT gutgeschrieben — anders als Urlaub/Krank soll ein
   // Gleittag den Saldo tatsächlich verringern (Ist=0 bleibt gegen das Tages-Soll ungedeckt).
-  const creditedAbsenceMinWeek = sumCreditedAbsenceMinWeek('vacation')
-    + sumCreditedAbsenceMinWeek('sick');
+  const creditedAbsenceMinWeek = Math.round(sumCreditedAbsenceMinWeek('vacation')
+    + sumCreditedAbsenceMinWeek('sick'));
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
   // Tageszähler für den Saldo-Tooltip (nur Tage, die tatsächlich Gutschrift bringen —
   // Urlaub/Krank am Wochenende oder Feiertag bringt 0 und wird hier nicht mitgezählt).
@@ -1731,7 +1662,8 @@ function getCurrentGleitzeitkonto() {
     return null;
   }
   const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
-  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } };
+  const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, todayISO());
+  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, asOf } };
 }
 
 async function generateGleitzeitkontoPdfBlob(rows, emp, meta) {
@@ -1926,9 +1858,11 @@ function archiveCurrentMonth() {
   if (exists && !confirm('Für diesen Monat existiert bereits ein Archiv. Überschreiben?')) return;
 
   const snapshot = {
-    employer: { ...r.employer },
-    entries: r.entries.map(e => ({ ...e })),
+    employer: JSON.parse(JSON.stringify(r.employer)),
+    entries: JSON.parse(JSON.stringify(r.entries)),
     workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance,
+    creditedAbsenceMin: r.creditedAbsenceMin,
+    vacationRemaining: r.vacationRemaining,
     vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length,
     overtimeReductionDays: r.overtimeReductionEntries.length,
     holidays: r.holidays,
@@ -1966,18 +1900,7 @@ function renderArchive() {
         state.archives = state.archives.filter(a => a.id !== archive.id);
         saveState(); renderArchive(); toast('Archiv gelöscht');
       } else if (action === 'word' || action === 'pdf') {
-        const s = archive.snapshot;
-        const report = {
-          employer: s.employer, ym: archive.yearMonth,
-          entries: s.entries,
-          workEntries: s.entries.filter(e => e.type === 'work'),
-          vacationEntries: s.entries.filter(e => e.type === 'vacation'),
-          sickEntries: s.entries.filter(e => e.type === 'sick'),
-          overtimeReductionEntries: s.entries.filter(e => e.type === 'overtime_reduction'),
-          overtimeEntries: s.entries.filter(e => e.type === 'work' && e.overtimeReason),
-          workedMin: s.workedMin, targetMin: s.targetMin, balance: s.balance,
-          holidays: s.holidays || [], creditedAbsenceMin: 0,
-        };
+        const report = restoreArchiveReport(archive);
         // Seit v3.9.49: explizites try/catch, damit ein Ladefehler der CDN-Libraries
         // (Netzwerk oder SRI-Hash-Mismatch, siehe modules/lib-loader.js) hier nicht als
         // unbehandelte Promise-Rejection verschwindet, sondern sichtbar als Toast landet.

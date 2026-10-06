@@ -10,6 +10,8 @@
 //   formatEmploymentModelSummary,   // seit v3.9.73
 // }
 
+import { reportMode } from '../report-mode.js';
+
 function wrapText(doc, text, x, y, maxWidth) {
   const split = doc.splitTextToSize(text, maxWidth);
   doc.text(split, x, y);
@@ -21,9 +23,10 @@ export function generatePdfBlob(report, ctx) {
     jsPDF, state,
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
-    getSummaryFields, renderSummaryPdfLines, isFreelance,
+    getSummaryFields, renderSummaryPdfLines,
     formatEmploymentModelSummary,
   } = ctx;
+  const isFreelance = () => reportMode(report.employer) === 'freelance';
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const marginX = 15;
@@ -107,6 +110,7 @@ export function generatePdfBlob(report, ctx) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   const pdfSummaryFields = getSummaryFields({
+    mode: reportMode(report.employer),
     workedMin: report.workedMin,
     targetMin: report.targetMin,
     balance: report.balance,

@@ -49,7 +49,8 @@ const unique = (items, p) => {
   }
 };
 const segment = (v, p) => {
-  object(v, p); time(v.start, `${p}.start`); time(v.end, `${p}.end`);
+  object(v, p); time(v.start, `${p}.start`);
+  if (v.end !== '24:00') time(v.end, `${p}.end`);
 };
 function employer(v, p) {
   object(v, p); id(v.id, `${p}.id`); text(v.name, `${p}.name`);
@@ -146,6 +147,10 @@ export function validateBackup(data) {
         fields(s, `${ap}.snapshot`, {
           ...numbers('vacationDays sickDays overtimeReductionDays creditedAbsenceMin homeofficeMin'),
           holidays,
+          vacationRemaining: (x, xp) => {
+            if (x === null) return;
+            fields(x, xp, { ...numbers('annual carryOver taken remaining hiredMonth'), prorated: bool });
+          },
         });
       });
       unique(v, p);

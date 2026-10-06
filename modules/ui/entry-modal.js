@@ -26,6 +26,7 @@
 
 import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
+import { findEntryConflict } from '../entry-conflicts.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
@@ -111,6 +112,8 @@ export function updateEntryTypeFields() {
   const otRow = document.getElementById('entry-overtime-reason')?.closest('.form-row');
   if (breakRow) breakRow.style.display = type === 'work' ? '' : 'none';
   if (otRow) otRow.style.display = type === 'work' ? '' : 'none';
+  for (const id of ['entry-start', 'entry-end']) document.getElementById(id).disabled = !isTimed;
+  for (const id of ['entry-break', 'entry-overtime-reason', 'entry-overtime-tpl']) document.getElementById(id).disabled = type !== 'work';
 }
 
 export function updateBreakHint(ctx) {
@@ -160,14 +163,12 @@ export function saveEntry(e, ctx) {
   // ein neuer Eintrag darf ein bereits belegtes Datum nicht duplizieren, sonst entstehen
   // widersprüchliche Karten in "Einträge" und die Woche/Monat-Anrechnung zählt den Tag doppelt.
   // Analog zu buildRangeEntries() in modules/range-entry.js (dort: skippedExisting).
-  if (type === 'vacation' || type === 'sick' || type === 'overtime_reduction' || type === 'off_day') {
-    const conflict = state.entries.find(x => x.employerId === employerId && x.date === date && x.id !== id);
-    if (conflict) {
-      const CONFLICT_LABELS = { work: 'Arbeitszeit', homeoffice: 'Home-Office', vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Überstundenabbau', off_day: 'Freier Tag' };
-      const label = CONFLICT_LABELS[conflict.type] || conflict.type;
-      toast(`Für dieses Datum existiert bereits ein Eintrag (${label}). Bitte zuerst löschen oder bearbeiten.`);
-      return;
-    }
+  const conflict = findEntryConflict(state.entries, { id, employerId, date, type });
+  if (conflict) {
+    const labels = { vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Gleitzeit-Überstundenabbau',
+      off_day: 'Freier Tag', work: 'Arbeit', homeoffice: 'Home-Office' };
+    toast(`Für dieses Datum existiert bereits ein Eintrag (${labels[conflict.type] || conflict.type}). Bitte zuerst löschen oder bearbeiten.`);
+    return;
   }
 
   // Basis-Datensatz je Typ.

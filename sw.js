@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-95';
+const CACHE_NAME = 'arbeitszeit-v3-9-96';
 const ASSETS = [
   './',
   './index.html',
@@ -38,6 +38,9 @@ const ASSETS = [
   './modules/kind-migration-notice.js',
   './modules/backup.js',
   './modules/backup-validation.js',
+  './modules/entry-conflicts.js',
+  './modules/archive-report.js',
+  './modules/report-mode.js',
   './modules/backupFolder.js',
   './modules/share.js',
   './modules/ui/entry-modal.js',
@@ -92,7 +95,7 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Cache core assets individually so a single failure doesn't kill the install.
+      // Core failures reject installation; only optional assets may be missing.
       // Fix v3.9.67: { cache: 'reload' } statt cache.add(url) — cache.add() respektiert
       // das normale HTTP-Caching des Browsers. Kurz nach einem Deploy kann dessen
       // Disk-Cache eine einzelne Datei (z. B. modules/constants.js) noch mit dem alten
@@ -107,7 +110,12 @@ self.addEventListener('install', (event) => {
               if (!response || !response.ok) throw new Error('HTTP ' + (response && response.status));
               return cache.put(url, response);
             })
-            .catch((err) => console.warn('Cache miss for', url, err))
+            .catch((err) => {
+              // Local HTML, CSS, manifest and executable modules are mandatory.
+              const core = url === './' || /\.(?:html|css|js|json)$/.test(url);
+              if (!url.startsWith('https:') && core) throw err;
+              console.warn('Optional cache miss for', url, err);
+            })
         )
       );
     })
@@ -124,7 +132,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith('arbeitszeit-') && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();

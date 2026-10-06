@@ -182,7 +182,9 @@ Gutschrift pro Urlaubs-/Kranktag = computeDayTargetMinutes(employer, datum)
 perWorkdayMin = monthlyHours × 60 / Werktage Mo–Fr im Monat
 Gutschrift pro Urlaubs-/Kranktag = perWorkdayMin
 
-Gutschrift an Sa/So/Feiertag = 0 (beide Modi)
+Gutschrift an Feiertagen/freien Tagen = 0.
+Wochenmodus: Aktive Sa/So werden wie geplant gutgeschrieben.
+Monatsmodus: Sa/So = 0; Teiler = alle Mo–Fr-Daten des Kalendermonats.
 ```
 
 Implementierung: `computeMonthReport()` sowie `computeDayTargetMinutes()`/`weekModePerDayMinutesMap()` in `modules/compute.js`; analog in `app.js` `renderWeek()` und `renderTodaySummary()`.

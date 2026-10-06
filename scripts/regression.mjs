@@ -31,6 +31,7 @@ import { runEmploymentFormValidationTests } from './employment-form-validation-t
 import { runEmailRulesTests } from './email-rules-tests.mjs';
 import { runServiceWorkerLifecycleTests } from './sw-update-lifecycle-tests.mjs';
 import { runBackupSafetyTests } from './backup-safety-tests.mjs';
+import { runAuditRegressionTests } from './audit-regression-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4080,11 +4081,11 @@ function snippet(s) {
 // ---------- 3) Employee E2E ----------
 
 async function runEmployee(page) {
-  console.log('\n=== 3) E2E Employee (Arbeitgeber A, targetHours=160) ===');
+  console.log('\n=== 3) E2E Employee (Arbeitgeber A, monthlyHours=160) ===');
   await seedState(page, 'employee', {
     id: 'e1', name: 'Arbeitgeber A',
     hourlyRate: 0, currency: 'EUR',
-    targetHours: 160, weeklySchedule: null,
+    hoursMode: 'month', monthlyHours: 160, weeklySchedule: null,
     annualVacation: 30, hiredSince: '2020-03-15', vacationCarryOver: 5,
     personnelNumber: '48213',
   }, { employeeName: 'Max Mustermann' });
@@ -4537,6 +4538,7 @@ function runServiceWorkerCacheBustCheck() {
     await runEmailRulesTests(browser, BASE_URL, { assertEq });
     await runServiceWorkerLifecycleTests(browser, BASE_URL, { assertEq });
     await runBackupSafetyTests(browser, BASE_URL, { assertEq });
+    await runAuditRegressionTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

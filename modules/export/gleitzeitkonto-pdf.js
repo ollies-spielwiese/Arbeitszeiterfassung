@@ -81,10 +81,13 @@ export function generateGleitzeitkontoPdfBlob(rows, emp, meta, ctx) {
   // Zusammenfassung, identisch zu den vier Kacheln der Bildschirmansicht (renderSummaryHTML).
   const totalWorked = rows.reduce((s, r) => s + r.workedMin, 0);
   const totalTarget = rows.reduce((s, r) => s + r.targetMin, 0);
+  const tileBalance = meta?.asOf ? meta.asOf.cumulativeBalance : last.cumulativeBalance;
+  const tileLabel = meta?.asOf?.truncated
+    ? `Aktueller Gleitzeitsaldo (Stand: ${formatMonthYear(meta.asOf.asOfYm)})` : 'Aktueller Gleitzeitsaldo';
   doc.setFontSize(10);
   const summaryLines = [
     { label: 'Zeitraum', value: `${formatMonthYear(first.ym)} – ${formatMonthYear(last.ym)}` },
-    { label: 'Aktueller Gleitzeitsaldo', value: minutesToHM(last.cumulativeBalance), color: last.cumulativeBalance > 0 ? POS_COLOR : (last.cumulativeBalance < 0 ? NEG_COLOR : null) },
+    { label: tileLabel, value: minutesToHM(tileBalance), color: tileBalance > 0 ? POS_COLOR : (tileBalance < 0 ? NEG_COLOR : null) },
     { label: 'Ist gesamt', value: minutesToHM(totalWorked) },
     { label: 'Soll gesamt', value: minutesToHM(totalTarget) },
   ];

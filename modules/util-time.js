@@ -121,7 +121,7 @@ export function shiftYearMonth(ym, delta) {
  */
 export function minutesToHM(mins) {
   const sign = mins < 0 ? '-' : '';
-  const abs = Math.abs(mins);
+  const abs = Math.round(Math.abs(mins));
   const h = Math.floor(abs / 60);
   const m = Math.round(abs % 60);
   return `${sign}${h}:${pad(m)}`;
@@ -145,6 +145,24 @@ export function timeToMinutes(hhmm) {
   if (!hhmm) return 0;
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
+}
+
+/** Calendar-day splitting; 24:00 is the exclusive end of a Home-Office day.
+ * Times remain wall-clock values, as in manually entered work blocks.
+ */
+export function splitAcrossMidnight(start, end) {
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) return [];
+  const parts = [];
+  let cursor = new Date(start);
+  const clock = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  while (cursor < end) {
+    const next = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    const stop = end < next ? end : next;
+    const from = clock(cursor), until = stop.getTime() === next.getTime() ? '24:00' : clock(stop);
+    if (timeToMinutes(until) > timeToMinutes(from)) parts.push({ date: dateISO(cursor), start: from, end: until });
+    cursor = next;
+  }
+  return parts;
 }
 
 /**

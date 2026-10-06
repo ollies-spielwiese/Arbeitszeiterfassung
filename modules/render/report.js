@@ -16,6 +16,8 @@
 //   renderSummaryHTML,
 // }
 
+import { reportMode } from '../report-mode.js';
+
 export function buildReportHTML(r, ctx) {
   const {
     escapeHtml,
@@ -75,9 +77,6 @@ export function buildReportHTML(r, ctx) {
   // wird der Report als employee behandelt — unabhängig vom globalen App-Mode.
   // Nur wenn KEINE Sollstunden hinterlegt sind, greift der Freelance-Modus
   // (kein Soll/Saldo/Urlaub/Krank im Summary).
-  const empHasTarget =
-    (Number(r.employer.weeklyHours) || 0) > 0 ||
-    (Number(r.employer.monthlyHours) || 0) > 0;
   // Debug-Bridge für Fehlersuche v3.9.24
   try { if (typeof window !== 'undefined') /** @type {any} */(window).__AZ_LAST_REPORT = { employer: r.employer.name, ym: r.ym, workedMin: r.workedMin, targetMin: r.targetMin, creditedAbsenceMin: r.creditedAbsenceMin, dailyTargetMin: r.dailyTargetMin, workdays: r.workdays, balance: r.balance, vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length, overtimeReductionDays: r.overtimeReductionEntries.length, hoursMode: r.employer.hoursMode, weeklyHours: r.employer.weeklyHours, monthlyHours: r.employer.monthlyHours }; } catch (_) {}
   const mrFields = getSummaryFields({
@@ -89,7 +88,7 @@ export function buildReportHTML(r, ctx) {
     overtimeReductionDays: r.overtimeReductionEntries.length,
     hourlyRate: Number(r.employer.hourlyRate) || 0,
     currency: r.employer.currency || 'EUR',
-    mode: empHasTarget ? 'employee' : 'freelance',
+    mode: reportMode(r.employer),
     creditedAbsenceMin: r.creditedAbsenceMin,
     // Sollstunden-Warnung (seit v3.9.78), siehe modules/soll-warning.js.
     balanceWarning,
