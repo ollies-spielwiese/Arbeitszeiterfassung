@@ -1,6 +1,6 @@
 # Arbeitszeit-App — Roadmap v3.9 → v4.0
 
-**Status (Stand v3.9.36, 10.09.2026): Phasen 1–4 sind vollständig umgesetzt.** Geprüft direkt im Code: `@ts-check` in allen State-/Compute-Modulen plus `tsc --noEmit` (0 echte Fehler), `SCHEMA_VERSION` + Migrations-Array in `modules/migrations.js`, PDF/Word-Inhaltsprüfung in `scripts/regression.mjs` (96 Checks), CI-Workflows `regression.yml` + `pages.yml` (Deploy ist CI-gated), `docs/ARCHITECTURE.md` + `CONTRIBUTING.md` vorhanden, `app.js` von 4118 auf 1683 Zeilen reduziert und in `modules/state.js`, `holidays.js`, `compute.js`, `render/*`, `export/*`, `ui/*`, `bootstrap.js`, `selectors.js` aufgeteilt. Diese Datei bleibt als historische Referenz erhalten; neue Vorhaben stehen unter „Phase 5" am Ende.
+**Status (Stand v3.9.96, 27.10.2026): Phasen 1–4 und 6 sind vollständig umgesetzt, Phase 5 bis auf einen optionalen Punkt.** Die strukturellen Phasen 1–4 wurden bis v3.9.36 abgeschlossen (Typprüfung per `@ts-check`/`tsc --noEmit`, Migrations-Layer, Export-Inhaltsprüfung, CI, Modul-Split von `app.js`). Die Abschnitte zu Phase 1–4 bleiben als historische Referenz erhalten. Aktuelle offene Aufgaben stehen unter „Phase 7“ am Ende.
 
 Reihenfolge nach v3.8.1. Prinzip: erst Sicherheitsnetze, dann Umbauten; erst Verstehen, dann Verändern; niedriger Aufwand mit hohem Hebel zuerst.
 
@@ -90,27 +90,49 @@ Ziel: strukturell unmöglich machen, dass sich Summary-Varianten wieder auseinan
 - **Aufwand:** 2 Tage (Setup + Type-Fehler beheben)
 - **Nutzen:** ~40% künftiger Bugs werden beim Tippen abgefangen, nicht im Browser
 
-## Phase 5 — Nach v4.0: Feature-Ideen (Status: Stand v3.9.48, 11.09.2026)
+## Phase 5 — Feature-Ideen nach der Strukturphase (Stand v3.9.96, 27.10.2026)
 
-Die strukturelle Roadmap ist abgeschlossen. Folgende Erweiterungen lagen als Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHITECTURE.md#erweiterungs-rezepte) bereit:
+Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHITECTURE.md#erweiterungs-rezepte):
 
-- **CSV-Export** ✅ Erledigt (v3.9.47) — Export eines Monatsberichts als CSV (Excel-kompatibel, UTF-8 mit BOM), analog zu PDF/Word.
-- **Undo für Zeitraum-Erfassung** ✅ Erledigt (v3.9.47) — Rückgängig-Aktion direkt im Toast nach dem Anlegen mehrerer Tage per Zeitraum-Erfassung.
-- **Weitere Bulk-Erfassungs-Typen** — offen. Das mit v3.9.36 eingeführte Muster (`modules/range-entry.js`) auf einen eigenen Eintrags-Typ wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
-- **Weitere Bundesland-Feiertage pflegen**, sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“) — laufende Pflegeaufgabe, kein einmaliger Punkt.
+- **CSV-Export** ✅ Erledigt (v3.9.47) — Monatsbericht als CSV (Excel-kompatibel, UTF-8 mit BOM), analog zu PDF/Word.
+- **Undo für Zeitraum-Erfassung** ✅ Erledigt (v3.9.47) — Rückgängig-Aktion direkt im Toast nach dem Anlegen mehrerer Tage.
+- **Weitere Bulk-Erfassungs-Typen** — offen (optional): Muster aus `modules/range-entry.js` auf einen eigenen Eintragstyp wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
+- **Bundesland-Feiertage pflegen** — laufende Pflegeaufgabe: sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“).
 
-Zusätzlich seit v3.9.47/v3.9.48 umgesetzt, ohne vorher auf dieser Roadmap gestanden zu haben (Nutzeranfragen während der Entwicklung): Eintragstyp „Freier Tag“, Backup-Erinnerung, Änderungsprotokoll (Audit-Log), sowie die Gleitzeitkonto-Ansicht inkl. Kalenderjahr-Auswahl und Truncation auf „Angestellt seit“ (v3.9.48). Details siehe `CHANGELOG` in `modules/constants.js`.
+### Zusätzlich umgesetzt (Nutzeranfragen, nicht vorab geplant)
 
-## Phase 6 — Stabilität, Sicherheit, Weiterentwicklungsfähigkeit (vorgeschlagen, Stand 11.09.2026)
+Details jeweils im `CHANGELOG` in `modules/constants.js`.
 
-Aus einer gezielten Bestandsaufnahme des aktuellen Codes (v3.9.48) hervorgegangen. Priorisiert nach Notwendigkeit, nicht nach Aufwand — Details inkl. Nutzen-/Aufwandsanalyse siehe Gesprächsprotokoll bzw. Aufgaben-Tracker; diese Zeile dient als Anker fuer zukünftige Sessions:
+- **v3.9.47–v3.9.48:** Eintragstyp „Freier Tag“, Backup-Erinnerung, Änderungsprotokoll, Gleitzeitkonto-Ansicht mit Kalenderjahr-Auswahl.
+- **v3.9.53–v3.9.59:** Hilfe-Buttons (Einstellungen, Arbeitgeber/Kunden), Arbeitgeberwechsel mit „Beschäftigt bis“ und „Ehemalige anzeigen“, Pers.-Nr., strikte Trennung Arbeitgeber/Kunden inkl. Migration.
+- **v3.9.60–v3.9.65:** Migrationsketten-Test, zweiter Regressionslauf unter WebKit (Safari-Engine), visuelle Regression mit festen Baselines, Lighthouse-Check in CI.
+- **v3.9.66–v3.9.71:** Layout-/Label-Fixes im Freiberufler-Modus, Service-Worker-Update-Fix, Backup-Erinnerung im 7-Tage-Takt, Backup-Ordner (Chrome/Edge) bzw. Hinweis für Safari/iOS.
+- **v3.9.72–v3.9.77:** Arbeitszeitmodell (Beschäftigungsart, Gleitzeit usw.) inkl. Anzeige in Berichten, Sollstunden „pro Jahr“, Info-Tooltip an der Saldo-Kachel, Gleitzeitkonto-PDF, Jahr-Pulldowns.
+- **v3.9.78–v3.9.81:** Sollstunden-Warnung (Monats-Saldo mit anteiligem Soll und Mindest-Arbeitstage-Schutz; Gleitzeitkonto-Saldo über rollierendes 3-Monats-Fenster; Standard 20 %/10 %), Saldo-Kachel „Stand heute“, Hinweis „Bitte auf fehlende Einträge achten.“
+- **v3.9.82–v3.9.89:** Modus „Freiberuflich/Nebenerwerb“ mit passenden Bezeichnungen, Hinweis bei Wochenschema ohne Arbeitstag, iOS-Freigabe-Dialog-Fix, Urlaubsplanung-Kalender, einheitlicher Teilen-Dialog, Bemerkungsfeld für alle Eintragsarten.
+- **v3.9.90–v3.9.94:** Zuverlässiges Update auf iPhone/iPad, einheitliche Offline-Prüfung von E-Mail-Adressen inkl. WebKit-Fixes.
+- **v3.9.95–v3.9.96:** Audit-Korrekturen F01–F22 (siehe [F01-F04-SICHERHEIT-UND-SPEICHER.md](F01-F04-SICHERHEIT-UND-SPEICHER.md) und [AUDIT-F05-F22.md](AUDIT-F05-F22.md)): Backup-Validierung, sichtbare Speicherfehler mit Notfall-Backup, Home-Office über Mitternacht/Zeitumstellung, Stichtag- und Beschäftigungsgrenzen im Gleitzeitsaldo, Konfliktschutz bei Abwesenheiten, robustere Offline-Updates.
 
-1. **Backup-Import ohne Migrations-Lauf** (notwendig) — `importBackup()` ruft `runMigrations()` nicht auf; ein auf einem anderen Gerät/einer älteren App-Version exportiertes Backup wird beim Import nicht auf den aktuellen Schema-Stand gehoben.
-2. **Stiller Datenverlust bei defektem localStorage** (notwendig) — `loadState()` fängt kaputtes JSON ab, setzt aber ohne Nutzerhinweis einfach auf `DEFAULT_STATE` zurück.
-3. **Dependabot-Sicherheitsupdates aktivieren** (empfohlen) — aktuell deaktiviert; ein bekannter `xmldom`-Advisory (über `mammoth`, nur Test-Tooling) bliebe sonst dauerhaft offen.
-4. **Subresource Integrity für CDN-Libraries** (empfohlen) — `jsPDF`/`autotable`/`docx` werden zur Laufzeit von `unpkg.com` ohne Integrity-Hash nachgeladen.
-5. **CodeQL/Statische Sicherheitsanalyse in CI** (optional) — aktuell keine Code-Scanning-Analyse hinterlegt.
-6. **Branch Protection auf `main`** (optional) — aktuell ungeschützt; bei Solo-Entwicklung mit Direkt-Push von begrenztem Nutzen.
+## Phase 6 — Stabilität, Sicherheit, Weiterentwicklungsfähigkeit ✅ Erledigt
+
+Aus der Bestandsaufnahme vom 11.09.2026 (v3.9.48). Alle Punkte umgesetzt und am 27.10.2026 im Repository bzw. in den GitHub-Einstellungen geprüft:
+
+1. **Backup-Import mit Migrations-Lauf** ✅ v3.9.49 — `importBackup()` hebt Backups auf den aktuellen Schema-Stand; seit v3.9.95 zusätzlich Strukturprüfung vor und nach der Migration (`modules/backup-validation.js`).
+2. **Kein stiller Datenverlust bei defektem localStorage** ✅ v3.9.49 / v3.9.95 — beschädigte Daten werden gemeldet statt still zurückgesetzt; Speicherfehler bleiben sichtbar, Notfall-Backup sichert ungespeicherte Änderungen.
+3. **Dependabot-Sicherheitsupdates** ✅ v3.9.50 — aktiviert; aktuell 0 offene Warnungen.
+4. **Subresource Integrity für CDN-Libraries** ✅ v3.9.50 — jsPDF, AutoTable und docx werden mit Integrity-Hash geladen (`modules/lib-loader.js`).
+5. **CodeQL in CI** ✅ v3.9.50 — Standardanalyse aktiv; die Warnungen zu fehlenden Workflow-Berechtigungen wurden am 06.10.2026 behoben (`permissions: contents: read`), aktuell 0 offene Warnungen.
+6. **Branch Protection auf `main`** ✅ v3.9.65 — Schutz gegen Force-Push/Löschung; Pflicht-Prüfungen: Playwright-Regression, Playwright-Regression (WebKit/Safari), Visual-Regression, Lighthouse-Check.
+
+## Phase 7 — Offene Aufgaben (Stand 27.10.2026)
+
+Priorisiert nach Notwendigkeit:
+
+1. **Test auf echtem iPhone/iPad** (notwendig) — Update-Übernahme und Datenerhalt in der installierten PWA, Notfall-Download und Speicher-Warnbereich (v3.9.95), E-Mail-Fehlerhinweise (v3.9.92–v3.9.94). WebKit-Automation und Touch-Emulation ersetzen diesen Gerätetest nicht.
+2. **Manuelle Szenario-Prüfung** (empfohlen) — Arbeitgeberwechsel, Urlaub und Nebenerwerb mit dem Test-Backup in der laufenden App durchklicken, inklusive aller Ansichten und der PDF-, Word- und CSV-Exporte.
+3. **Restliche Audit-Themen** (empfohlen, eigener Change) — ungenutzte Deklarationen, mögliche überflüssige Dateien/Assets, umfassendere Dokumentationsbereinigung und weitere Härtungspunkte; laut [AUDIT-F05-F22.md](AUDIT-F05-F22.md) bewusst nicht mit v3.9.96 erledigt.
+4. **Weitere Bulk-Erfassungs-Typen** (optional) — siehe Phase 5.
+5. **Feiertage pflegen** (laufend) — siehe Phase 5.
 
 ## Nicht-Ziele (bewusst nicht auf der Roadmap)
 
