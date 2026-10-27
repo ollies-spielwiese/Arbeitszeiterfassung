@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.97</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.98</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -372,6 +372,8 @@
                 </ul>
               </li>
               <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Bildungsurlaub, Krankheit, Gleitzeit-Überstundenabbau oder Freier Tag; bei Bildungsurlaub zeigt der Dialog Anspruch, bereits erfasste Tage und den Stand nach dem Anlegen), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären. Nach dem Anlegen erscheint eine Bestätigung mit der Aktion <strong>Rückgängig</strong>, die alle gerade angelegten Einträge des Zeitraums wieder in einem Schritt entfernt.</li>
+              <li><strong>Schutz vor Doppelbelegung:</strong> Ganztägige Abwesenheiten (Urlaub, Bildungsurlaub, Krankheit, Gleitzeit-Überstundenabbau, Freier Tag) lassen sich nicht mit Arbeits- oder Home-Office-Einträgen am selben Tag beim selben Arbeitgeber kombinieren. Ist das Datum schon belegt, weist die App darauf hin — den vorhandenen Eintrag dann zuerst im Reiter „Einträge“ bearbeiten oder löschen.</li>
+              <li><strong>Sollstunden-Warnung:</strong> Weicht dein Saldo deutlich vom Soll ab, erscheint oben ein Hinweisbanner mit <strong>Zum Gleitzeitkonto</strong> und <strong>Später erinnern</strong> (siehe Abschnitt 6c).</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -394,6 +396,7 @@
               <li>In der Wochenansicht erscheinen reine Home-Office-Tage nur mit dem Label <em>Home-Office</em>, ohne Uhrzeiten.</li>
               <li>Die Pflicht-Pausenprüfung des Arbeitszeitgesetzes wird im Home-Office nicht angewendet. Du bist selbst für die Einhaltung verantwortlich.</li>
             </ul>
+            <p><strong>Über Mitternacht:</strong> Als Ende eines Blocks lässt sich über das Häkchen <strong>24:00</strong> das Tagesende wählen. Läuft ein Timer über Mitternacht oder über eine Zeitumstellung hinweg, teilt die App die Arbeitszeit automatisch auf die betroffenen Kalendertage auf — jeder Tag erhält seinen eigenen Home-Office-Eintrag mit der korrekten Dauer.</p>
             <p><strong>Bearbeiten:</strong> Ein Tipp auf einen Home-Office-Eintrag im Reiter <em>Einträge</em> öffnet den Editor. Blöcke lassen sich hinzufügen, ändern oder löschen.</p>
           </div>
         </details>
@@ -417,7 +420,8 @@
           <div class="guide-body">
             <ul>
               <li>Wähle Arbeitgeber und Kalenderwoche.</li>
-              <li>Die App zeigt die Summe der Arbeitszeit für die Woche und den Vergleich zur Sollzeit.</li>
+              <li>Die App zeigt die Kacheln <strong>Ist</strong>, <strong>Soll</strong>, <strong>Saldo</strong> und ggf. <strong>Feiertage</strong> für die Woche sowie die einzelnen Tage. Reine Home-Office-Tage erscheinen nur mit dem Label „Home-Office“.</li>
+              <li>Das kleine <strong>i</strong> an der Saldo-Kachel erklärt per Tipp, wie der Saldo zustande kommt — etwa, dass Urlaub, Krankheit und Bildungsurlaub mit dem Tages-Soll gutgeschrieben werden.</li>
               <li>Ideal für einen schnellen Zwischenstand.</li>
             </ul>
           </div>
@@ -429,14 +433,15 @@
             <p>Hier entsteht dein offizieller Stundennachweis.</p>
             <ol>
               <li>Arbeitgeber und Monat auswählen.</li>
-              <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo.</li>
+              <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo. Darüber stehen Kacheln für Ist, Soll, Saldo (mit Erklärung über das <strong>i</strong>), Jahresurlaub, Resturlaub, ggf. Resturlaub Vorjahr, <strong>Urlaub / Krank</strong>, <strong>Gleitzeit-Überstundenabbau</strong>, <strong>Bildungsurlaub</strong> (nur wenn im Monat vorhanden) und Feiertage.</li>
+              <li>PDF, Word und CSV enthalten alle Tage des Monats einschließlich Bildungsurlaub; Kopf und Fußzeile nennen Name, ggf. Pers.-Nr. und das Arbeitszeitmodell des Arbeitgebers.</li>
               <li>Am Ende der Seite stehen fünf Aktionen zur Verfügung:
                 <ul>
                   <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile. <em>Hinweis:</em> Für das Öffnen und Bearbeiten der .docx-Datei muss auf dem Endgerät Microsoft Word oder eine kompatible Anwendung (Pages, LibreOffice/OpenOffice, Google Docs) installiert sein. Ohne solche Software lässt sich die Datei nur eingeschränkt anzeigen – in dem Fall empfehlen wir stattdessen den PDF‑Export.</li>
                   <li><strong>📕 PDF:</strong> erstellt dieselbe Auswertung als PDF.</li>
                   <li><strong>📊 CSV:</strong> exportiert dieselben Zeilen als CSV-Datei (Semikolon-getrennt, UTF-8 mit BOM) — lässt sich direkt in Excel oder anderen Tabellenprogrammen weiterverarbeiten.</li>
                   <li><strong>📤 Teilen:</strong> öffnet den Versand‑Dialog (siehe Abschnitt 9).</li>
-                  <li><strong>🗄 Monat archivieren:</strong> verschiebt den fertigen Monat ins Archiv, damit er nicht mehr aus Versehen geändert wird.</li>
+                  <li><strong>🗄 Monat archivieren:</strong> legt eine feste Momentaufnahme des Monats im Archiv ab (siehe Abschnitt 8). Die Einträge selbst bleiben unverändert und weiter bearbeitbar.</li>
                 </ul>
               </li>
             </ol>
@@ -446,14 +451,14 @@
         <details class="guide-section">
           <summary>6. Reiter „Übersicht“ – Monatsauswertung über alle Arbeitgeber</summary>
           <div class="guide-body">
-            <p>Wenn du mehrere Arbeitgeber hast, zeigt dir dieser Reiter, wie viel du im gewählten Monat bei welchem Arbeitgeber gearbeitet hast.</p>
+            <p>Wenn du mehrere Arbeitgeber oder Kunden hast, zeigt dir dieser Reiter, wie viel du im gewählten Monat wo gearbeitet hast. Die Übersicht fasst Arbeitgeber und Kunden gemeinsam zusammen.</p>
             <ol>
               <li>Monat oben auswählen.</li>
-              <li>Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs-, Krankheits- und <strong>Abbau</strong>-Tagen (Gleitzeit-Überstundenabbau) auf.</li>
+              <li>Die Spalte <strong>Tage</strong> zählt jeden Arbeitstag einmal, einschließlich Home-Office-Tagen. Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs-, Krankheits- und <strong>Abbau</strong>-Tagen (Gleitzeit-Überstundenabbau) auf.</li>
               <li>Am Ende steht eine Gesamt-Zeile mit den Summen über alle Arbeitgeber.</li>
               <li>Mit <strong>📕 PDF</strong> erstellst du einen kombinierten Nachweis als Download, mit <strong>📤 Teilen</strong> versendest du ihn per E‑Mail.</li>
             </ol>
-            <p>Der PDF-Export enthält den gleichen Kopf wie der Monats-Nachweis und eine kompakte Tabelle mit einer Zeile pro Arbeitgeber sowie einer Summenzeile.</p>
+            <p>Der PDF-Export enthält den gleichen Kopf wie der Monats-Nachweis und eine kompakte Tabelle mit einer Zeile pro Arbeitgeber (inkl. Pers.-Nr., falls gepflegt) sowie einer Summenzeile. Ist die Sollstunden-Warnung aktiv und weicht ein Saldo deutlich ab, erscheint auch hier das Hinweisbanner.</p>
           </div>
         </details>
 
@@ -462,7 +467,7 @@
           <div class="guide-body">
             <p>Dieser Reiter zeigt eine Jahresübersicht des Urlaubs für den aktuell ausgewählten Arbeitgeber (dieselbe Auswahl wie oben im Reiter Erfassen).</p>
             <ol>
-              <li>Jahr oben eingeben oder ändern.</li>
+              <li>Jahr oben im Auswahlfeld wählen.</li>
               <li>Oben siehst du vier Kennzahlen: <strong>Jahresanspruch</strong> (ggf. mit Hinweis „anteilig“ bei unterjährigem Eintritt), <strong>bereits genommene</strong> Urlaubstage, <strong>eingegebene</strong> Urlaubstage in der Zukunft und <strong>noch nicht erfasster</strong> Resturlaub.</li>
               <li>Direkt darunter folgt der Block <strong>Bildungsurlaub</strong> mit eigenem Kontingent nach HBUG: Anspruch im Jahr, bereits genommene, eingegebene und noch verfügbare Tage. Ein Hinweis nennt die Berechnungsgrundlage und die 6-monatige Wartezeit; wird das Kontingent überschritten, erscheint eine Warnung. Bildungsurlaub zählt nicht zum Urlaub in Tabelle und Kalender.</li>
               <li>Darunter listet eine Tabelle jeden Monat des Jahres mit den Spalten Genommen, Eingegeben und Summe auf, plus einer Gesamtzeile am Ende.</li>
@@ -477,10 +482,14 @@
           <div class="guide-body">
             <p>Dieser Reiter zeigt, wie sich dein Überstunden-/Gleitzeitsaldo über ein Kalenderjahr hinweg aufbaut — anders als die Monatsauswertung, die jeden Monat nur einzeln betrachtet.</p>
             <ol>
-              <li><strong>Jahr:</strong> das Kalenderjahr (Januar–Dezember), für das die Tabelle angezeigt wird (Standard: aktuelles Jahr).</li>
+              <li><strong>Jahr:</strong> im Auswahlfeld das Kalenderjahr (Januar–Dezember) wählen, für das die Tabelle angezeigt wird (Standard: aktuelles Jahr).</li>
+              <li>Oben stehen die Kacheln <strong>Zeitraum</strong>, <strong>Aktueller Gleitzeitsaldo</strong> (im laufenden Jahr mit Zusatz „Stand: Monat“ — gezählt wird nur bis heute, nicht die geplanten Folgemonate; das <strong>i</strong> erklärt die Berechnung), <strong>Ist gesamt</strong> und <strong>Soll gesamt</strong>.</li>
               <li>Die Tabelle listet pro Monat Ist, Soll, den Saldo dieses einzelnen Monats sowie den <strong>kumulierten Saldo</strong> — also die fortlaufende Summe aller Salden bis zu diesem Monat.</li>
               <li>Der kumulierte Saldo läuft bewusst über Jahresgrenzen hinweg durch (kein Reset zum 1. Januar) — er startet aber niemals vor dem im Arbeitgeber hinterlegten Datum <strong>„Angestellt seit“</strong>. Ist dieses Datum nicht gepflegt, wird stattdessen der Monat des frühesten Eintrags dieses Arbeitgebers verwendet.</li>
               <li>Beginnt die Anstellung erst mitten in einem Jahr, zeigt die Tabelle nur die Monate ab der Anstellung (mit Hinweisbanner) — Monate davor würden sonst ein Soll gegen 0h Ist zeigen, obwohl du dort noch gar nicht angestellt warst. Liegt die Anstellung komplett nach dem gewählten Jahr, erscheint stattdessen ein entsprechender Hinweis statt einer leeren Tabelle.</li>
+              <li>Ist <strong>„Beschäftigt bis“</strong> gepflegt, endet die Tabelle mit diesem Monat; ein Hinweisbanner weist darauf hin.</li>
+              <li>Noch nicht begonnene Monate erscheinen abgesetzt mit dem Zusatz <strong>„(geplant)“</strong>.</li>
+              <li>Über <strong>PDF</strong> erstellst du einen Gleitzeitkonto-Nachweis des gewählten Jahres mit denselben Werten wie in der App.</li>
             </ol>
             <p>So erkennst du auf einen Blick, ob sich dein Gleitzeitkonto über die Zeit aufbaut oder abbaut, ohne jeden Monat einzeln addieren zu müssen — und ohne, dass Monate vor deiner Anstellung den Saldo verfälschen.</p>
           </div>
@@ -506,16 +515,18 @@
             <p>Hier legst du fest, wie viel du wo arbeiten sollst.</p>
             <ul>
               <li><strong>+ Neu</strong> legt einen weiteren Arbeitgeber an.</li>
+              <li>Der Button <strong>?</strong> neben der Überschrift öffnet eine kurze Hilfe zu allen Feldern.</li>
               <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Arbeitgebers:
                 <ul>
                   <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
                   <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber laut Gehaltsabrechnung. Erscheint, falls ausgefüllt, direkt unter deinem Namen im PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export und als eigene Spalte in der Monatsübersicht (PDF).</li>
-                  <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen).</li>
-                  <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
+                  <li><strong>Arbeitszeitmodell:</strong> <strong>Beschäftigungsart</strong> (Vollzeit, Teilzeit mit Beschäftigungsgrad in ganzen Prozent von 1 bis 99 und optionaler Vollzeit-Referenz, Minijob oder Midijob) und <strong>Arbeitszeitorganisation</strong> (Klassisch, Gleitzeit, Vertrauensarbeitszeit, Jahresarbeitszeit, Vier-Tage-Woche, Schichtarbeit, Jobsharing oder Arbeit auf Abruf/KAPOVAZ). Die Zeile <strong>Anzeige</strong> zeigt die Zusammenfassung, die auch in PDF, Word, CSV und Übersicht erscheint. Bei der Vier-Tage-Woche weist die App darauf hin, wenn die Stunden pro Tag über 8 bzw. 10 Std. liegen (ArbZG § 3). Die Angaben dienen der Dokumentation und ändern die Berechnung nicht.</li>
+                  <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen) oder <strong>pro Jahr</strong> (gleichmäßig auf 12 Monate verteilt).</li>
+                  <li><strong>Pausenregelung:</strong> <strong>Gesetzlich</strong> (ArbZG: 30 Min ab 6 Std., 45 Min ab 9 Std.), <strong>Manuell pro Eintrag</strong>, <strong>Gleitzeit</strong> (gesetzlicher Vorschlag, überschreibbar) oder <strong>Keine Pause</strong> (z. B. Minijob).</li>
                   <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>, die zum Jahresanspruch hinzugerechnet werden.</li>
                   <li><strong>Angestellt seit</strong> und <strong>Beschäftigt bis:</strong> grenzen die anteilige Urlaubsberechnung und das Gleitzeitkonto ein. Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> — er erhält in der Liste einen rot hinterlegten Namen und das Badge „Ehemalig seit ...“ und verschwindet aus den Auswahlfeldern für neue Einträge. Über die Checkbox <strong>„Ehemalige anzeigen“</strong> (verfügbar in Erfassen, Einträge, Übersicht und Gleitzeitkonto) blendest du ehemalige Arbeitgeber bei Bedarf wieder ein, etwa um nachträglich noch einen Nachweis zu erstellen.</li>
                   <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular. Lässt du bei Sollstunden „pro Woche“ alle Tage leer, zeigt die App darunter einen Hinweis, dass die Sollstunden gleichmäßig auf alle Werktage verteilt werden.</li>
-                  <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint — beide Listen sind seit v3.9.58 strikt getrennt. Neue Einträge übernehmen automatisch den aktuellen Modus; du kannst den Typ im Formular aber jederzeit manuell umstellen, etwa wenn du parallel angestellt und freiberuflich tätig bist. Die Monatsübersicht (Reiter „Übersicht“) zeigt weiterhin beide Typen gemeinsam an.</li>
+                  <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag im Reiter „Arbeitgeber“ (Modus „Angestellt“, im Hauptmodus Freiberuflich/Nebenerwerb als „Nebenerwerb“ bezeichnet) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint — beide Listen sind seit v3.9.58 strikt getrennt. Neue Einträge übernehmen automatisch den aktuellen Modus; du kannst den Typ im Formular aber jederzeit manuell umstellen, etwa wenn du parallel angestellt und freiberuflich tätig bist. Die Monatsübersicht (Reiter „Übersicht“) zeigt weiterhin beide Typen gemeinsam an.</li>
                 </ul>
               </li>
             </ul>
@@ -528,8 +539,9 @@
           <div class="guide-body">
             <ul>
               <li>Zeigt alle Monate, die du über <strong>🗄 Monat archivieren</strong> abgeschlossen hast.</li>
-              <li>Archivierte Monate kannst du weiterhin ansehen, als Word/PDF neu exportieren und teilen.</li>
-              <li>Ein Zurückholen ist möglich, falls du doch noch etwas korrigieren musst.</li>
+              <li>Das Archiv speichert eine feste Momentaufnahme des Monats (Einträge, Ist, Soll, Saldo, Abwesenheiten). Spätere Änderungen an Einträgen oder Arbeitgeberdaten verändern diese Momentaufnahme nicht.</li>
+              <li>Pro archiviertem Monat stehen <strong>Word</strong> und <strong>PDF</strong> für einen erneuten Export sowie <strong>Löschen</strong> zur Verfügung.</li>
+              <li>Musst du nachträglich etwas korrigieren, änderst du die Einträge wie gewohnt und archivierst den Monat erneut — die App fragt dann, ob das vorhandene Archiv überschrieben werden soll.</li>
             </ul>
           </div>
         </details>
@@ -540,7 +552,8 @@
             <p>Über <strong>📤 Teilen</strong> im Reiter Monat öffnet sich ein Dialog:</p>
             <ol>
               <li>Wähle das Format: <strong>Word</strong> oder <strong>PDF</strong>.</li>
-              <li>Setze die Häkchen bei den gewünschten Empfängern: deine eigene Adresse, die Ansprechperson des Arbeitgebers und beliebige zusätzliche Adressen im Freitextfeld (mehrere durch Komma trennen).</li>
+              <li>Setze die Häkchen bei den gewünschten Empfängern: deine eigene Adresse, die Ansprechperson des Arbeitgebers und beliebige zusätzliche Adressen im Freitextfeld (mehrere durch Komma oder Semikolon trennen). Alternativ wählst du <strong>Nur teilen (System-Dialog)</strong>, um die Datei ohne E-Mail-Empfänger über das Teilen-Menü des Geräts weiterzugeben.</li>
+              <li>Die App prüft alle Adressen offline auf ein gültiges Format. Fehler stehen direkt am Feld; ungültige Adressen werden nicht an die E-Mail-App übergeben. Ob ein Postfach tatsächlich existiert, kann die App nicht feststellen.</li>
               <li>Tippe auf <strong>Senden / Teilen</strong>.</li>
             </ol>
             <p><strong>Auf dem iPad (Safari/Edge) ist der Ablauf zweistufig:</strong></p>
@@ -556,8 +569,10 @@
         <details class="guide-section">
           <summary>10. Reiter „Einstellungen“ – Feinjustage</summary>
           <div class="guide-body">
-            <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich) — Details dazu in Abschnitt 12a. Daneben findest du:</p>
+            <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich/Nebenerwerb) — Details dazu in Abschnitt 12a. Der Button <strong>?</strong> öffnet eine kurze Hilfe zu diesem Reiter. Daneben findest du:</p>
             <ul>
+              <li><strong>Name, eigene E-Mail-Adresse und Bundesland:</strong> Das Namensfeld heißt je nach Modus „Arbeitnehmer/in – Name“ oder „Freiberufler/in – Name“ und erscheint so auch in den Nachweisen. Die eigene Adresse wird auf ein gültiges Format geprüft. Das Bundesland bestimmt die Feiertage.</li>
+              <li><strong>Sollstunden-Warnung:</strong> Monats-Saldo und Gleitzeitkonto-Saldo getrennt ein- oder ausschalten und jeweils eine Schwelle (10 %, 20 %, 30 % oder eigener Wert) wählen — siehe Abschnitt 6c.</li>
               <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
                 <ul>
                   <li><strong>Jahr</strong> oben wählen — die Liste zeigt alle Feiertage dieses Jahres im aktuell eingestellten Bundesland.</li>
@@ -571,11 +586,12 @@
               <li><strong>Daten:</strong>
                 <ul>
                   <li><strong>💾 Backup exportieren:</strong> speichert alle Daten als JSON‑Datei auf dein Gerät.</li>
-                  <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel.</li>
+                  <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel. Ältere Backups werden automatisch auf den aktuellen Stand gebracht. Die App prüft die Datei vorher auf eine gültige Struktur; ungültige oder beschädigte Backups werden abgelehnt, und deine bisherigen Daten bleiben unverändert erhalten.</li>
                 </ul>
               </li>
               <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup mehr als 7 Tage vergangen sind, mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
               <li><strong>Backup-Ordner:</strong> In Chrome/Edge lässt sich unter <strong>Backup-Ordner</strong> einmalig ein fester Ordner auswählen (📁 Ordner auswählen) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog. In Safari/iOS ist das aus Sicherheitsgründen nicht möglich; hier zeigt der Bereich stattdessen eine Anleitung, das Backup nach dem Export manuell über Mehr … bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abzulegen.</li>
+              <li><strong>Speicherfehler:</strong> Kann die App nicht speichern (z. B. bei vollem Gerätespeicher), erscheint ein dauerhafter Hinweis. Darüber lässt sich ein <strong>Notfall-Backup</strong> mit allen, auch noch ungespeicherten Änderungen herunterladen und das Speichern erneut versuchen. Bereits gespeicherte Daten bleiben lesbar.</li>
               <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
             </ul>
           </div>
@@ -612,13 +628,13 @@
           <div class="guide-body">
             <p>Die App unterstützt neben klassischer Arbeitszeiterfassung auch die Nutzung als Freiberufler oder Selbständiger.</p>
             <ol>
-              <li>Wechsle in den <strong>Einstellungen</strong> ganz oben den <strong>Modus</strong> auf <em>Freiberuflich</em>. Die App-Terminologie stellt sich um: aus „Arbeitgeber“ wird „Kunde“, aus „Arbeitgeber“-Tab wird „Kunden“.</li>
+              <li>Wechsle in den <strong>Einstellungen</strong> ganz oben den <strong>Modus</strong> auf <em>Freiberuflich/Nebenerwerb</em>. Das Namensfeld heißt dann „Freiberufler/in – Name“, und so erscheint es auch in den Nachweisen. Die App-Terminologie stellt sich um: aus „Arbeitgeber“ wird „Kunde“, aus „Arbeitgeber“-Tab wird „Kunden“.</li>
               <li>Lege pro Kunde einen Eintrag im Kunden-Reiter an. Im Kunden-Formular erscheint zusätzlich der Bereich <strong>Abrechnung</strong> mit optionalem <strong>Stundensatz</strong> und <strong>Währung</strong>.</li>
               <li>Erfasse Zeiten wie gewohnt – pro Kunde können mehrere Projekte über das Notizfeld oder Vorlagen unterschieden werden.</li>
               <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
-              <li>Der Bundesland-/Feiertage-Block in den Einstellungen, das Urlaubsanspruch-Feld im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
+              <li>Der Bundesland-/Feiertage-Block und die Sollstunden-Warnung in den Einstellungen, das Urlaubsanspruch-Feld und das Arbeitszeitmodell im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
               <li>Das Feld <strong>Pers.-Nr.</strong> steht auch im Kunden-Formular zur Verfügung, falls dir ein Kunde eine eigene Nummer zugewiesen hat. „Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> (siehe Abschnitt 7) funktionieren für Kunden genauso wie für Arbeitgeber.</li>
-              <li>Bist du gleichzeitig angestellt <em>und</em> freiberuflich tätig (z. B. Lehrkraft mit abendlicher Nachhilfe), führt die App beide Erwerbsformen als getrennte Listen: der Reiter „Arbeitgeber“ zeigt nur Einträge mit Eintragstyp „Arbeitgeber“, der Reiter „Kunde“ nur solche mit Eintragstyp „Kunde“. Jeder Eintrag bekommt seinen Typ automatisch beim Anlegen zugewiesen, lässt sich aber im Formular manuell umstellen. Der Reiter „Übersicht“ ist davon unberührt und fasst beide Erwerbsformen weiterhin gemeinsam zusammen.</li>
+              <li>Bist du gleichzeitig angestellt <em>und</em> freiberuflich tätig (z. B. Lehrkraft mit abendlicher Nachhilfe), führt die App beide Erwerbsformen als getrennte Listen: der Reiter „Arbeitgeber“ zeigt nur Einträge mit Eintragstyp „Arbeitgeber“ (im Hauptmodus Freiberuflich/Nebenerwerb als „Arbeitgeber (Modus „Nebenerwerb“)“ bezeichnet), der Reiter „Kunde“ nur solche mit Eintragstyp „Kunde“. Jeder Eintrag bekommt seinen Typ automatisch beim Anlegen zugewiesen, lässt sich aber im Formular manuell umstellen. Der Reiter „Übersicht“ ist davon unberührt und fasst beide Erwerbsformen weiterhin gemeinsam zusammen.</li>
             </ol>
             <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
           </div>

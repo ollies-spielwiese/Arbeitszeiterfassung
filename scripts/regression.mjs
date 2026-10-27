@@ -1285,6 +1285,26 @@ async function runGuideDocUnits(page) {
   assertTrue('GD7: Abschnitt 7 enthaelt NICHT mehr veraltetes "Adresse"-Feld', !(guide.sec7Text || '').includes('Adresse f\u00fcr den Nachweiskopf'));
   assertContains('GD8: Abschnitt 12a enthaelt "Pers.-Nr."', guide.sec12aText || '', 'Pers.-Nr.');
   assertContains('GD9: Abschnitt 12a enthaelt "Ehemalige anzeigen"', guide.sec12aText || '', 'Ehemalige anzeigen');
+
+  // GD10-GD20 (v3.9.98): Anleitung deckt die seit v3.9.47 hinzugekommenen Funktionen ab.
+  const all = await page.evaluate(() => {
+    const sections = Array.from(document.querySelectorAll('#view-guide details.guide-section'));
+    const out = {};
+    sections.forEach((s) => { const t = s.querySelector('summary')?.textContent || ''; const m = t.match(/^(\d+[a-z]?)\./); if (m) out[m[1]] = s.textContent; });
+    return out;
+  });
+  const has = (sec, needle) => (all[sec] || '').includes(needle);
+  assertTrue('GD10: Abschnitt 7 beschreibt Arbeitszeitmodell und Beschaeftigungsart', has('7', 'Arbeitszeitmodell') && has('7', 'Beschäftigungsart') && has('7', 'Vier-Tage-Woche'));
+  assertTrue('GD11: Abschnitt 7 nennt Sollstunden pro Jahr und alle vier Pausenregelungen', has('7', 'pro Jahr') && has('7', 'Manuell pro Eintrag') && has('7', 'Keine Pause'));
+  assertTrue('GD12: Abschnitt 2 beschreibt Doppelbelegungsschutz', has('2', 'Doppelbelegung'));
+  assertTrue('GD13: Abschnitt 2a beschreibt 24:00 und Mitternacht', has('2a', '24:00') && has('2a', 'Mitternacht'));
+  assertTrue('GD14: Abschnitt 4 und 5 erklaeren das i an der Saldo-Kachel', has('4', 'Saldo-Kachel') && has('5', 'Bildungsurlaub'));
+  assertTrue('GD15: Abschnitt 6a/6b nennen Jahr-Auswahlfeld, 6a ohne "eingeben"', has('6a', 'Auswahlfeld') && !has('6a', 'Jahr oben eingeben') && has('6b', 'Auswahlfeld'));
+  assertTrue('GD16: Abschnitt 6b nennt PDF, Aktueller Gleitzeitsaldo und (geplant)', has('6b', 'PDF') && has('6b', 'Aktueller Gleitzeitsaldo') && has('6b', '(geplant)'));
+  assertTrue('GD17: Abschnitt 8 beschreibt Archiv als Momentaufnahme ohne veraltetes Zurueckholen', has('8', 'Momentaufnahme') && !has('8', 'Zurückholen'));
+  assertTrue('GD18: Abschnitt 9 nennt Semikolon, Nur teilen und offline-Pruefung', has('9', 'Semikolon') && has('9', 'Nur teilen') && has('9', 'offline'));
+  assertTrue('GD19: Abschnitt 10 nennt Notfall-Backup, Backup-Pruefung und Sollstunden-Warnung', has('10', 'Notfall-Backup') && has('10', 'abgelehnt') && has('10', 'Sollstunden-Warnung'));
+  assertTrue('GD20: Abschnitt 10/12a verwenden Modus-Bezeichnung Freiberuflich/Nebenerwerb', has('10', 'Freiberuflich/Nebenerwerb') && has('12a', 'Freiberuflich/Nebenerwerb'));
 }
 
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------

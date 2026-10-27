@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.97';
+export const APP_VERSION = '3.9.98';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.98', items: [
+    'Doku: Bedienungsanleitung auf den aktuellen Stand gebracht — Arbeitszeitmodell, Sollstunden pro Jahr, Pausenregelungen, Doppelbelegungsschutz, Home-Office über Mitternacht, Saldo-Erklärung, Gleitzeitkonto-PDF und -Kacheln, Archiv als Momentaufnahme, E-Mail-Prüfung, Backup-Prüfung, Speicherfehler und Modus Freiberuflich/Nebenerwerb',
+  ]},
   { version: '3.9.97', items: [
     'Neu: Eintragsart „Bildungsurlaub“ (Hessisches Bildungsurlaubsgesetz) als Einzeltag oder Zeitraum. Das Tages-Soll wird wie bei Urlaub gutgeschrieben, der Urlaubsanspruch bleibt unberührt',
     'Neu: Eigenes Bildungsurlaub-Kontingent in der Urlaubsplanung: 5 Tage pro Jahr bei 5-Tage-Woche (sonst anteilig), Hinweis auf die 6-monatige Wartezeit und Warnung bei Überschreitung. Der Zeitraum-Dialog zeigt den Stand vor und nach dem Anlegen',
