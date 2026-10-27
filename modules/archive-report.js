@@ -11,6 +11,7 @@ export function restoreArchiveReport(archive) {
     homeofficeMin: homeofficeEntries.reduce((sum, e) => sum + computeHomeofficeMinutes(e), 0),
     vacationEntries: entries.filter(e => e.type === 'vacation'),
     sickEntries: entries.filter(e => e.type === 'sick'),
+    educationLeaveEntries: entries.filter(e => e.type === 'education_leave'),
     overtimeReductionEntries: entries.filter(e => e.type === 'overtime_reduction'),
     offDayEntries: entries.filter(e => e.type === 'off_day'),
     overtimeEntries: entries.filter(e => e.type === 'work' && e.overtimeReason),

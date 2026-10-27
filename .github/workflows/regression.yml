@@ -16,7 +16,7 @@ jobs:
   qa:
     name: Playwright-Regression
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -68,7 +68,7 @@ jobs:
   qa-webkit:
     name: Playwright-Regression (WebKit/Safari)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -118,7 +118,7 @@ jobs:
   visual-regression:
     name: Visual-Regression
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

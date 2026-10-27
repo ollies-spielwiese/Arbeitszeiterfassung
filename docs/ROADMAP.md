@@ -1,6 +1,6 @@
 # Arbeitszeit-App — Roadmap v3.9 → v4.0
 
-**Status (Stand v3.9.96, 27.10.2026): Phasen 1–4 und 6 sind vollständig umgesetzt, Phase 5 bis auf einen optionalen Punkt.** Die strukturellen Phasen 1–4 wurden bis v3.9.36 abgeschlossen (Typprüfung per `@ts-check`/`tsc --noEmit`, Migrations-Layer, Export-Inhaltsprüfung, CI, Modul-Split von `app.js`). Die Abschnitte zu Phase 1–4 bleiben als historische Referenz erhalten. Aktuelle offene Aufgaben stehen unter „Phase 7“ am Ende.
+**Status (Stand v3.9.97, 27.10.2026): Phasen 1–4 und 6 sind vollständig umgesetzt, Phase 5 bis auf einen optionalen Punkt.** Die strukturellen Phasen 1–4 wurden bis v3.9.36 abgeschlossen (Typprüfung per `@ts-check`/`tsc --noEmit`, Migrations-Layer, Export-Inhaltsprüfung, CI, Modul-Split von `app.js`). Die Abschnitte zu Phase 1–4 bleiben als historische Referenz erhalten. Aktuelle offene Aufgaben stehen unter „Phase 7“ am Ende.
 
 Reihenfolge nach v3.8.1. Prinzip: erst Sicherheitsnetze, dann Umbauten; erst Verstehen, dann Verändern; niedriger Aufwand mit hohem Hebel zuerst.
 
@@ -96,7 +96,7 @@ Vorschläge aus den „Erweiterungs-Rezepten“ in [docs/ARCHITECTURE.md](ARCHIT
 
 - **CSV-Export** ✅ Erledigt (v3.9.47) — Monatsbericht als CSV (Excel-kompatibel, UTF-8 mit BOM), analog zu PDF/Word.
 - **Undo für Zeitraum-Erfassung** ✅ Erledigt (v3.9.47) — Rückgängig-Aktion direkt im Toast nach dem Anlegen mehrerer Tage.
-- **Weitere Bulk-Erfassungs-Typen** — offen (optional): Muster aus `modules/range-entry.js` auf einen eigenen Eintragstyp wie „Fortbildung“ oder „Bildungsurlaub“ übertragen (Rezept „Neues Entry-Typ“).
+- **Weitere Bulk-Erfassungs-Typen** — teilweise erledigt: „Bildungsurlaub“ ✅ v3.9.97. Offen (optional): weitere Typen wie „Fortbildung“ nach demselben Rezept „Neues Entry-Typ“.
 - **Bundesland-Feiertage pflegen** — laufende Pflegeaufgabe: sobald neue gesetzliche Feiertage hinzukommen (Rezept „Neues Bundesland-Feiertag“).
 
 ### Zusätzlich umgesetzt (Nutzeranfragen, nicht vorab geplant)
@@ -111,6 +111,7 @@ Details jeweils im `CHANGELOG` in `modules/constants.js`.
 - **v3.9.78–v3.9.81:** Sollstunden-Warnung (Monats-Saldo mit anteiligem Soll und Mindest-Arbeitstage-Schutz; Gleitzeitkonto-Saldo über rollierendes 3-Monats-Fenster; Standard 20 %/10 %), Saldo-Kachel „Stand heute“, Hinweis „Bitte auf fehlende Einträge achten.“
 - **v3.9.82–v3.9.89:** Modus „Freiberuflich/Nebenerwerb“ mit passenden Bezeichnungen, Hinweis bei Wochenschema ohne Arbeitstag, iOS-Freigabe-Dialog-Fix, Urlaubsplanung-Kalender, einheitlicher Teilen-Dialog, Bemerkungsfeld für alle Eintragsarten.
 - **v3.9.90–v3.9.94:** Zuverlässiges Update auf iPhone/iPad, einheitliche Offline-Prüfung von E-Mail-Adressen inkl. WebKit-Fixes.
+- **v3.9.97:** Eintragsart Bildungsurlaub (HBUG) mit eigenem Kontingent, Wartezeit-Hinweis und Anzeige in allen Ansichten und Exporten; restliche Audit-Themen erledigt (siehe Nachtrag in [AUDIT-F05-F22.md](AUDIT-F05-F22.md)).
 - **v3.9.95–v3.9.96:** Audit-Korrekturen F01–F22 (siehe [F01-F04-SICHERHEIT-UND-SPEICHER.md](F01-F04-SICHERHEIT-UND-SPEICHER.md) und [AUDIT-F05-F22.md](AUDIT-F05-F22.md)): Backup-Validierung, sichtbare Speicherfehler mit Notfall-Backup, Home-Office über Mitternacht/Zeitumstellung, Stichtag- und Beschäftigungsgrenzen im Gleitzeitsaldo, Konfliktschutz bei Abwesenheiten, robustere Offline-Updates.
 
 ## Phase 6 — Stabilität, Sicherheit, Weiterentwicklungsfähigkeit ✅ Erledigt
@@ -130,8 +131,8 @@ Priorisiert nach Notwendigkeit:
 
 1. **Test auf echtem iPhone/iPad** (notwendig) — Update-Übernahme und Datenerhalt in der installierten PWA, Notfall-Download und Speicher-Warnbereich (v3.9.95), E-Mail-Fehlerhinweise (v3.9.92–v3.9.94). WebKit-Automation und Touch-Emulation ersetzen diesen Gerätetest nicht.
 2. **Manuelle Szenario-Prüfung** (empfohlen) — Arbeitgeberwechsel, Urlaub und Nebenerwerb mit dem Test-Backup in der laufenden App durchklicken, inklusive aller Ansichten und der PDF-, Word- und CSV-Exporte.
-3. **Restliche Audit-Themen** (empfohlen, eigener Change) — ungenutzte Deklarationen, mögliche überflüssige Dateien/Assets, umfassendere Dokumentationsbereinigung und weitere Härtungspunkte; laut [AUDIT-F05-F22.md](AUDIT-F05-F22.md) bewusst nicht mit v3.9.96 erledigt.
-4. **Weitere Bulk-Erfassungs-Typen** (optional) — siehe Phase 5.
+3. ~~**Restliche Audit-Themen**~~ ✅ v3.9.97 — ungenutzte Exporte, alte Root-Icons, Entwickler-Doku, CI-Zeitlimits; Details im Nachtrag von [AUDIT-F05-F22.md](AUDIT-F05-F22.md).
+4. **Weitere Bulk-Erfassungs-Typen** (optional) — Bildungsurlaub erledigt, z. B. „Fortbildung“ offen; siehe Phase 5.
 5. **Feiertage pflegen** (laufend) — siehe Phase 5.
 
 ## Nicht-Ziele (bewusst nicht auf der Roadmap)

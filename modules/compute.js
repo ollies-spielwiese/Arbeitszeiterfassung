@@ -480,6 +480,62 @@ export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
 }
 
 /**
+ * Bildungsurlaub-Kontingent eines Kalenderjahres (seit v3.9.97, Hessisches
+ * Bildungsurlaubsgesetz HBUG).
+ *
+ * Kontrakt:
+ *   - Anspruch: 5 Arbeitstage pro Kalenderjahr bei 5-Tage-Woche; bei mehr oder weniger
+ *     Arbeitstagen pro Woche entsprechend mehr/weniger (= Anzahl aktiver Wochentage im
+ *     Wochenschema; ohne aktive Tage oder bei hoursMode='month' gilt die 5-Tage-Woche).
+ *   - Wartezeit: Anspruch erst nach 6 Monaten Beschaeftigung (eligibleFrom = hiredSince + 6
+ *     Monate). Liegt eligibleFrom nach dem Jahresende oder nach "Beschaeftigt bis", besteht im
+ *     Jahr kein Anspruch (entitlement 0, notEligible true). Ohne hiredSince keine Pruefung.
+ *   - Gezaehlt werden alle Eintraege type='education_leave' des Arbeitgebers im Jahr;
+ *     date <= today = genommen, sonst eingegeben (analog Urlaubsplanung).
+ *   - Der Urlaubsanspruch (computeVacationRemaining) wird davon NICHT beruehrt.
+ *
+ * @param {any} emp Employer-Objekt
+ * @param {number|string} year Kalenderjahr
+ * @param {Array<any>} allEntries Alle Eintraege (state.entries)
+ * @param {string} today Stichtag YYYY-MM-DD
+ * @returns {{year:string, entitlement:number, workdaysPerWeek:number, eligibleFrom:(string|null), notEligible:boolean, taken:number, upcoming:number, total:number, remaining:number, exceeded:boolean, dates:string[]}}
+ */
+export function computeEducationLeaveYear(emp, year, allEntries, today) {
+  const yearStr = String(year);
+  const empty = { year: yearStr, entitlement: 0, workdaysPerWeek: 0, eligibleFrom: null, notEligible: false, taken: 0, upcoming: 0, total: 0, remaining: 0, exceeded: false, dates: [] };
+  if (!emp) return empty;
+  let workdaysPerWeek = 5;
+  if (emp.hoursMode === 'week' && emp.schedule) {
+    const active = DAY_KEYS.filter(k => emp.schedule[k] && emp.schedule[k].enabled).length;
+    if (active > 0) workdaysPerWeek = active;
+  }
+  let entitlement = workdaysPerWeek;
+  let eligibleFrom = null;
+  let notEligible = false;
+  if (typeof emp.hiredSince === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(emp.hiredSince)) {
+    const y = Number(emp.hiredSince.slice(0, 4));
+    const m = Number(emp.hiredSince.slice(5, 7)) + 6;
+    const d = emp.hiredSince.slice(8, 10);
+    const ey = y + Math.floor((m - 1) / 12);
+    const em = ((m - 1) % 12) + 1;
+    eligibleFrom = `${ey}-${String(em).padStart(2, '0')}-${d}`;
+    const endDate = typeof emp.employmentEndDate === 'string' && emp.employmentEndDate ? emp.employmentEndDate : null;
+    if (eligibleFrom > `${yearStr}-12-31` || (endDate && eligibleFrom > endDate)) notEligible = true;
+  }
+  if (notEligible) entitlement = 0;
+  const dates = (allEntries || [])
+    .filter(e => e && e.type === 'education_leave' && e.employerId === emp.id && typeof e.date === 'string' && e.date.startsWith(yearStr))
+    .map(e => e.date).sort();
+  const taken = dates.filter(dt => today && dt <= today).length;
+  const upcoming = dates.length - taken;
+  const total = dates.length;
+  return {
+    year: yearStr, entitlement, workdaysPerWeek, eligibleFrom, notEligible,
+    taken, upcoming, total, remaining: Math.max(0, entitlement - total), exceeded: total > entitlement, dates,
+  };
+}
+
+/**
  * Tagesgenaue Kalenderdaten fuer einen einzelnen Monat der Urlaubsplanung (Kalenderansicht,
  * seit v3.9.86). Liefert fuer jeden Tag des Monats Wochentag, Wochenende-Flag, Urlaubsstatus
  * ('taken'|'upcoming'|null) und Feiertagsname (oder null), damit ein reiner Builder daraus
@@ -547,6 +603,10 @@ export function computeMonthReport(employerId, ym, ctx) {
   const homeofficeEntries = entries.filter(e => e.type === 'homeoffice');
   const vacationEntries = entries.filter(e => e.type === 'vacation');
   const sickEntries = entries.filter(e => e.type === 'sick');
+  // Bildungsurlaub (seit v3.9.97, HBUG Hessen): bezahlte Freistellung — Tages-Soll wird wie
+  // Urlaub/Krank gutgeschrieben, mindert aber NICHT den Urlaubsanspruch (eigenes Kontingent,
+  // siehe computeEducationLeaveYear).
+  const educationLeaveEntries = entries.filter(e => e.type === 'education_leave');
   const overtimeReductionEntries = entries.filter(e => e.type === 'overtime_reduction');
   // 'off_day' ("Kein Arbeitstag", seit v3.9.47): kein Urlaub/Krank/Abbau, sondern ein Tag, der
   // laut Vertrag/Schema ohnehin nicht gearbeitet wird (z.B. bei unregelmaessigen Wochenmodellen).
@@ -601,7 +661,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   // Betrag sinkt — das ist der eigentliche "Abbau". overtime_reduction zählt weiterhin bewusst
   // NICHT in computeVacationRemaining/computeYearlyVacationPlanning, da es kein Urlaubstag ist
   // und den Urlaubsanspruch nicht mindert.
-  const creditedAbsenceMin = Math.round([...vacationEntries, ...sickEntries]
+  const creditedAbsenceMin = Math.round([...vacationEntries, ...sickEntries, ...educationLeaveEntries]
     .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date, innerCtx), 0));
   const balance = workedMin + creditedAbsenceMin - targetMin;
 
@@ -610,7 +670,7 @@ export function computeMonthReport(employerId, ym, ctx) {
   const vacationRemaining = computeVacationRemaining(emp, ym, state.entries);
 
   return {
-    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
+    employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, educationLeaveEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
     vacationRemaining,
   };
@@ -624,7 +684,7 @@ export function computeMonthReport(employerId, ym, ctx) {
  */
 export function computeMonthOverview(ym, ctx) {
   const state = ctx && ctx.state;
-  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
+  if (!state) return { ym, rows: [], totals: { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, educationLeaveDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 } };
 
   // ctx.employers ueberschreibt state.employers als Iterationsbasis (z.B. um ehemalige
   // Arbeitgeber ausser der "Ehemalige anzeigen"-Checkbox auszublenden), ohne die Totals-Logik
@@ -642,6 +702,7 @@ export function computeMonthOverview(ym, ctx) {
       creditedAbsenceMin: r.creditedAbsenceMin,
       vacationDays: r.vacationEntries.length,
       sickDays: r.sickEntries.length,
+      educationLeaveDays: r.educationLeaveEntries.length,
       overtimeReductionDays: r.overtimeReductionEntries.length,
       offDayDays: r.offDayEntries.length,
       workEntriesCount: new Set([...r.workEntries, ...r.homeofficeEntries].map(e => e.date)).size,
@@ -655,10 +716,11 @@ export function computeMonthOverview(ym, ctx) {
     creditedAbsenceMin: acc.creditedAbsenceMin + row.creditedAbsenceMin,
     vacationDays: acc.vacationDays + row.vacationDays,
     sickDays: acc.sickDays + row.sickDays,
+    educationLeaveDays: acc.educationLeaveDays + row.educationLeaveDays,
     overtimeReductionDays: acc.overtimeReductionDays + row.overtimeReductionDays,
     offDayDays: acc.offDayDays + row.offDayDays,
     workEntriesCount: acc.workEntriesCount + row.workEntriesCount,
-  }), { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
+  }), { workedMin: 0, targetMin: 0, balance: 0, creditedAbsenceMin: 0, vacationDays: 0, sickDays: 0, educationLeaveDays: 0, overtimeReductionDays: 0, offDayDays: 0, workEntriesCount: 0 });
 
   return { ym, rows, totals };
 }
@@ -677,7 +739,7 @@ export function computeMonthOverview(ym, ctx) {
  * @param {AZEmployer} emp
  * @param {number} year z.B. 2026
  * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
- * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, cumulativeTargetMin:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, cumulativeTargetMin:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number, cumulativeEducationLeaveDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
  */
 export function computeGleitzeitkontoRows(emp, year, ctx) {
   const state = ctx && ctx.state;
@@ -718,6 +780,7 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
   let cumulativeCreditedAbsenceMin = 0;
   let cumulativeVacationDays = 0;
   let cumulativeSickDays = 0;
+  let cumulativeEducationLeaveDays = 0;
   let cursor = effectiveStartYm;
   const rows = [];
   while (cursor <= effectiveEndYm) {
@@ -728,6 +791,7 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
       cumulativeCreditedAbsenceMin += r.creditedAbsenceMin;
       cumulativeVacationDays += r.vacationEntries.length;
       cumulativeSickDays += r.sickEntries.length;
+      cumulativeEducationLeaveDays += r.educationLeaveEntries.length;
       if (cursor >= yearStartYm) {
         rows.push({
           ym: cursor,
@@ -744,6 +808,7 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
           cumulativeCreditedAbsenceMin,
           cumulativeVacationDays,
           cumulativeSickDays,
+          cumulativeEducationLeaveDays,
         });
       }
     }

@@ -85,6 +85,7 @@ export function buildReportHTML(r, ctx) {
     balance: r.balance,
     vacationDays: r.vacationEntries.length,
     sickDays: r.sickEntries.length,
+    educationLeaveDays: (r.educationLeaveEntries || []).length,
     overtimeReductionDays: r.overtimeReductionEntries.length,
     hourlyRate: Number(r.employer.hourlyRate) || 0,
     currency: r.employer.currency || 'EUR',

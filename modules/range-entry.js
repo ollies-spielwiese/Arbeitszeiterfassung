@@ -34,7 +34,7 @@ import { isHoliday } from './holidays.js';
  * @param {string} params.startISO 'YYYY-MM-DD'
  * @param {string} params.endISO 'YYYY-MM-DD' (inklusiv, >= startISO)
  * @param {string} params.employerId
- * @param {'vacation'|'sick'|'overtime_reduction'|'off_day'} params.type
+ * @param {'vacation'|'education_leave'|'sick'|'overtime_reduction'|'off_day'} params.type
  * @param {string} [params.note]
  * @param {boolean} [params.skipWeekendsHolidays] Default true.
  * @param {string} params.stateCode Bundesland-Code, z. B. 'HE' (für Feiertagsprüfung).
@@ -53,7 +53,7 @@ export function buildRangeEntries(params) {
 
   const result = { toCreate: [], totalDays: 0, created: 0, skippedWeekend: 0, skippedHoliday: 0, skippedExisting: 0 };
 
-  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'sick' || type === 'overtime_reduction' || type === 'off_day')) return result;
+  if (!startISO || !endISO || !employerId || !(type === 'vacation' || type === 'education_leave' || type === 'sick' || type === 'overtime_reduction' || type === 'off_day')) return result;
   if (endISO < startISO) return result;
 
   const existingDates = new Set(
@@ -102,12 +102,13 @@ export function buildRangeEntries(params) {
 /**
  * Baut die Zusammenfassungs-Toast-Nachricht aus einem AZRangeEntryResult.
  * @param {AZRangeEntryResult} r
- * @param {'vacation'|'sick'|'overtime_reduction'|'off_day'} type
+ * @param {'vacation'|'education_leave'|'sick'|'overtime_reduction'|'off_day'} type
  * @returns {string}
  */
 export function formatRangeEntrySummary(r, type) {
   const LABELS = {
     vacation: ['Urlaubstag', 'Urlaubstage'],
+    education_leave: ['Bildungsurlaubstag', 'Bildungsurlaubstage'],
     sick: ['Krankheitstag', 'Krankheitstage'],
     overtime_reduction: ['Überstundenabbau-Tag', 'Überstundenabbau-Tage'],
     off_day: ['Freier Tag', 'Freie Tage'],

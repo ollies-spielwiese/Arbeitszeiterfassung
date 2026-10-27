@@ -105,6 +105,12 @@ export async function generateWordBlob(report, ctx) {
       new TextRun({ text: report.sickEntries.map(e => formatDate(e.date)).join(', ') }),
     ]}));
   }
+  if (report.educationLeaveEntries && report.educationLeaveEntries.length) {
+    absenceLines.push(new Paragraph({ children: [
+      new TextRun({ text: 'Bildungsurlaub: ', bold: true }),
+      new TextRun({ text: report.educationLeaveEntries.map(e => formatDate(e.date)).join(', ') }),
+    ]}));
+  }
   if (report.overtimeReductionEntries && report.overtimeReductionEntries.length) {
     absenceLines.push(new Paragraph({ children: [
       new TextRun({ text: 'Überstundenabbau: ', bold: true }),
@@ -164,6 +170,7 @@ export async function generateWordBlob(report, ctx) {
     balance: report.balance,
     vacationDays: report.vacationEntries.length,
     sickDays: report.sickEntries.length,
+    educationLeaveDays: (report.educationLeaveEntries || []).length,
     overtimeReductionDays: (report.overtimeReductionEntries || []).length,
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',

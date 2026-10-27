@@ -18,7 +18,7 @@
 // }
 
 import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from '../range-entry.js';
-import { computeVacationRemaining, filterVisibleEmployers } from '../compute.js';
+import { computeVacationRemaining, computeEducationLeaveYear, filterVisibleEmployers } from '../compute.js';
 import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
 
@@ -68,6 +68,11 @@ export function updateRangeVacationStats(ctx) {
   const employerId = empSel && empSel.value;
   const type = typeSel && typeSel.value;
 
+  if (type === 'education_leave' && employerId) {
+    renderEducationLeaveStats(box, ctx, employerId, startInput && startInput.value);
+    return;
+  }
+
   if (type !== 'vacation' || !employerId) {
     box.hidden = true;
     box.innerHTML = '';
@@ -95,6 +100,51 @@ export function updateRangeVacationStats(ctx) {
     `<div class="range-vacation-stats-hint">Urlaubsjahr ${escapeHtml(String(year))}` +
     `${vr.prorated ? ' · anteilig' : ''}` +
     `${vr.carryOver ? ` · davon ${escapeHtml(String(vr.carryOver))} Tage Resturlaub Vorjahr` : ''}</div>`;
+}
+
+/**
+ * Kontingent-Anzeige für Bildungsurlaub im Zeitraum-Dialog (seit v3.9.97): Anspruch des Jahres,
+ * bereits erfasste Tage und Vorschau nach dem Anlegen (über buildRangeEntries, ohne State-Mutation).
+ * @param {HTMLElement} box
+ * @param {any} ctx
+ * @param {string} employerId
+ * @param {string} startVal
+ */
+function renderEducationLeaveStats(box, ctx, employerId, startVal) {
+  const { escapeHtml } = ctx;
+  const state = ctx.getState();
+  const emp = (state.employers || []).find((x) => x.id === employerId);
+  if (!emp) { box.hidden = true; box.innerHTML = ''; return; }
+  const year = (startVal && startVal.length >= 4) ? startVal.slice(0, 4) : String(new Date().getFullYear());
+  const el = computeEducationLeaveYear(emp, year, state.entries || [], typeof ctx.todayISO === 'function' ? ctx.todayISO() : todayISOLocal());
+  const endEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-end'));
+  const skipEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-skip-weekends-holidays'));
+  const endVal = endEl ? endEl.value : '';
+  let after = null;
+  if (startVal && endVal && endVal >= startVal) {
+    const preview = buildRangeEntries({
+      startISO: startVal, endISO: endVal, employerId, type: 'education_leave',
+      skipWeekendsHolidays: skipEl ? skipEl.checked : true,
+      stateCode: state.settings?.state, holidayOverrides: state.settings?.holidayOverrides,
+      existingEntries: state.entries || [], uid: () => 'preview',
+    });
+    after = el.total + preview.toCreate.filter((x) => x.date.startsWith(year)).length;
+  }
+  const s = (n) => escapeHtml(String(n));
+  let html = `<div class="range-vacation-stats-line">Bildungsurlaub ${s(year)}: Anspruch <strong>${s(el.entitlement)}</strong> Tage · ` +
+    `bereits erfasst: <strong>${s(el.total)}</strong> Tage` +
+    (after !== null ? ` · nach diesem Eintrag: <strong>${s(after)} von ${s(el.entitlement)}</strong> Tagen` : '') + `</div>`;
+  const hints = ['Bezahlte Freistellung (HBUG): das Tages-Soll wird gutgeschrieben, der Urlaubsanspruch bleibt unberührt.'];
+  if (el.notEligible) hints.push(`Wartezeit: Anspruch erst ab ${s(el.eligibleFrom ? el.eligibleFrom.split('-').reverse().join('.') : '')}.`);
+  if (after !== null && after > el.entitlement) hints.push('Achtung: Das Kontingent wird überschritten.');
+  html += `<div class="range-vacation-stats-hint">${hints.join(' ')}</div>`;
+  box.hidden = false;
+  box.innerHTML = html;
+}
+
+function todayISOLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function saveRangeEntry(e, ctx) {

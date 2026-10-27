@@ -55,7 +55,7 @@ export function pushAuditLog(state, params) {
 
 const ACTION_LABELS = { create: 'Angelegt', update: 'Geändert', delete: 'Gelöscht' };
 const TYPE_LABELS = {
-  work: 'Arbeit', homeoffice: 'Home-Office', vacation: 'Urlaub', sick: 'Krankheit',
+  work: 'Arbeit', homeoffice: 'Home-Office', vacation: 'Urlaub', education_leave: 'Bildungsurlaub', sick: 'Krankheit',
   overtime_reduction: 'Überstundenabbau', off_day: 'Freier Tag',
 };
 

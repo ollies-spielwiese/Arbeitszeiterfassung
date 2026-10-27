@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.96';
+export const APP_VERSION = '3.9.97';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.97', items: [
+    'Neu: Eintragsart „Bildungsurlaub“ (Hessisches Bildungsurlaubsgesetz) als Einzeltag oder Zeitraum. Das Tages-Soll wird wie bei Urlaub gutgeschrieben, der Urlaubsanspruch bleibt unberührt',
+    'Neu: Eigenes Bildungsurlaub-Kontingent in der Urlaubsplanung: 5 Tage pro Jahr bei 5-Tage-Woche (sonst anteilig), Hinweis auf die 6-monatige Wartezeit und Warnung bei Überschreitung. Der Zeitraum-Dialog zeigt den Stand vor und nach dem Anlegen',
+    'Neu: Bildungsurlaub erscheint in Einträgen, Woche, Monat, Übersicht, Gleitzeitkonto-Hinweis, Archiv sowie in PDF-, Word- und CSV-Export',
+    'Aufgeräumt: nicht mehr genutzte Icon-Dateien im Hauptverzeichnis entfernt, interne Konstanten nicht mehr exportiert, Hinweistexte nennen den Reiter „Erfassen“ statt „Tracker“, Entwickler-Doku aktualisiert',
+    'Verbessert: Zeitlimit der automatischen Prüfungen auf 20 Minuten erhöht, damit langsame Testrechner nicht mehr abbrechen. Die Regression ist um 45 Bildungsurlaub- und Aufräum-Prüfungen erweitert',
+  ]},
   { version: '3.9.96', items: [
     'Fix: Home-Office-Blöcke werden über Mitternacht und Zeitumstellungen ohne Minutenverlust oder doppelte Tage aufgeteilt. Das Tagesende 24:00 lässt sich im Formular ausdrücklich wählen',
     'Fix: Gleitzeitsaldo und Warnungen berücksichtigen Beschäftigungsbeginn, Beschäftigungsende und den aktuellen Stichtag. Tages-Soll und Urlaubsgutschriften sind in Tracker, Woche und Monat vereinheitlicht, auch für geplante Wochenendtage',

@@ -19,6 +19,7 @@ const TYPE_LABELS = {
   homeoffice: 'Home-Office',
   vacation: 'Urlaub',
   sick: 'Krankheit',
+  education_leave: 'Bildungsurlaub',
   overtime_reduction: 'Überstundenabbau',
   off_day: 'Freier Tag',
 };
@@ -59,6 +60,9 @@ export function generateCsvBlob(report, ctx) {
   });
   (report.vacationEntries || []).forEach((e) => {
     rows.push([e.date, TYPE_LABELS.vacation, '', '', '', '', e.note || '']);
+  });
+  (report.educationLeaveEntries || []).forEach((e) => {
+    rows.push([e.date, TYPE_LABELS.education_leave, '', '', '', '', e.note || '']);
   });
   (report.sickEntries || []).forEach((e) => {
     rows.push([e.date, TYPE_LABELS.sick, '', '', '', '', e.note || '']);

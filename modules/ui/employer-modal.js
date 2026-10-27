@@ -97,14 +97,14 @@ export function updateHoursModeVisibility() {
  * Feld — Vermeidung von unklaren impliziten Umrechnungen bei Monats-/Jahreswerten.
  */
 
-export const EMPLOYMENT_SCOPE_LABELS = {
+const EMPLOYMENT_SCOPE_LABELS = {
   vollzeit: 'Vollzeit',
   teilzeit: 'Teilzeit',
   minijob: 'Minijob',
   midijob: 'Midijob',
 };
 
-export const WORKTIME_MODEL_LABELS = {
+const WORKTIME_MODEL_LABELS = {
   klassisch: 'Klassisch',
   gleitzeit: 'Gleitzeit',
   vertrauensarbeitszeit: 'Vertrauensarbeitszeit',
@@ -145,7 +145,7 @@ function _readEmploymentModelFormState() {
 /** Aktualisiert Sichtbarkeit von Prozent-/Referenz-Zeile, den ArbZG-Hinweis für die
  * Vier-Tage-Woche und die zusammengefasste "Anzeige"-Zeile. Löst KEINE Neuberechnung der
  * Stunden/Prozent-Werte aus — das übernehmen die spezifischen handle*-Funktionen unten. */
-export function refreshEmploymentModelUI() {
+function refreshEmploymentModelUI() {
   const s = _readEmploymentModelFormState();
   const percentRow = document.getElementById('row-parttime-percent');
   const refRow = document.getElementById('row-fulltime-reference');

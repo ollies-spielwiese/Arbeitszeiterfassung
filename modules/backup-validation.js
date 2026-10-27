@@ -73,7 +73,7 @@ function employer(v, p) {
     },
   });
 }
-const entryTypes = ['work', 'homeoffice', 'vacation', 'sick', 'overtime_reduction', 'off_day'];
+const entryTypes = ['work', 'homeoffice', 'vacation', 'education_leave', 'sick', 'overtime_reduction', 'off_day'];
 function entry(v, p) {
   object(v, p);
   if (v.id !== undefined) id(v.id, `${p}.id`);
@@ -145,7 +145,7 @@ export function validateBackup(data) {
         if (s.entries.some(e => e.employerId !== a.employerId)) fail(`${ap}.snapshot.entries.employerId`);
         for (const k of ['workedMin', 'targetMin', 'balance']) number(s[k], `${ap}.snapshot.${k}`);
         fields(s, `${ap}.snapshot`, {
-          ...numbers('vacationDays sickDays overtimeReductionDays creditedAbsenceMin homeofficeMin'),
+          ...numbers('vacationDays sickDays educationLeaveDays overtimeReductionDays creditedAbsenceMin homeofficeMin'),
           holidays,
           vacationRemaining: (x, xp) => {
             if (x === null) return;

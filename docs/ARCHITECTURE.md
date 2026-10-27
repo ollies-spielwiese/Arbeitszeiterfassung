@@ -259,6 +259,7 @@ Neue Migration hinzufügen:
 6. **Freier Tag / off_day** (9), **Änderungsprotokoll** (15), **Undo Zeitraum-Erfassung** (7), **Backup-Erinnerung** (8) — seit v3.9.47, siehe `runOffDayUnits`, `runAuditLogUnits`, `runUndoUnits`, `runBackupReminderUnits` in `scripts/regression.mjs`.
 7. **Gleitzeitkonto** (27) — seit v3.9.47, Kalenderjahr-Ansicht mit Truncation auf "Angestellt seit" und durchlaufendem Saldo über Jahresgrenzen seit v3.9.48, siehe `runGleitzeitkontoUnits` in `scripts/regression.mjs`.
 8. **E2E Freelance** (14) — Seed mit „Kunde Alpha" 09:00–16:00 @ 85 €/h → Tracker, Week, Report, Overview zeigen 595,00 €. PDF/Word/OverviewPDF werden generiert und **inhaltlich** gegen die Werte gecheckt.
+8a. **Bildungsurlaub** (45) — seit v3.9.97, siehe `scripts/education-leave-tests.mjs` und die BU-Export-Prüfungen in `runOvertimeReductionUnits`.
 9. **E2E Employee** (34) — Analog mit Ist/Soll/Saldo. PDF/Word/OverviewPDF/CSV-Textextraktion (via `pdf-parse`, `mammoth`, CSV-Parsing) prüft, dass die Labels und die 7:00 Ist tatsächlich im Blob stehen.
 10. **Sicherheits-Härtung SEC1/SEC1b/SEC2/SEC3** (seit v3.9.51/3.9.52) — SEC1/SEC1b: Live-Browser-Test, dass `buildWeekHTML()` sowohl `dm.detail` als auch `isoWeek` escaped (kein Stored-XSS über `container.innerHTML`). SEC2: statischer Source-Check, dass `updateRangeVacationStats()` alle fünf angezeigten Werte escaped. SEC3: statischer Source-Check, dass der Service-Worker-Fetch-Handler `isCacheableResponseUrl()` (Hostname-Vergleich) statt einer unsicheren Teilstring-Prüfung nutzt.
 11. **Sollstunden-Warnung SW1–SW19** (seit v3.9.78, Banner seit v3.9.79 zusätzlich in der Übersicht, anteiliges Soll + Mindest-Arbeitstage-Schutz seit v3.9.80) — warnt optional, wenn der Monats-Saldo und/oder der Gleitzeitkonto-Saldo um mindestens eine eingestellte Schwelle (10/20/30 % oder eigener Wert) über oder unter dem jeweiligen Soll liegt. Reine Berechnung in `modules/soll-warning.js` (`evaluateSollWarning`, `computeActiveSollWarnings`, Mindest-Soll-Guard `MIN_TARGET_MIN_FOR_EVALUATION`), Banner-Builder in `modules/render/soll-warning-banner.js`, App-Integration via `updateSollWarningBanner()`/`computeBalanceWarningInfo()` in `app.js`. Anzeige: identisches Banner in Erfassen- **und** Übersicht-Ansicht (`SOLL_WARNING_BANNER_TARGETS` in `app.js` aktualisiert beide DOM-Instanzen gemeinsam; Direktlink zum Gleitzeitkonto, global geteilter 7-Tage-Snooze) plus Hervorhebung der Saldo-Kachel (`sw-flagged`) im Monats- und Gleitzeitkonto-Tab. Beide Bausteine sind standardmäßig deaktiviert, getrennt einstellbar und im Freiberufler-Modus vollständig ausgeblendet (kein Soll/Saldo-Konzept dort); ehemalige Arbeitgeber werden nicht bewertet.
@@ -300,13 +301,15 @@ Aktuell keine offene strukturelle Altlast auf dieser Ebene bekannt. Neue technis
 4. Unit-Test in `runSelectorUnits` ergänzen: „mode=X mit fahrtkosten liefert Feld `fahrtkosten` mit rawAmount=…".
 5. Kein Renderer muss angefasst werden.
 
-### Neues Entry-Typ (z. B. „Bildungsurlaub")
+### Neues Entry-Typ (Beispiel: „Bildungsurlaub“ `education_leave`, v3.9.97)
 
-1. `AZEntry.type` erweitern (`types.js`).
-2. `isWorkedEntry` prüfen — soll der neue Typ als geleistete Zeit zählen? (`modules/compute.js`)
-3. `renderEntries` und `openEntryModal` ergänzen (UI).
-4. Wenn nötig Migration schreiben (falls der Typ Bestandsdaten ersetzt).
-5. Regression: seed einen Entry vom neuen Typ, Report muss ihn richtig zählen.
+1. `AZEntry.type` erweitern (`types.js`), Typlisten in `modules/backup-validation.js` (`entryTypes`) und `modules/entry-conflicts.js` (`absenceTypes`, falls ganztägig).
+2. `isWorkedEntry` prüfen — soll der neue Typ als geleistete Zeit zählen? Gutschrift in `computeMonthReport` (`creditedAbsenceMin`), Zähler in `computeMonthOverview` und `computeGleitzeitkontoRows` (`modules/compute.js`).
+3. UI: `<option>` in `#entry-type` und `#range-type` (`index.html`), Labels in `modules/ui/entry-modal.js`, `modules/render/entries.js`, `modules/audit-log.js`, `modules/range-entry.js`; Zeile in `computeEntryRows` (`modules/selectors.js`) und Badge-Farbe in `styles.css`; Wochenansicht in `app.js`.
+4. Zusammenfassung: Feld in `getSummaryFields`/`getOverviewSummaryFields` — nur wenn > 0, damit Baselines und Exporte ohne den Typ unverändert bleiben. Alle Aufrufer (`report.js`, `pdf.js`, `word.js`, `share.js`, `app.js`) reichen den Zähler durch; `archive-report.js` filtert die Einträge für Archiv-Rekonstruktionen.
+5. Exporte: Datumsliste in PDF/Word, Zeile in CSV (`TYPE_LABELS`).
+6. Wenn nötig Migration schreiben (falls der Typ Bestandsdaten ersetzt). Ein reiner Zusatztyp braucht keine Migration, aber ältere App-Versionen lehnen Backups mit dem neuen Typ ab.
+7. Regression: siehe `scripts/education-leave-tests.mjs` (Berechnung, Kontingent, Zeitraum, Konflikt, Backup, Ansichten, Exporte).
 
 ### Neuer Export-Format (z. B. CSV)
 

@@ -39,7 +39,7 @@ npm run serve
 open http://localhost:8765
 ```
 
-Live-Reload gibt es nicht. Nach Änderungen an `app.js` einmal Hard-Reload (Cmd/Ctrl-Shift-R). Der Service Worker cached aggressiv — im DevTools „Application" → „Service Workers" → „Update on reload" aktivieren, oder den Cache manuell löschen.
+Live-Reload gibt es nicht. Nach Änderungen an `app.js` oder `modules/` einmal Hard-Reload (Cmd/Ctrl-Shift-R). Der Service Worker cached aggressiv — im DevTools „Application" → „Service Workers" → „Update on reload" aktivieren, oder den Cache manuell löschen.
 
 ---
 
@@ -50,7 +50,17 @@ Live-Reload gibt es nicht. Nach Änderungen an `app.js` einmal Hard-Reload (Cmd/
 npm run qa
 ```
 
-Erwartete Ausgabe: `96/96 Checks OK — X.Xs`. Alles darunter ist rot.
+Erwartete Ausgabe: `N/N Checks OK — 0 Fehler — X.Xs` (N wächst mit jedem neuen Test). Jeder Fehler ist rot.
+
+Vor der Regression außerdem den JSDoc-Typcheck fahren:
+```
+npm run typecheck
+```
+Erwartet: `echte Fehler: 0` (DOM-Rauschen wird gefiltert).
+
+Weitere Prüfungen:
+- `ENGINE=webkit npm run qa` — dieselbe Regression in WebKit (Safari).
+- `npm run visual:test` — Pixelvergleich gegen `visual-baselines/`; Abweichungen landen in `visual-diffs/` (nicht versioniert). Bewusste Layout-Änderungen mit `npm run visual:update` übernehmen.
 
 Headed-Modus für Debugging (Chromium öffnet sichtbar):
 ```
@@ -92,11 +102,12 @@ Jede Änderung, die Nutzer sichtbar erreicht (Feature, Bugfix, UI-Änderung, Reg
 ### Checkliste
 
 1. `npm run qa` — grün.
-2. Version in **drei Dateien** anheben, synchron:
-   - `app.js:31` → `const APP_VERSION = 'X.Y.Z';`
-   - `sw.js:1` → `const CACHE_NAME = 'arbeitszeit-vX-Y-Z';`
-   - `index.html` → `<span class="app-version">vX.Y.Z</span>`
-3. `CHANGELOG` in `app.js:46` erweitern — neuer Eintrag oben:
+2. Version an **vier Stellen** anheben, synchron:
+   - `modules/constants.js` → `export const APP_VERSION = 'X.Y.Z';`
+   - `package.json` → `"version": "X.Y.Z"`
+   - `sw.js` → `const CACHE_NAME = 'arbeitszeit-vX-Y-Z';`
+   - `index.html` → `#app-version-badge` (`vX.Y.Z`)
+3. `CHANGELOG` in `modules/constants.js` erweitern — neuer Eintrag oben (Umlaute direkt als UTF-8 schreiben):
    ```js
    { version: 'X.Y.Z', items: [
        'Kurzer Satz, was drin ist',
@@ -110,7 +121,7 @@ Jede Änderung, die Nutzer sichtbar erreicht (Feature, Bugfix, UI-Änderung, Reg
    ```
 6. `git push origin main` → CI läuft automatisch.
 7. Auf grüne CI warten (Regression + Pages-Deploy).
-8. Live prüfen: `curl -s "https://ollies-spielwiese.github.io/Arbeitszeiterfassung/app.js?nc=$(date +%s)" | grep APP_VERSION`
+8. Live prüfen: `curl -s "https://ollies-spielwiese.github.io/Arbeitszeiterfassung/modules/constants.js?nc=$(date +%s)" | grep APP_VERSION`
 
 Wenn CI rot ist, wird der Push zurückgezogen oder ein Fix-Commit auf denselben Branch hinterhergeschoben. Nie einen roten Zustand auf `main` liegen lassen.
 
@@ -124,12 +135,13 @@ Wenn CI rot ist, wird der Push zurückgezogen oder ein Fix-Commit auf denselben 
 
 ## CI
 
-Zwei Workflows in `.github/workflows/`:
+Drei Workflows in `.github/workflows/` (alle mit `permissions: contents: read`, sofern nicht mehr nötig ist):
 
-- `regression.yml` — läuft bei jedem Push und PR auf `main`. Node 20, `npm ci`, Playwright + Chromium, statischer Server, `npm run qa:ci`. Blockt Merge bei rot.
-- `pages.yml` — deployt Pages, aber nur nach grüner Regression im selben Run (`needs: qa`). Kopiert nur statische App-Files ins Artifact (kein `node_modules`, kein `scripts/`, kein `package.json`).
+- `regression.yml` — läuft bei jedem Push und PR auf `main`. Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
+- `lighthouse.yml` — Lighthouse-Check (Performance, Barrierefreiheit, Best Practices).
+- `pages.yml` — deployt GitHub Pages, aber nur nach grüner Regression im selben Run (Job `qa`, `needs: qa`). Kopiert nur statische App-Files ins Artifact (kein `node_modules`, kein `scripts/`, kein `package.json`).
 
-Alte Legacy-Pages-Deployment (branch-basiert) läuft aktuell parallel. Kann in den Repo-Settings unter „Pages" → Source: „GitHub Actions" umgestellt werden. Aktuell schadet die Redundanz nicht.
+Dependabot und CodeQL laufen zusätzlich über die Repo-Einstellungen.
 
 ---
 

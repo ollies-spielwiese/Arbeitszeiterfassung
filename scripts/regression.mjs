@@ -32,6 +32,7 @@ import { runEmailRulesTests } from './email-rules-tests.mjs';
 import { runServiceWorkerLifecycleTests } from './sw-update-lifecycle-tests.mjs';
 import { runBackupSafetyTests } from './backup-safety-tests.mjs';
 import { runAuditRegressionTests } from './audit-regression-tests.mjs';
+import { runEducationLeaveTests } from './education-leave-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -661,6 +662,21 @@ async function runOvertimeReductionUnits(page) {
   assertContains('OT8: PDF-Export enthält "Überstundenabbau"', ot8Text, 'Überstundenabbau');
   const ot9Text = await extractWordText(Buffer.from(ot89.wordBytes));
   assertContains('OT9: Word-Export enthält "Überstundenabbau"', ot9Text, 'Überstundenabbau');
+
+  // BU-Export (v3.9.97): PDF/Word listen Bildungsurlaubstage mit Datum.
+  const bu = await page.evaluate(async () => {
+    const empId = '__bu-export__';
+    state.employers.push({ id: empId, name: 'BU-Export-Check', hoursMode: 'week', weeklyHours: 40, breakMode: 'none', annualVacation: 30 });
+    state.entries.push({ id: 'bu-x1', employerId: empId, date: '2026-06-09', type: 'education_leave' });
+    const report = computeMonthReport(empId, '2026-06');
+    const pdfBytes = Array.from(new Uint8Array(await (await generatePdfBlob(report)).arrayBuffer()));
+    const wordBytes = Array.from(new Uint8Array(await (await generateWordBlob(report)).arrayBuffer()));
+    state.employers = state.employers.filter(e => e.id !== empId);
+    state.entries = state.entries.filter(e => e.employerId !== empId);
+    return { pdfBytes, wordBytes };
+  });
+  assertContains('BU-PDF: Export enthält Bildungsurlaub mit Datum', await extractPdfText(Buffer.from(bu.pdfBytes)), 'Bildungsurlaub: 09.06.2026');
+  assertContains('BU-Word: Export enthält Bildungsurlaub', await extractWordText(Buffer.from(bu.wordBytes)), 'Bildungsurlaub');
 }
 
 // ---------- 1e-3) Datums-Konflikt-Schutz für Ganztagesabwesenheiten (v3.9.44) ----------
@@ -4539,6 +4555,7 @@ function runServiceWorkerCacheBustCheck() {
     await runServiceWorkerLifecycleTests(browser, BASE_URL, { assertEq });
     await runBackupSafetyTests(browser, BASE_URL, { assertEq });
     await runAuditRegressionTests(browser, BASE_URL, { assertEq });
+    await runEducationLeaveTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {

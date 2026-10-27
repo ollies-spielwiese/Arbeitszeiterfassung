@@ -97,6 +97,11 @@ export function wireEvents(ctx) {
     if (rangeEmpSel) rangeEmpSel.addEventListener('change', () => updateRangeVacationStats());
     if (rangeTypeSel) rangeTypeSel.addEventListener('change', () => updateRangeVacationStats());
     if (rangeStartInput) rangeStartInput.addEventListener('change', () => updateRangeVacationStats());
+    // Bildungsurlaub-Vorschau (seit v3.9.97) haengt auch vom Bis-Datum und der Wochenend-Option ab.
+    const rangeEndInput = document.getElementById('range-end');
+    const rangeSkipInput = document.getElementById('range-skip-weekends-holidays');
+    if (rangeEndInput) rangeEndInput.addEventListener('change', () => updateRangeVacationStats());
+    if (rangeSkipInput) rangeSkipInput.addEventListener('change', () => updateRangeVacationStats());
 
     // Mode-Toggle (Präsenz / Home-Office)
     const modeP = document.getElementById('mode-praesenz');

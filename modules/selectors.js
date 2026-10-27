@@ -24,12 +24,13 @@ import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
  * @param {(min:number)=>string} minutesToHM
  * @returns {string|null}
  */
-export function buildBalanceTooltipText(creditedAbsenceMin, vacationDays, sickDays, minutesToHM) {
+export function buildBalanceTooltipText(creditedAbsenceMin, vacationDays, sickDays, minutesToHM, educationLeaveDays = 0) {
   if (!creditedAbsenceMin || creditedAbsenceMin <= 0) return null;
   const parts = [];
   if (vacationDays > 0) parts.push(`${vacationDays} Urlaubstag${vacationDays === 1 ? '' : 'e'}`);
   if (sickDays > 0) parts.push(`${sickDays} Krankheitstag${sickDays === 1 ? '' : 'e'}`);
-  const daysPart = parts.length ? parts.join(' und ') : 'Abwesenheitstage';
+  if (educationLeaveDays > 0) parts.push(`${educationLeaveDays} Bildungsurlaubstag${educationLeaveDays === 1 ? '' : 'e'}`);
+  const daysPart = parts.length ? (parts.length > 2 ? `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}` : parts.join(' und ')) : 'Abwesenheitstage';
   return `Enthält ${minutesToHM(creditedAbsenceMin)} Std. Gutschrift für ${daysPart} – zählt wie gearbeitete Zeit (§ 3 EntgFG).`;
 }
 
@@ -131,7 +132,7 @@ export function getSummaryFields(input, ctx) {
       valueDec: `${hoursDecimal(bal)} h`,
       sign: bal >= 0 ? 'pos' : 'neg',
       rawMinutes: bal,
-      tooltip: buildBalanceTooltipText(input.creditedAbsenceMin || 0, input.vacationDays || 0, input.sickDays || 0, minutesToHM),
+      tooltip: buildBalanceTooltipText(input.creditedAbsenceMin || 0, input.vacationDays || 0, input.sickDays || 0, minutesToHM, input.educationLeaveDays || 0),
       // Sollstunden-Warnung (seit v3.9.78) — optional, siehe modules/soll-warning.js.
       warningFlag: !!input.balanceWarning,
       warningTooltip: input.balanceWarning ? input.balanceWarning.tooltipText : null,
@@ -198,6 +199,19 @@ export function getSummaryFields(input, ctx) {
       rawCounts: { overtimeReduction: input.overtimeReductionDays || 0 },
       monthLabel: input.monthLabel || '',
     });
+    // 4d. Bildungsurlaub (seit v3.9.97) — nur sichtbar, wenn im Zeitraum vorhanden, damit
+    // Ansichten/Exporte ohne Bildungsurlaub unverändert bleiben.
+    if ((input.educationLeaveDays || 0) > 0) {
+      const n = input.educationLeaveDays;
+      fields.push({
+        key: 'educationLeave',
+        label: 'Bildungsurlaub',
+        kind: 'count',
+        value: `${n} ${n === 1 ? 'Tag' : 'Tage'}`,
+        rawCounts: { educationLeave: n },
+        monthLabel: input.monthLabel || '',
+      });
+    }
   }
 
   // 5. Feiertage (wenn explizit angefordert, z.B. Woche)
@@ -216,7 +230,7 @@ export function getSummaryFields(input, ctx) {
 /**
  * Aggregierte Variante für Übersicht (mehrere Kunden/Arbeitgeber).
  * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
- * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, creditedAbsenceMin?:number, vacationDays:number, sickDays:number, overtimeReductionDays?:number}}} ov
+ * @param {{rows:Array<any>, totals:{workedMin:number, targetMin:number, balance:number, creditedAbsenceMin?:number, vacationDays:number, sickDays:number, educationLeaveDays?:number, overtimeReductionDays?:number}}} ov
  * @param {{isFreelance:()=>boolean, minutesToHM:(min:number)=>string,
  *          hoursDecimal:(min:number)=>string, formatMoney:(amt:number, cur:string)=>string}} ctx
  * @returns {import('../types.js').AZSummaryField[]}
@@ -271,7 +285,7 @@ export function getOverviewSummaryFields(ov, ctx) {
       valueDec: `${hoursDecimal(bal)} h`,
       sign: bal >= 0 ? 'pos' : 'neg',
       rawMinutes: bal,
-      tooltip: buildBalanceTooltipText(ov.totals.creditedAbsenceMin || 0, ov.totals.vacationDays || 0, ov.totals.sickDays || 0, minutesToHM),
+      tooltip: buildBalanceTooltipText(ov.totals.creditedAbsenceMin || 0, ov.totals.vacationDays || 0, ov.totals.sickDays || 0, minutesToHM, ov.totals.educationLeaveDays || 0),
     });
   }
   // Rechnungsbetrag: im Freelance immer zeigen (auch wenn 0 → '—'), im Employee nur wenn > 0
@@ -296,6 +310,10 @@ export function getOverviewSummaryFields(ov, ctx) {
       kind: 'count',
       value: `${ov.totals.overtimeReductionDays || 0} Tage`,
     });
+    if ((ov.totals.educationLeaveDays || 0) > 0) {
+      const n = ov.totals.educationLeaveDays;
+      fields.push({ key: 'educationLeave', label: 'Bildungsurlaub', kind: 'count', value: `${n} ${n === 1 ? 'Tag' : 'Tage'}` });
+    }
   }
   return fields;
 }
@@ -373,6 +391,16 @@ export function computeEntryRows(list, ctx) {
         isOvertime: false,
         detailsParts: emp ? [emp.name] : [],
         badgeType: 'vacation',
+      };
+    } else if (e.type === 'education_leave') {
+      // Bildungsurlaub (seit v3.9.97): ganztägige bezahlte Freistellung, Soll-Gutschrift wie Urlaub.
+      row = {
+        type: 'education_leave',
+        rightKind: 'absence-education_leave',
+        rightValueMin: 0,
+        isOvertime: false,
+        detailsParts: emp ? [emp.name] : [],
+        badgeType: 'education_leave',
       };
     } else if (e.type === 'sick') {
       row = {

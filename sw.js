@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-9-96';
+const CACHE_NAME = 'arbeitszeit-v3-9-97';
 const ASSETS = [
   './',
   './index.html',
@@ -58,9 +58,6 @@ const ASSETS = [
   './modules/lib-loader.js',
   './manifest.json',
   './icon.svg',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-512-maskable.png',
   // Erweiterte Icon-Palette (PWA-Feinschliff v3.9.25)
   './icons/icon-16.png',
   './icons/icon-32.png',

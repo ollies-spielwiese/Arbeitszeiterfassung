@@ -116,6 +116,7 @@ export function generatePdfBlob(report, ctx) {
     balance: report.balance,
     vacationDays: report.vacationEntries.length,
     sickDays: report.sickEntries.length,
+    educationLeaveDays: (report.educationLeaveEntries || []).length,
     overtimeReductionDays: (report.overtimeReductionEntries || []).length,
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',
@@ -145,6 +146,10 @@ export function generatePdfBlob(report, ctx) {
     }
     if (report.sickEntries.length) {
       const t = 'Krankheit: ' + report.sickEntries.map(e => formatDate(e.date)).join(', ');
+      y = wrapText(doc, t, marginX, y, 180);
+    }
+    if (report.educationLeaveEntries && report.educationLeaveEntries.length) {
+      const t = 'Bildungsurlaub: ' + report.educationLeaveEntries.map(e => formatDate(e.date)).join(', ');
       y = wrapText(doc, t, marginX, y, 180);
     }
     if (report.overtimeReductionEntries && report.overtimeReductionEntries.length) {

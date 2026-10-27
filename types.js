@@ -99,6 +99,8 @@
  *   - 'homeoffice'         : segments (Array), keine breakMinutes, kein overtimeReason
  *   - 'vacation'           : nur date + type
  *   - 'sick'               : nur date + type
+ *   - 'education_leave'    : nur date + type (seit v3.9.97 — Bildungsurlaub nach HBUG: Tages-Soll
+ *                            wird gutgeschrieben, mindert den Urlaubsanspruch NICHT, eigenes Kontingent)
  *   - 'overtime_reduction' : nur date + type (Gleitzeit-Überstundenabbau: ganzer freier Tag,
  *                            wird wie ein Arbeitstag gutgeschrieben, zählt aber NICHT gegen den Urlaubsanspruch)
  *   - 'off_day'            : nur date + type (seit v3.9.47 — "Kein Arbeitstag (planmäßig frei)":
@@ -113,7 +115,7 @@
  * @property {string} id
  * @property {string} employerId
  * @property {string} date 'YYYY-MM-DD'
- * @property {'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction'|'off_day'} type
+ * @property {'work'|'homeoffice'|'vacation'|'education_leave'|'sick'|'overtime_reduction'|'off_day'} type
  * @property {string} [start] 'HH:MM' (work)
  * @property {string} [end] 'HH:MM' (work)
  * @property {number} [breakMinutes] (work)
@@ -195,6 +197,7 @@
  * @property {number} [balance]
  * @property {number} [vacationDays]
  * @property {number} [sickDays]
+ * @property {number} [educationLeaveDays] Bildungsurlaubstage (seit v3.9.97)
  * @property {number} [overtimeReductionDays]
  * @property {number} [creditedAbsenceMin] Urlaubs-/Krankheitsgutschrift-Minuten für den Saldo-Tooltip, seit v3.9.75
  * @property {number} [holidayCount]
@@ -242,6 +245,7 @@
  * @property {AZEntry[]} homeofficeEntries
  * @property {AZEntry[]} vacationEntries
  * @property {AZEntry[]} sickEntries
+ * @property {AZEntry[]} [educationLeaveEntries] Bildungsurlaub (seit v3.9.97)
  * @property {AZEntry[]} overtimeReductionEntries Gleitzeit-Überstundenabbau-Tage
  * @property {AZEntry[]} overtimeEntries
  * @property {number} workedMin Ist-Minuten inkl. Home-Office
@@ -264,6 +268,7 @@
  * @property {number} creditedAbsenceMin Urlaubs-/Krankheitsgutschrift-Minuten, seit v3.9.75
  * @property {number} vacationDays
  * @property {number} sickDays
+ * @property {number} [educationLeaveDays]
  * @property {number} overtimeReductionDays
  * @property {number} offDayDays Anzahl "Freier Tag"-Einträge (seit v3.9.47)
  * @property {number} workEntriesCount
@@ -278,6 +283,7 @@
  * @property {number} creditedAbsenceMin Urlaubs-/Krankheitsgutschrift-Minuten, seit v3.9.75
  * @property {number} vacationDays
  * @property {number} sickDays
+ * @property {number} [educationLeaveDays]
  * @property {number} overtimeReductionDays
  * @property {number} offDayDays Anzahl "Freier Tag"-Einträge (seit v3.9.47)
  * @property {number} workEntriesCount

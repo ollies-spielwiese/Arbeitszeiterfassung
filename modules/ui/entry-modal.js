@@ -165,7 +165,7 @@ export function saveEntry(e, ctx) {
   // Analog zu buildRangeEntries() in modules/range-entry.js (dort: skippedExisting).
   const conflict = findEntryConflict(state.entries, { id, employerId, date, type });
   if (conflict) {
-    const labels = { vacation: 'Urlaub', sick: 'Krank', overtime_reduction: 'Gleitzeit-Überstundenabbau',
+    const labels = { vacation: 'Urlaub', education_leave: 'Bildungsurlaub', sick: 'Krank', overtime_reduction: 'Gleitzeit-Überstundenabbau',
       off_day: 'Freier Tag', work: 'Arbeit', homeoffice: 'Home-Office' };
     toast(`Für dieses Datum existiert bereits ein Eintrag (${labels[conflict.type] || conflict.type}). Bitte zuerst löschen oder bearbeiten.`);
     return;
@@ -192,7 +192,7 @@ export function saveEntry(e, ctx) {
       segments,
       note,
     };
-  } else { // vacation / sick / overtime_reduction / off_day
+  } else { // vacation / education_leave / sick / overtime_reduction / off_day
     entryData = { employerId, date, type, note };
   }
 

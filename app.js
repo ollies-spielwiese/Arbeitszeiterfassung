@@ -27,7 +27,7 @@
  *     schedule: { mon:{enabled,start,end,break}, tue:..., wed:..., thu:..., fri:..., sat:..., sun:... },
  *     notes
  *   }],
- *   entries: [{ id, employerId, date, type:'work'|'homeoffice'|'vacation'|'sick'|'overtime_reduction', start, end, breakMinutes, segments, overtimeReason, note, createdAt }],
+ *   entries: [{ id, employerId, date, type:'work'|'homeoffice'|'vacation'|'education_leave'|'sick'|'overtime_reduction', start, end, breakMinutes, segments, overtimeReason, note, createdAt }],
  *   // 'work' (Präsenz): start, end, breakMinutes, overtimeReason.
  *   // 'homeoffice': segments = [{start, end}, ...]; keine Pause, kein Überstundengrund. Netto = Summe der Segmente.
  *   archives: [{ id, employerId, yearMonth, generatedAt, snapshot }],
@@ -104,6 +104,7 @@ import {
   computeMonthOverview as _computeMonthOverviewRaw,
   computeVacationRemaining,
   computeYearlyVacationPlanning,
+  computeEducationLeaveYear,
   computeVacationCalendarMonth,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
   computeGleitzeitkontoAsOfToday as _computeGleitzeitkontoAsOfTodayRaw,
@@ -696,6 +697,7 @@ function renderTodaySummary() {
     balance,
     vacationDays,
     sickDays,
+    educationLeaveDays: (report.educationLeaveEntries || []).length,
     overtimeReductionDays,
     hourlyRate: Number(emp.hourlyRate) || 0,
     currency: emp.currency || 'EUR',
@@ -1138,6 +1140,7 @@ function renderWeek() {
     totalMin += workMin;
     const hasVacation = dayEntries.some(e => e.type === 'vacation');
     const hasSick = dayEntries.some(e => e.type === 'sick');
+    const hasEducationLeave = dayEntries.some(e => e.type === 'education_leave');
     const hasOvertimeReduction = dayEntries.some(e => e.type === 'overtime_reduction');
     const hasHomeoffice = dayEntries.some(e => e.type === 'homeoffice');
 
@@ -1145,6 +1148,7 @@ function renderWeek() {
     let detail = '';
     if (hasVacation) detail = 'Urlaub';
     else if (hasSick) detail = 'Krank';
+    else if (hasEducationLeave) detail = 'Bildungsurlaub';
     else if (hasOvertimeReduction) detail = 'Überstundenabbau';
     else if (hasHomeoffice && !dayEntries.some(e => e.type === 'work')) {
       // Reine Home-Office-Tage: Segmente bleiben privat, nur Label anzeigen
@@ -1170,7 +1174,8 @@ function renderWeek() {
   // Überstundenabbau (seit v3.9.46): NICHT gutgeschrieben — anders als Urlaub/Krank soll ein
   // Gleittag den Saldo tatsächlich verringern (Ist=0 bleibt gegen das Tages-Soll ungedeckt).
   const creditedAbsenceMinWeek = Math.round(sumCreditedAbsenceMinWeek('vacation')
-    + sumCreditedAbsenceMinWeek('sick'));
+    + sumCreditedAbsenceMinWeek('sick')
+    + sumCreditedAbsenceMinWeek('education_leave'));
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
   // Tageszähler für den Saldo-Tooltip (nur Tage, die tatsächlich Gutschrift bringen —
   // Urlaub/Krank am Wochenende oder Feiertag bringt 0 und wird hier nicht mitgezählt).
@@ -1179,6 +1184,7 @@ function renderWeek() {
     .length;
   const vacationDaysWeek = countCreditedAbsenceDaysWeek('vacation');
   const sickDaysWeek = countCreditedAbsenceDaysWeek('sick');
+  const educationLeaveDaysWeek = countCreditedAbsenceDaysWeek('education_leave');
 
   const weekFields = getSummaryFields({
     workedMin: totalMin,
@@ -1192,6 +1198,7 @@ function renderWeek() {
     creditedAbsenceMin: creditedAbsenceMinWeek,
     vacationDays: vacationDaysWeek,
     sickDays: sickDaysWeek,
+    educationLeaveDays: educationLeaveDaysWeek,
   });
 
   container.innerHTML = _buildWeekHTMLRaw(
@@ -1568,6 +1575,7 @@ function renderVacationPlanning() {
     renderSummaryHTML,
     monthLabels: MONTH_LABELS_LONG,
     calendarHTML,
+    educationLeave: computeEducationLeaveYear(emp, year, state.entries, todayISO()),
   });
 
   wireVacationCalendarNav();
@@ -1863,7 +1871,7 @@ function archiveCurrentMonth() {
     workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance,
     creditedAbsenceMin: r.creditedAbsenceMin,
     vacationRemaining: r.vacationRemaining,
-    vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length,
+    vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length, educationLeaveDays: (r.educationLeaveEntries || []).length,
     overtimeReductionDays: r.overtimeReductionEntries.length,
     holidays: r.holidays,
   };
@@ -2376,7 +2384,7 @@ if (typeof window !== 'undefined') {
     legalBreakMinutes, computeSuggestedBreak, defaultSchedule,
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
-    computeYearlyVacationPlanning, computeVacationCalendarMonth, MONTH_LABELS_LONG,
+    computeYearlyVacationPlanning, computeEducationLeaveYear, computeVacationCalendarMonth, MONTH_LABELS_LONG,
     computeGleitzeitkontoRows: _computeGleitzeitkontoRowsRaw,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
     buildVacationCalendarHTML: _buildVacationCalendarHTMLRaw,

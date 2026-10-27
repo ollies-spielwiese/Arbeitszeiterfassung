@@ -23,13 +23,14 @@
  * @property {number} [cumulativeCreditedAbsenceMin] Laufende Gutschrift-Minuten bis inkl. diesem Monat, seit v3.9.75
  * @property {number} [cumulativeVacationDays] Laufende Urlaubstage bis inkl. diesem Monat, seit v3.9.75
  * @property {number} [cumulativeSickDays] Laufende Krankheitstage bis inkl. diesem Monat, seit v3.9.75
+ * @property {number} [cumulativeEducationLeaveDays] Laufende Bildungsurlaubstage bis inkl. diesem Monat, seit v3.9.97
  */
 
 /**
  * @param {GleitzeitkontoRow[]} rows Chronologisch aufsteigend (ältester Monat zuerst), bereits
  *   auf das gewählte Kalenderjahr begrenzt (siehe computeGleitzeitkontoRows in modules/compute.js)
  * @param {any} emp
- * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string)=>(string|null), balanceWarning?:(import('../soll-warning.js').SollWarning & {tooltipText:string})|null, asOf?:{cumulativeBalance:number, asOfYm:string, truncated:boolean}}} ctx
+ * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string, educationLeaveDays?:number)=>(string|null), balanceWarning?:(import('../soll-warning.js').SollWarning & {tooltipText:string})|null, asOf?:{cumulativeBalance:number, asOfYm:string, truncated:boolean}}} ctx
  * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean}} [meta] seit v3.9.48
  *   (Endgrenze "Beschäftigt bis" seit v3.9.55): Metadaten aus computeGleitzeitkontoRows, um
  *   Hinweise zu "Angestellt seit"/"Beschäftigt bis"/fehlenden Daten anzuzeigen (siehe
@@ -65,7 +66,7 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const truncatedByEnd = !!(effectiveEndYm && yearEndYm && effectiveEndYm < yearEndYm);
 
   const balanceTooltip = typeof buildBalanceTooltipText === 'function'
-    ? buildBalanceTooltipText(last.cumulativeCreditedAbsenceMin || 0, last.cumulativeVacationDays || 0, last.cumulativeSickDays || 0, minutesToHM)
+    ? buildBalanceTooltipText(last.cumulativeCreditedAbsenceMin || 0, last.cumulativeVacationDays || 0, last.cumulativeSickDays || 0, minutesToHM, last.cumulativeEducationLeaveDays || 0)
     : null;
   const summaryFields = [
     { kind: 'count', label: 'Zeitraum', value: `${formatMonthYear(first.ym)} – ${formatMonthYear(last.ym)}` },

@@ -16,6 +16,7 @@ const BADGE_LABELS = {
   homeoffice: 'Home-Office',
   vacation: 'Urlaub',
   sick: 'Krank',
+  education_leave: 'Bildungsurlaub',
   overtime_reduction: 'Überstundenabbau',
   off_day: 'Freier Tag',
 };
@@ -28,6 +29,9 @@ function renderRight(row, ctx) {
   }
   if (row.rightKind === 'absence-vacation') {
     return `<span class="entry-hours absence">Urlaub</span>`;
+  }
+  if (row.rightKind === 'absence-education_leave') {
+    return `<span class="entry-hours absence">Bildungsurlaub</span>`;
   }
   if (row.rightKind === 'absence-sick') {
     return `<span class="entry-hours absence">Krank</span>`;
