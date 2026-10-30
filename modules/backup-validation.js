@@ -58,6 +58,7 @@ function employer(v, p) {
     ...texts('phone personnelNumber legalName street postalCode city notes employmentScope workTimeModel'), currency,
     ...numbers('weeklyHours monthlyHours yearlyHours fullTimeReferenceHours annualVacation vacationCarryOver hourlyRate vacationPayoutDays overtimePayoutMinutes'),
     parttimePercent: (x, path) => { if (x !== null) number(x, path); },
+    educationLeaveDays: (x, path) => { if (x !== null) number(x, path); },
     color: (x, path) => { if (typeof x !== 'string' || !/^#(?:[a-f\d]{3}|[a-f\d]{6}|[a-f\d]{8})$/i.test(x)) fail(path); },
     kind: choice(['employer', 'client']),
     hoursMode: choice(['week', 'month', 'year']),

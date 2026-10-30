@@ -116,7 +116,7 @@ function renderEducationLeaveStats(box, ctx, employerId, startVal) {
   const emp = (state.employers || []).find((x) => x.id === employerId);
   if (!emp) { box.hidden = true; box.innerHTML = ''; return; }
   const year = (startVal && startVal.length >= 4) ? startVal.slice(0, 4) : String(new Date().getFullYear());
-  const el = computeEducationLeaveYear(emp, year, state.entries || [], typeof ctx.todayISO === 'function' ? ctx.todayISO() : todayISOLocal());
+  const el = computeEducationLeaveYear(emp, year, state.entries || [], typeof ctx.todayISO === 'function' ? ctx.todayISO() : todayISOLocal(), state.settings?.state);
   const endEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-end'));
   const skipEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-skip-weekends-holidays'));
   const endVal = endEl ? endEl.value : '';
@@ -128,13 +128,17 @@ function renderEducationLeaveStats(box, ctx, employerId, startVal) {
       stateCode: state.settings?.state, holidayOverrides: state.settings?.holidayOverrides,
       existingEntries: state.entries || [], uid: () => 'preview',
     });
-    after = el.total + preview.toCreate.filter((x) => x.date.startsWith(year)).length;
+    after = el.total + preview.toCreate.filter((x) => x.date >= `${el.periodStart}-01-01` && x.date <= `${el.periodEnd}-12-31`).length;
   }
   const s = (n) => escapeHtml(String(n));
-  let html = `<div class="range-vacation-stats-line">Bildungsurlaub ${s(year)}: Anspruch <strong>${s(el.entitlement)}</strong> Tage · ` +
+  const fmtN = (/** @type {number} */ n) => String(n).replace('.', ',');
+  const label = el.biennial ? `Zeitraum ${el.periodLabel}` : el.periodLabel;
+  let html = `<div class="range-vacation-stats-line">Bildungsurlaub ${s(label)}: Anspruch <strong>${s(fmtN(el.entitlement))}</strong> Tage · ` +
     `bereits erfasst: <strong>${s(el.total)}</strong> Tage` +
-    (after !== null ? ` · nach diesem Eintrag: <strong>${s(after)} von ${s(el.entitlement)}</strong> Tagen` : '') + `</div>`;
-  const hints = ['Bezahlte Freistellung (HBUG): das Tages-Soll wird gutgeschrieben, der Urlaubsanspruch bleibt unberührt.'];
+    (after !== null ? ` · nach diesem Eintrag: <strong>${s(after)} von ${s(fmtN(el.entitlement))}</strong> Tagen` : '') + `</div>`;
+  const lawName = el.law ? ` (${el.law})` : '';
+  const hints = [`Bezahlte Freistellung${lawName}: das Tages-Soll wird gutgeschrieben, der Urlaubsanspruch bleibt unberührt.`];
+  if (el.noLaw && !el.override) hints.push('Für dieses Bundesland und Jahr gibt es kein Bildungsurlaubsgesetz. Einen Anspruch aus Tarif- oder Arbeitsvertrag beim Arbeitgeber unter „Abweichender Bildungsurlaub-Anspruch“ eintragen.');
   if (el.notEligible) hints.push(`Wartezeit: Anspruch erst ab ${s(el.eligibleFrom ? el.eligibleFrom.split('-').reverse().join('.') : '')}.`);
   if (after !== null && after > el.entitlement) hints.push('Achtung: Das Kontingent wird überschritten.');
   html += `<div class="range-vacation-stats-hint">${hints.join(' ')}</div>`;

@@ -95,32 +95,53 @@ function fmtDE(iso) {
 }
 
 function tageLabel(n) {
-  return `${n} ${n === 1 ? 'Tag' : 'Tage'}`;
+  return `${String(n).replace('.', ',')} ${n === 1 ? 'Tag' : 'Tage'}`;
+}
+
+function monateLabel(n) {
+  return `${n} ${n === 1 ? 'Monat' : 'Monaten'}`;
 }
 
 /**
- * Block "Bildungsurlaub <Jahr>" der Urlaubsplanung (seit v3.9.97). Rein, ohne DOM-Zugriff.
+ * Block "Bildungsurlaub <Jahr bzw. Zeitraum>" der Urlaubsplanung (seit v3.9.97, Bundeslaender
+ * seit v3.11.0). Rein, ohne DOM-Zugriff.
  * @param {ReturnType<typeof import('../compute.js').computeEducationLeaveYear>} el
  * @param {{escapeHtml:(s:string)=>string, renderSummaryHTML:(fields:any[])=>string}} ctx
  */
 export function buildEducationLeaveBlockHTML(el, ctx) {
   const { escapeHtml, renderSummaryHTML } = ctx;
+  const label = el.periodLabel || el.year;
   const fields = [
-    { kind: 'count', label: `Anspruch ${el.year}`, value: tageLabel(el.entitlement) },
+    { kind: 'count', label: `Anspruch ${label}`, value: tageLabel(el.entitlement) },
     { kind: 'count', label: 'Bereits genommen', value: tageLabel(el.taken) },
     { kind: 'count', label: 'Eingegeben (Zukunft)', value: tageLabel(el.upcoming) },
     { kind: 'count', label: 'Noch verfügbar', value: tageLabel(el.remaining) },
   ];
-  const basis = el.workdaysPerWeek === 5
-    ? 'Anspruch: 5 Arbeitstage pro Kalenderjahr bei 5-Tage-Woche (bei anderer Verteilung anteilig).'
-    : `Anspruch: ${el.workdaysPerWeek} Arbeitstage pro Kalenderjahr (anteilig bei ${el.workdaysPerWeek}-Tage-Woche).`;
-  const notes = [basis];
-  if (el.notEligible) {
-    notes.push(`Wartezeit: Der Anspruch entsteht erst nach 6 Monaten Beschäftigung (ab ${escapeHtml(fmtDE(el.eligibleFrom || ''))}) und besteht in diesem Jahr daher nicht.`);
-  } else if (el.eligibleFrom && el.eligibleFrom.startsWith(el.year)) {
-    notes.push(`Wartezeit: Anspruch erst ab ${escapeHtml(fmtDE(el.eligibleFrom))} (6 Monate nach Beschäftigungsbeginn).`);
+  const notes = [];
+  let subtitle;
+  if (el.override) {
+    subtitle = 'Abweichender Anspruch laut Arbeitgeber, eigenes Kontingent – zählt nicht zum Urlaubsanspruch';
+    notes.push(`Anspruch: ${tageLabel(el.entitlement)} ${el.biennial ? `im Zeitraum ${escapeHtml(label)}` : 'pro Kalenderjahr'} (abweichender Anspruch beim Arbeitgeber).`);
+  } else if (el.noLaw) {
+    subtitle = 'Kein Bildungsurlaubsgesetz in diesem Bundesland';
+    const ab = el.firstYear && el.firstYear > Number(el.year) ? ` Ein Gesetz gilt erst ab ${el.firstYear}.` : '';
+    notes.push(`Für dieses Bundesland gibt es im Jahr ${escapeHtml(el.year)} kein Bildungsurlaubsgesetz.${ab} Einen Anspruch aus Tarif- oder Arbeitsvertrag kannst du beim Arbeitgeber unter „Abweichender Bildungsurlaub-Anspruch“ eintragen.`);
   } else {
-    notes.push('Erst nach 6 Monaten Beschäftigung (Wartezeit).');
+    subtitle = `${escapeHtml(el.lawLong)}, eigenes Kontingent – zählt nicht zum Urlaubsanspruch`;
+    const per = el.biennial ? `in 2 Kalenderjahren (Zeitraum ${escapeHtml(label)})` : (el.halfYear ? 'in 2 Kalenderjahren' : 'pro Kalenderjahr');
+    const half = el.halfYear ? ' Eintritt im geraden Jahr: in diesem Jahr die Hälfte.' : '';
+    notes.push(el.workdaysPerWeek === 5
+      ? `Anspruch: ${tageLabel(el.ruleDays)} ${per} bei 5-Tage-Woche (bei anderer Verteilung anteilig).${half}`
+      : `Anspruch: ${tageLabel(el.entitlement)} ${per} (anteilig bei ${el.workdaysPerWeek}-Tage-Woche).${half}`);
+    const wait = monateLabel(el.waitMonths);
+    if (el.notEligible) {
+      notes.push(`Wartezeit: Der Anspruch entsteht erst nach ${wait} Beschäftigung (ab ${escapeHtml(fmtDE(el.eligibleFrom || ''))}) und besteht in diesem Zeitraum daher nicht.`);
+    } else if (el.eligibleFrom && el.eligibleFrom >= `${el.periodStart}-01-01`) {
+      notes.push(`Wartezeit: Anspruch erst ab ${escapeHtml(fmtDE(el.eligibleFrom))} (${el.waitMonths} ${el.waitMonths === 1 ? 'Monat' : 'Monate'} nach Beschäftigungsbeginn).`);
+    } else {
+      notes.push(`Erst nach ${wait} Beschäftigung (Wartezeit).`);
+    }
+    if (el.ruleNote) notes.push(escapeHtml(el.ruleNote));
   }
   const warn = el.exceeded
     ? `<p class="hint education-leave-warning" role="status">Achtung: ${tageLabel(el.total)} erfasst, Anspruch ${tageLabel(el.entitlement)}. Bitte die Einträge prüfen.</p>`
@@ -128,8 +149,8 @@ export function buildEducationLeaveBlockHTML(el, ctx) {
   return `
     <div class="education-leave-block" data-testid="education-leave-block">
       <div class="report-header">
-        <h3>Bildungsurlaub ${escapeHtml(el.year)}</h3>
-        <div class="subtitle">Hessisches Bildungsurlaubsgesetz (HBUG), eigenes Kontingent – zählt nicht zum Urlaubsanspruch</div>
+        <h3>Bildungsurlaub ${escapeHtml(label)}</h3>
+        <div class="subtitle">${subtitle}</div>
       </div>
       <div class="summary-grid">${renderSummaryHTML(fields)}</div>
       ${warn}

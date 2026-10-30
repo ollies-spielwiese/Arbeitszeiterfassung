@@ -11,6 +11,7 @@
 
 import { pad, timeToMinutes, dayOfWeekISO, monthDates, shiftYearMonth } from './util-time.js';
 import { getHolidays, getHolidaysInRange } from './holidays.js';
+import { EDUCATION_LEAVE_RULES, getEducationLeaveRule, getEducationLeaveFirstYear, getEducationLeavePeriod } from './education-leave-rules.js';
 
 /* ---------- Konstanten (Single Source of Truth) ---------- */
 
@@ -555,58 +556,86 @@ export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
 }
 
 /**
- * Bildungsurlaub-Kontingent eines Kalenderjahres (seit v3.9.97, Hessisches
- * Bildungsurlaubsgesetz HBUG).
+ * Bildungsurlaub-Kontingent eines Kalenderjahres bzw. 2-Jahres-Zeitraums (seit v3.9.97 fuer
+ * Hessen, seit v3.11.0 fuer alle Bundeslaender, Regeln in education-leave-rules.js).
  *
  * Kontrakt:
- *   - Anspruch: 5 Arbeitstage pro Kalenderjahr bei 5-Tage-Woche; bei mehr oder weniger
- *     Arbeitstagen pro Woche entsprechend mehr/weniger (= Anzahl aktiver Wochentage im
- *     Wochenschema; ohne aktive Tage oder bei hoursMode='month' gilt die 5-Tage-Woche).
- *   - Wartezeit: Anspruch erst nach 6 Monaten Beschaeftigung (eligibleFrom = hiredSince + 6
- *     Monate). Liegt eligibleFrom nach dem Jahresende oder nach "Beschaeftigt bis", besteht im
- *     Jahr kein Anspruch (entitlement 0, notEligible true). Ohne hiredSince keine Pruefung.
- *   - Gezaehlt werden alle Eintraege type='education_leave' des Arbeitgebers im Jahr;
- *     date <= today = genommen, sonst eingegeben (analog Urlaubsplanung).
- *   - Der Urlaubsanspruch (computeVacationRemaining) wird davon NICHT beruehrt.
+ *   - Regel nach Bundesland (settings.state, Standard 'HE') und Jahr; Bayern und Sachsen vor
+ *     2027 ohne Gesetz → noLaw true, Anspruch 0.
+ *   - Anspruch: Tage der Regel bei 5-Tage-Woche, bei anderer Verteilung anteilig (Anzahl
+ *     aktiver Wochentage; ohne aktive Tage oder bei hoursMode='month' 5-Tage-Woche), auf eine
+ *     Nachkommastelle gerundet. 2-Jahres-Zeitraum: 'odd' ab ungeradem Jahr (RP, MV), 'hire' ab
+ *     Eintrittsjahr (BB, HB, HH). MV: Eintritt im geraden Jahr → in diesem Jahr die Haelfte.
+ *   - Wartezeit: eligibleFrom = hiredSince + waitMonths; liegt es nach dem Ende des Zeitraums
+ *     oder nach "Beschaeftigt bis", besteht kein Anspruch (notEligible true).
+ *   - Abweichender Anspruch emp.educationLeaveDays (Zahl >= 0) ersetzt den gesetzlichen
+ *     Anspruch des Zeitraums (ohne Wartezeit-Pruefung, auch in Laendern ohne Gesetz).
+ *   - Gezaehlt werden alle Eintraege type='education_leave' des Arbeitgebers im Zeitraum;
+ *     date <= today = genommen, sonst eingegeben. Der Urlaubsanspruch bleibt unberuehrt.
  *
  * @param {any} emp Employer-Objekt
  * @param {number|string} year Kalenderjahr
  * @param {Array<any>} allEntries Alle Eintraege (state.entries)
  * @param {string} today Stichtag YYYY-MM-DD
- * @returns {{year:string, entitlement:number, workdaysPerWeek:number, eligibleFrom:(string|null), notEligible:boolean, taken:number, upcoming:number, total:number, remaining:number, exceeded:boolean, dates:string[]}}
+ * @param {string} [stateCode] Bundesland-Kuerzel (Standard 'HE')
  */
-export function computeEducationLeaveYear(emp, year, allEntries, today) {
+export function computeEducationLeaveYear(emp, year, allEntries, today, stateCode) {
   const yearStr = String(year);
-  const empty = { year: yearStr, entitlement: 0, workdaysPerWeek: 0, eligibleFrom: null, notEligible: false, taken: 0, upcoming: 0, total: 0, remaining: 0, exceeded: false, dates: [] };
-  if (!emp) return empty;
+  const y = Number(yearStr);
+  const code = stateCode && Object.prototype.hasOwnProperty.call(EDUCATION_LEAVE_RULES, stateCode) ? stateCode : 'HE';
+  const rule = getEducationLeaveRule(code, y);
+  const base = {
+    year: yearStr, stateCode: code, law: rule ? rule.law : '', lawLong: rule ? rule.lawLong : '',
+    ruleDays: rule ? rule.days : 0, waitMonths: rule ? rule.waitMonths : 0, ruleNote: rule && rule.note ? rule.note : '',
+    noLaw: !rule, firstYear: getEducationLeaveFirstYear(code), override: false,
+    periodStart: yearStr, periodEnd: yearStr, periodLabel: yearStr, biennial: false, halfYear: false,
+    entitlement: 0, workdaysPerWeek: 0, eligibleFrom: /** @type {string|null} */ (null), notEligible: false,
+    taken: 0, upcoming: 0, total: 0, remaining: 0, exceeded: false, dates: /** @type {string[]} */ ([]),
+  };
+  if (!emp) return base;
   let workdaysPerWeek = 5;
   if (emp.hoursMode === 'week' && emp.schedule) {
     const active = DAY_KEYS.filter(k => emp.schedule[k] && emp.schedule[k].enabled).length;
     if (active > 0) workdaysPerWeek = active;
   }
-  let entitlement = workdaysPerWeek;
+  const hired = typeof emp.hiredSince === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(emp.hiredSince) ? emp.hiredSince : null;
+  const hireYear = hired ? Number(hired.slice(0, 4)) : null;
+  const period = getEducationLeavePeriod(rule, y, hireYear);
+  const periodStart = String(period.startYear);
+  const periodEnd = String(period.endYear);
+  const biennial = period.endYear > period.startYear;
+  const halfYear = !!(rule && rule.evenHireHalf && !biennial);
+  const ov = emp.educationLeaveDays;
+  const override = typeof ov === 'number' && Number.isFinite(ov) && ov >= 0;
+  let entitlement = 0;
   let eligibleFrom = null;
   let notEligible = false;
-  if (typeof emp.hiredSince === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(emp.hiredSince)) {
-    const y = Number(emp.hiredSince.slice(0, 4));
-    const m = Number(emp.hiredSince.slice(5, 7)) + 6;
-    const d = emp.hiredSince.slice(8, 10);
-    const ey = y + Math.floor((m - 1) / 12);
-    const em = ((m - 1) % 12) + 1;
-    eligibleFrom = `${ey}-${String(em).padStart(2, '0')}-${d}`;
-    const endDate = typeof emp.employmentEndDate === 'string' && emp.employmentEndDate ? emp.employmentEndDate : null;
-    if (eligibleFrom > `${yearStr}-12-31` || (endDate && eligibleFrom > endDate)) notEligible = true;
+  if (override) {
+    entitlement = ov;
+  } else if (rule) {
+    const days = halfYear ? rule.days / 2 : rule.days;
+    entitlement = Math.round(days * workdaysPerWeek / 5 * 10) / 10;
+    if (hired) {
+      const m = Number(hired.slice(5, 7)) + rule.waitMonths;
+      const ey = Number(hired.slice(0, 4)) + Math.floor((m - 1) / 12);
+      const em = ((m - 1) % 12) + 1;
+      eligibleFrom = `${ey}-${String(em).padStart(2, '0')}-${hired.slice(8, 10)}`;
+      const endDate = typeof emp.employmentEndDate === 'string' && emp.employmentEndDate ? emp.employmentEndDate : null;
+      if (eligibleFrom > `${periodEnd}-12-31` || (endDate && eligibleFrom > endDate)) notEligible = true;
+    }
+    if (notEligible) entitlement = 0;
   }
-  if (notEligible) entitlement = 0;
+  const from = `${periodStart}-01-01`, to = `${periodEnd}-12-31`;
   const dates = (allEntries || [])
-    .filter(e => e && e.type === 'education_leave' && e.employerId === emp.id && typeof e.date === 'string' && e.date.startsWith(yearStr))
+    .filter(e => e && e.type === 'education_leave' && e.employerId === emp.id && typeof e.date === 'string' && e.date >= from && e.date <= to)
     .map(e => e.date).sort();
   const taken = dates.filter(dt => today && dt <= today).length;
-  const upcoming = dates.length - taken;
   const total = dates.length;
   return {
-    year: yearStr, entitlement, workdaysPerWeek, eligibleFrom, notEligible,
-    taken, upcoming, total, remaining: Math.max(0, entitlement - total), exceeded: total > entitlement, dates,
+    ...base, override, periodStart, periodEnd, periodLabel: biennial ? `${periodStart}/${periodEnd}` : periodStart,
+    biennial, halfYear, entitlement, workdaysPerWeek, eligibleFrom, notEligible,
+    taken, upcoming: total - taken, total, remaining: Math.max(0, Math.round((entitlement - total) * 10) / 10),
+    exceeded: total > entitlement, dates,
   };
 }
 

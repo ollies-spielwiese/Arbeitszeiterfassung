@@ -21,6 +21,21 @@ import { validateEmailField } from './email-validation.js';
 import { escapeHtml } from '../util-format.js';
 import { timeToMinutes } from '../util-time.js';
 import { normalizeLegalName, normalizeAddressField } from '../employer-address.js';
+import { getEducationLeaveRule } from '../education-leave-rules.js';
+
+/**
+ * Feld "Abweichender Bildungsurlaub-Anspruch" (seit v3.11.0): leer oder ungueltig → null
+ * (gesetzlicher Anspruch), sonst Zahl 0–99 auf halbe Tage gerundet. Komma erlaubt.
+ * @param {string|undefined|null} raw
+ * @returns {number|null}
+ */
+export function parseEducationLeaveDays(raw) {
+  const t = String(raw ?? '').trim().replace(',', '.');
+  if (!t) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.min(99, Math.round(n * 2) / 2);
+}
 
 export function buildScheduleGrid(schedule) {
   const container = document.getElementById('schedule-grid');
@@ -314,6 +329,19 @@ export function openEmployerModal(emp, ctx) {
   }
   updateExitPayoutVisibility();
   document.getElementById('employer-vacation-carryover').value = e.vacationCarryOver || 0;
+  // Abweichender Bildungsurlaub-Anspruch (seit v3.11.0): leer = gesetzlicher Anspruch.
+  const eduEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-education-leave-days'));
+  if (eduEl) eduEl.value = typeof e.educationLeaveDays === 'number' && e.educationLeaveDays >= 0 ? String(e.educationLeaveDays) : '';
+  const eduHint = document.getElementById('employer-education-leave-hint');
+  if (eduHint && typeof ctx.getState === 'function') {
+    const st = ctx.getState();
+    const year = new Date().getFullYear();
+    const rule = getEducationLeaveRule(st?.settings?.state, year);
+    const lead = rule
+      ? `Gesetz: ${rule.lawLong} · ${rule.days} Tage ${rule.period === 'year' ? 'pro Jahr' : 'in 2 Jahren'} · Wartezeit ${rule.waitMonths} Monate. `
+      : 'In deinem Bundesland gibt es derzeit kein Bildungsurlaubsgesetz. ';
+    eduHint.textContent = lead + 'Leer lassen = gesetzlicher Anspruch. Eintrag gilt pro Kalenderjahr, in Ländern mit 2-Jahres-Zeitraum pro Zeitraum. Für Tarif- oder Arbeitsvertrag, Kleinbetriebe oder übertragene Tage.';
+  }
   document.getElementById('employer-notes').value = e.notes || '';
   const rateEl = document.getElementById('employer-hourly-rate');
   if (rateEl) rateEl.value = e.hourlyRate ? String(e.hourlyRate) : '';
@@ -406,6 +434,7 @@ export function saveEmployer(ev, ctx) {
     vacationPayoutDays: 0,
     overtimePayoutMinutes: 0,
     vacationCarryOver: parseInt(document.getElementById('employer-vacation-carryover').value) || 0,
+    educationLeaveDays: parseEducationLeaveDays(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-education-leave-days'))?.value),
     hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
     currency: document.getElementById('employer-currency')?.value || 'EUR',
     schedule: readScheduleFromGrid(),

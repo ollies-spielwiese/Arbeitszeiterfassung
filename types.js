@@ -58,6 +58,7 @@
  * @property {string} [street] Straße und Hausnummer (seit v3.10.0).
  * @property {string} [postalCode] PLZ (seit v3.10.0).
  * @property {string} [city] Ort (seit v3.10.0).
+* @property {number|null} [educationLeaveDays] Abweichender Bildungsurlaub-Anspruch in Tagen pro Kalenderjahr bzw. 2-Jahres-Zeitraum (seit v3.11.0); null/fehlend = gesetzlicher Anspruch nach Bundesland.
  * @property {number} [vacationPayoutDays] Bei Austritt ausbezahlte Urlaubstage (seit v3.9.99).
  * @property {number} [overtimePayoutMinutes] Bei Austritt ausbezahlte Überstunden in Minuten (seit v3.9.99).
  * @property {AZContact[]} [contacts]
@@ -105,7 +106,7 @@
  *   - 'homeoffice'         : segments (Array), keine breakMinutes, kein overtimeReason
  *   - 'vacation'           : nur date + type
  *   - 'sick'               : nur date + type
- *   - 'education_leave'    : nur date + type (seit v3.9.97 — Bildungsurlaub nach HBUG: Tages-Soll
+ *   - 'education_leave'    : nur date + type (seit v3.9.97 — Bildungsurlaub nach Landesrecht: Tages-Soll
  *                            wird gutgeschrieben, mindert den Urlaubsanspruch NICHT, eigenes Kontingent)
  *   - 'overtime_reduction' : nur date + type (Gleitzeit-Überstundenabbau: ganzer freier Tag,
  *                            wird wie ein Arbeitstag gutgeschrieben, zählt aber NICHT gegen den Urlaubsanspruch)

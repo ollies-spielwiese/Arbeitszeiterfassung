@@ -1578,7 +1578,7 @@ function renderVacationPlanning() {
     renderSummaryHTML,
     monthLabels: MONTH_LABELS_LONG,
     calendarHTML,
-    educationLeave: computeEducationLeaveYear(emp, year, state.entries, todayISO()),
+    educationLeave: computeEducationLeaveYear(emp, year, state.entries, todayISO(), stateCode),
   });
 
   wireVacationCalendarNav();
@@ -2090,6 +2090,8 @@ function updateModeVisibility() {
   // Employer-Modal: Urlaubsanspruch-Zeile ausblenden
   const vacRow = document.getElementById('employer-vacation-row');
   if (vacRow) vacRow.classList.toggle('hidden', freelance);
+  const eduRow = document.getElementById('employer-education-leave-row');
+  if (eduRow) eduRow.classList.toggle('hidden', freelance);
   // Employer-Modal: Arbeitszeitmodell (Beschäftigungsart/-organisation) gilt nur für
   // angestellte Arbeitsverhältnisse, nicht für Freiberufler-Kunden.
   const employmentModelFs = document.getElementById('fs-employer-employment-model');

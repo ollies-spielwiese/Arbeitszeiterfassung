@@ -11,11 +11,18 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.10.0';
+export const APP_VERSION = '3.11.0';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.11.0', items: [
+    'Neu: Bildungsurlaub für alle Bundesländer. Anspruch, Zeitraum und Wartezeit richten sich nach dem Bundesland aus den Einstellungen.',
+    '2-Jahres-Zeiträume mit 10 Tagen: Rheinland-Pfalz und Mecklenburg-Vorpommern ab ungeradem Jahr, Brandenburg, Bremen und Hamburg ab dem Eintrittsjahr.',
+    'Baden-Württemberg mit 12 Monaten Wartezeit, Sachsen mit 3 Tagen ab 2027, Bayern ohne gesetzlichen Anspruch.',
+    'Neu: Feld „Abweichender Bildungsurlaub-Anspruch“ beim Arbeitgeber für Tarif- oder Arbeitsvertrag, Kleinbetriebe oder übertragene Tage.',
+    'Anleitung und Hilfe ergänzt.',
+  ] },
   { version: '3.10.0', items: [
     'Neu: Firmenbezeichnung (bis zu 2 Zeilen) und Firmenadresse (Straße, PLZ, Ort) beim Arbeitgeber und beim Kunden.',
     'Monatsnachweis (PDF, Word, CSV), Gleitzeitkonto-PDF und Urlaubsbescheinigung nennen Firmenbezeichnung und Adresse, sofern gepflegt.',

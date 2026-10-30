@@ -33,6 +33,7 @@ import { runServiceWorkerLifecycleTests } from './sw-update-lifecycle-tests.mjs'
 import { runBackupSafetyTests } from './backup-safety-tests.mjs';
 import { runAuditRegressionTests } from './audit-regression-tests.mjs';
 import { runEducationLeaveTests } from './education-leave-tests.mjs';
+import { runEducationLeaveStatesTests } from './education-leave-states-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4803,6 +4804,7 @@ function runServiceWorkerCacheBustCheck() {
     await runBackupSafetyTests(browser, BASE_URL, { assertEq });
     await runAuditRegressionTests(browser, BASE_URL, { assertEq });
     await runEducationLeaveTests(browser, BASE_URL, { assertEq });
+    await runEducationLeaveStatesTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {
