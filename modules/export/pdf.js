@@ -11,6 +11,7 @@
 // }
 
 import { reportMode } from '../report-mode.js';
+import { getEmployerLetterhead } from '../employer-address.js';
 
 function wrapText(doc, text, x, y, maxWidth) {
   const split = doc.splitTextToSize(text, maxWidth);
@@ -43,6 +44,19 @@ export function generatePdfBlob(report, ctx) {
   doc.setFontSize(12);
   doc.text(`${report.employer.name} – ${formatMonthYear(report.ym)}`, marginX, y);
   y += 6;
+
+  // Firmenbezeichnung + Adresse (seit v3.10.0), nur wenn gepflegt.
+  const letterhead = getEmployerLetterhead(report.employer);
+  if (letterhead) {
+    doc.setFontSize(10);
+    const label = isFreelance() ? 'Kunde: ' : 'Arbeitgeber: ';
+    doc.setFont('helvetica', 'bold');
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    letterhead.lines.forEach((line) => { y = wrapText(doc, line, marginX + labelWidth + 1, y, 180 - labelWidth - 1); });
+    y += 1;
+  }
 
   const empName = (state.settings.employeeName || '').trim();
   if (empName) {

@@ -7,6 +7,7 @@
 // Kein DOM-Zugriff, keine globalen Abhängigkeiten – alles über ctx.
 //
 // ctx = { jsPDF, formatDate, todayISO }
+import { getEmployerLetterhead } from '../employer-address.js';
 
 function wrapText(doc, text, x, y, maxWidth, lineHeight = 5) {
   const split = doc.splitTextToSize(text, maxWidth);
@@ -71,7 +72,9 @@ export function generateVacationCertificatePdfBlob(cert, emp, meta, ctx) {
     ['Arbeitnehmer/in', (meta && meta.employeeName) || '—'],
   ];
   if (emp.personnelNumber) metaLines.push(['Pers.-Nr.', String(emp.personnelNumber)]);
-  metaLines.push(['Arbeitgeber', emp.name || '—']);
+  // Seit v3.10.0: volle Firmenbezeichnung mit Adresse, sofern gepflegt.
+  const letterhead = getEmployerLetterhead(emp);
+  metaLines.push(['Arbeitgeber', letterhead ? letterhead.lines.join('\n') : (emp.name || '—')]);
   metaLines.push(['Beschäftigungszeitraum', period]);
   doc.setFontSize(11);
   metaLines.forEach(([label, value]) => {

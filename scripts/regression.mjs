@@ -1311,6 +1311,7 @@ async function runGuideDocUnits(page) {
   assertTrue('GD23: Abschnitt 6b nennt Auszahlung bei Austritt', has('6b', 'Auszahlung bei Austritt'));
   assertTrue('GD24: Abschnitt 7 nennt ausbezahlte Urlaubstage und Ueberstunden', has('7', 'ausbezahlte Urlaubstage') && has('7', 'ausbezahlte Überstunden') && has('7', '§ 7 Abs. 4 BUrlG'));
   assertTrue('GD25: Abschnitt 5 nennt Abgeltung, Jahresurlaub nur im PDF/Word', has('5', 'Abgeltung bei Austritt') && has('5', 'PDF und Word enthalten zusätzlich Jahresurlaub'));
+  assertTrue('GD26: Abschnitt 7 und 12a nennen Firmenbezeichnung und Adresse', has('7', 'Firmenbezeichnung') && has('7', 'PLZ') && has('12a', 'Firmenbezeichnung'));
 }
 
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
@@ -3009,6 +3010,110 @@ async function runExitPayoutUnits(page) {
   assertTrue('XP14b: Austritts-Felder mit Datum sichtbar', vis && vis.hiddenSet === false, JSON.stringify(vis));
 }
 
+async function runEmployerAddressUnits(page) {
+  console.log('\n=== 1n-3) Firmenbezeichnung + Firmenadresse (v3.10.0) ===');
+  const r = await page.evaluate(async () => {
+    const m = await import('./modules/employer-address.js');
+    const full = { id: '__fa__', name: 'KCE GA PRO', weeklyHours: 24, legalName: 'k/c/e Marketing(hoch3) GmbH\nGenussakademie Professional', street: 'Ludwigstraße 33-37', postalCode: '60327', city: 'Frankfurt am Main' };
+    const out = {
+      lh: m.getEmployerLetterhead(full),
+      none: m.getEmployerLetterhead({ name: 'X' }),
+      addrOnly: m.getEmployerLetterhead({ name: 'KCE GA PRO', street: 'Ludwigstraße 33-37', postalCode: '60327', city: 'Frankfurt am Main' }),
+      norm: m.normalizeLegalName('  A GmbH \n\n  B  \nC\n'),
+      normAddr: m.normalizeAddressField('  Ludwigstraße   33-37 '),
+    };
+    const csv = await import('./modules/export/csv.js');
+    const ctx = { formatDate: (d) => d, minutesToHM: (x) => String(x), computeWorkMinutes: () => 0, computeHomeofficeMinutes: () => 0 };
+    out.csv = await csv.generateCsvBlob({ workEntries: [], homeofficeEntries: [], vacationEntries: [], sickEntries: [], employer: full }, ctx).text();
+    out.csvPlain = await csv.generateCsvBlob({ workEntries: [], homeofficeEntries: [], vacationEntries: [], sickEntries: [], employer: { name: 'X', weeklyHours: 24 } }, ctx).text();
+    out.csvClient = await csv.generateCsvBlob({ workEntries: [], homeofficeEntries: [], vacationEntries: [], sickEntries: [], employer: { ...full, weeklyHours: 0 } }, ctx).text();
+    const bv = await import('./modules/backup-validation.js');
+    try { bv.validateBackup({ schemaVersion: 1, employers: [{ id: 'e1', name: 'A', legalName: 'A GmbH', street: 'S 1', postalCode: '60327', city: 'F' }], entries: [] }); out.bvOk = true; } catch (e) { out.bvOk = String(e && e.message || e); }
+    try { bv.validateBackup({ schemaVersion: 1, employers: [{ id: 'e1', name: 'A', city: 5 }], entries: [] }); out.bvBad = false; } catch { out.bvBad = true; }
+    // PDF-Inhalte: Bescheinigung + Monatsnachweis + Gleitzeitkonto enthalten die Firmenzeilen
+    const cert = await import('./modules/export/vacation-certificate-pdf.js');
+    const { jsPDF } = window.jspdf;
+    const certBlob = cert.generateVacationCertificatePdfBlob({ year: '2026', hiredSince: '2026-08-01', endDate: '2026-10-31', annualContract: 28, months: 3, prorated: true, entitlement: 7, carryOver: 0, grantedDays: 0, grantedDates: [], payoutDays: 0, totalGrantedOrPaid: 0, remaining: 7, payoutExceeds: false },
+      full, { employeeName: 'T' }, { jsPDF, formatDate: (d) => d, todayISO: () => '2026-10-30' });
+    out.certPdf = await certBlob.text();
+    // Formular: Laden + Speichern
+    const em = await import('./modules/ui/employer-modal.js');
+    out.formOk = !!document.getElementById('employer-legal-name') && !!document.getElementById('employer-street') && !!document.getElementById('employer-postal-code') && !!document.getElementById('employer-city');
+    return out;
+  });
+  assertEq('FA1a: Briefkopf 4 Zeilen', JSON.stringify(r.lh && r.lh.lines), JSON.stringify(['k/c/e Marketing(hoch3) GmbH', 'Genussakademie Professional', 'Ludwigstraße 33-37', '60327 Frankfurt am Main']));
+  assertEq('FA1b: Einzeilige Fassung', r.lh && r.lh.singleLine, 'k/c/e Marketing(hoch3) GmbH, Genussakademie Professional, Ludwigstraße 33-37, 60327 Frankfurt am Main');
+  assertTrue('FA1c: ohne Angaben kein Briefkopf', r.none === null);
+  assertEq('FA1d: nur Adresse → Kurzname als erste Zeile', r.addrOnly && r.addrOnly.lines[0], 'KCE GA PRO');
+  assertEq('FA2a: normalizeLegalName höchstens 2 Zeilen, getrimmt', r.norm, 'A GmbH\nB');
+  assertEq('FA2b: normalizeAddressField fasst Leerzeichen zusammen', r.normAddr, 'Ludwigstraße 33-37');
+  assertContains('FA3a: CSV-Metazeile Arbeitgeber', r.csv, 'Arbeitgeber;k/c/e Marketing(hoch3) GmbH, Genussakademie Professional, Ludwigstraße 33-37, 60327 Frankfurt am Main');
+  assertTrue('FA3b: CSV ohne Angaben ohne Arbeitgeber-Zeile', !r.csvPlain.includes('Arbeitgeber;'));
+  assertContains('FA3c: CSV im Freiberufler-Modus mit Kunde-Zeile', r.csvClient, 'Kunde;k/c/e');
+  assertTrue('FA4a: Backup mit Adressfeldern gültig', r.bvOk === true, String(r.bvOk));
+  assertTrue('FA4b: Backup mit Zahl als Ort abgelehnt', r.bvBad === true);
+  assertContains('FA5: Urlaubsbescheinigung enthält Firmenbezeichnung', r.certPdf, 'Genussakademie Professional');
+  assertTrue('FA6: Formularfelder vorhanden', r.formOk === true);
+
+  // FA7: Formular lädt und speichert die Felder (End-to-End über die App)
+  const fa7 = await page.evaluate(async () => {
+    const emp = { id: '__fa7__', name: 'FA7', kind: 'employer', color: '#3b82f6', hoursMode: 'week', weeklyHours: 24, breakMode: 'none', contacts: [], legalName: 'Alt GmbH', street: '', postalCode: '', city: '' };
+    state.employers.push(emp);
+    document.querySelectorAll('.modal').forEach((md) => md.classList.add('hidden'));
+    renderEmployers();
+    const card = document.querySelector(`.employer-card[data-id="${emp.id}"]`);
+    if (!card) return { loaded: 'keine Karte' };
+    card.click();
+    const loaded = document.getElementById('employer-legal-name').value;
+    document.getElementById('employer-legal-name').value = '  Neu GmbH \n Bereich  \n Dritte ';
+    document.getElementById('employer-street').value = ' Ludwigstraße  33-37 ';
+    document.getElementById('employer-postal-code').value = '60327';
+    document.getElementById('employer-city').value = 'Frankfurt am Main';
+    document.getElementById('form-employer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise((res) => setTimeout(res, 50));
+    const saved = state.employers.find((e) => e.id === '__fa7__');
+    const res = { loaded, legalName: saved && saved.legalName, street: saved && saved.street, postalCode: saved && saved.postalCode, city: saved && saved.city };
+    state.employers = state.employers.filter((e) => e.id !== '__fa7__');
+    saveState();
+    renderEmployers();
+    document.querySelectorAll('.modal:not(.hidden)').forEach((md) => md.classList.add('hidden'));
+    return res;
+  });
+  assertEq('FA7a: Formular lädt Firmenbezeichnung', fa7.loaded, 'Alt GmbH');
+  assertEq('FA7b: Speichern normalisiert Firmenbezeichnung (2 Zeilen)', fa7.legalName, 'Neu GmbH\nBereich');
+  assertEq('FA7c: Speichern normalisiert Straße', fa7.street, 'Ludwigstraße 33-37');
+  assertEq('FA7d: PLZ gespeichert', fa7.postalCode, '60327');
+  assertEq('FA7e: Ort gespeichert', fa7.city, 'Frankfurt am Main');
+
+  // FA8: Monatsnachweis-PDF und Gleitzeitkonto-PDF enthalten die Adresse
+  const fa8 = await page.evaluate(async () => {
+    const emp = { id: '__fa8__', name: 'FA8', kind: 'employer', color: '#3b82f6', hoursMode: 'week', weeklyHours: 24, breakMode: 'none', contacts: [], hiredSince: '2026-01-01', legalName: 'Muster Adress GmbH', street: 'Teststraße 9', postalCode: '12345', city: 'Prüfstadt' };
+    state.employers.push(emp);
+    const r = computeMonthReport(emp.id, '2026-10');
+    const pdf = await (await generatePdfBlob(r)).text();
+    const gk = computeGleitzeitkontoRows(emp, 2026, { state });
+    const gkMod = await import('./modules/export/gleitzeitkonto-pdf.js');
+    const { jsPDF } = window.jspdf;
+    const gkPdf = await gkMod.generateGleitzeitkontoPdfBlob(gk.rows, emp, { year: 2026 }, { jsPDF, minutesToHM: (m) => String(m), formatMonthYear: (ym) => ym }).text();
+    state.employers = state.employers.filter((e) => e.id !== '__fa8__');
+    return { pdf: pdf.includes('Muster Adress GmbH') && pdf.includes('12345'), gk: gkPdf.includes('Muster Adress GmbH') && gkPdf.includes('Teststra') };
+  });
+  assertTrue('FA8a: Monatsnachweis-PDF enthält Firmenbezeichnung und PLZ', fa8.pdf === true);
+  assertTrue('FA8b: Gleitzeitkonto-PDF enthält Firmenbezeichnung und Straße', fa8.gk === true);
+
+  // FA9: Kachel „Aktueller Gleitzeitsaldo“ ohne asOf berücksichtigt die Auszahlung bei Austritt
+  const fa9 = await page.evaluate(() => {
+    const rows = [{ ym: '2026-10', workedMin: 2550, targetMin: 2400, balance: 150, cumulativeBalance: 150 }];
+    const minutesToHM = (m) => `${m < 0 ? '-' : ''}${Math.floor(Math.abs(m) / 60)}:${String(Math.abs(m) % 60).padStart(2, '0')}`;
+    const html = buildGleitzeitkontoHTML(rows, { name: 'FA9' }, { escapeHtml: (s) => String(s), minutesToHM, formatMonthYear: (ym) => ym, renderSummaryHTML },
+      { payout: { ym: '2026-10', minutes: 150, balanceAfter: 0 } });
+    const tile = html.split('Aktueller Gleitzeitsaldo')[1] || '';
+    return tile.slice(0, 400);
+  });
+  const fa9Val = (fa9.match(/class="value[^"]*">([^<]*)</) || [])[1];
+  assertEq('FA9: Kachel zeigt 0:00 nach Auszahlung (ohne asOf)', fa9Val, '0:00');
+}
+
 async function runPersonnelNumberUnits(page) {
   console.log('\n=== 1o) Pers.-Nr. beim Arbeitgeber Unit- + Integrationstests (v3.9.56) ===');
 
@@ -4681,6 +4786,7 @@ function runServiceWorkerCacheBustCheck() {
     await runSollWarningUnits(page);
     await runEmploymentEndUnits(page);
     await runExitPayoutUnits(page);
+    await runEmployerAddressUnits(page);
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);
     await runEmploymentModelUnits(page);

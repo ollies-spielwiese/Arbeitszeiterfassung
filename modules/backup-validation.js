@@ -55,7 +55,7 @@ const segment = (v, p) => {
 function employer(v, p) {
   object(v, p); id(v.id, `${p}.id`); text(v.name, `${p}.name`);
   fields(v, p, {
-    ...texts('phone personnelNumber notes employmentScope workTimeModel'), currency,
+    ...texts('phone personnelNumber legalName street postalCode city notes employmentScope workTimeModel'), currency,
     ...numbers('weeklyHours monthlyHours yearlyHours fullTimeReferenceHours annualVacation vacationCarryOver hourlyRate vacationPayoutDays overtimePayoutMinutes'),
     parttimePercent: (x, path) => { if (x !== null) number(x, path); },
     color: (x, path) => { if (typeof x !== 'string' || !/^#(?:[a-f\d]{3}|[a-f\d]{6}|[a-f\d]{8})$/i.test(x)) fail(path); },

@@ -54,6 +54,12 @@
  * @property {string} [personnelNumber] Personalnummer beim Arbeitgeber ("Pers.-Nr."), erscheint auf der
  *   Gehaltsabrechnung. Rein informativ, seit v3.9.56 in PDF-/Word-/CSV-Export sowie Arbeitgeberliste
  *   und Monatsübersicht (PDF) sichtbar, direkt unter dem Namen des Mitarbeiters.
+ * @property {string} [legalName] Firmenbezeichnung laut Vertrag, bis zu 2 Zeilen (seit v3.10.0).
+ * @property {string} [street] Straße und Hausnummer (seit v3.10.0).
+ * @property {string} [postalCode] PLZ (seit v3.10.0).
+ * @property {string} [city] Ort (seit v3.10.0).
+ * @property {number} [vacationPayoutDays] Bei Austritt ausbezahlte Urlaubstage (seit v3.9.99).
+ * @property {number} [overtimePayoutMinutes] Bei Austritt ausbezahlte Überstunden in Minuten (seit v3.9.99).
  * @property {AZContact[]} [contacts]
  * @property {'week'|'month'|'year'} hoursMode 'year' seit v3.9.72: Jahresarbeitszeit, wird beim
  *   Speichern (employer-modal.js) bereits gleichmäßig auf monthlyHours (yearlyHours/12) umgerechnet

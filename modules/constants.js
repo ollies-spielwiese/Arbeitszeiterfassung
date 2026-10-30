@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.99';
+export const APP_VERSION = '3.10.0';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.10.0', items: [
+    'Neu: Firmenbezeichnung (bis zu 2 Zeilen) und Firmenadresse (Straße, PLZ, Ort) beim Arbeitgeber und beim Kunden.',
+    'Monatsnachweis (PDF, Word, CSV), Gleitzeitkonto-PDF und Urlaubsbescheinigung nennen Firmenbezeichnung und Adresse, sofern gepflegt.',
+    'Der Name bleibt der Kurzname für Auswahlfelder, Reiter, Dateinamen und E-Mail-Betreff.',
+    'Anleitung und Hilfe ergänzt.',
+  ] },
   { version: '3.9.99', items: [
     'Neu: Abgeltung bei Austritt. Beim Arbeitgeber lassen sich mit „Beschäftigt bis“ ausbezahlte Urlaubstage und ausbezahlte Überstunden erfassen.',
     'Ausbezahlte Urlaubstage mindern den Resturlaub in Urlaubsplanung und Monatsnachweis; das Gleitzeitkonto zeigt die Zeile „Auszahlung bei Austritt“.',

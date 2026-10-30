@@ -496,6 +496,9 @@ textarea.note-autogrow {
 .payout-row td { border-top: 2px solid var(--border, #cbd5e1); }
 .vacation-cert-actions { margin-top: 12px; }
 .form-row label.exit-payout-second-label { margin-top: 12px; }
+/* Firmenadresse: schmale PLZ-Spalte (seit v3.10.0) */
+.form-row.two-col.plz-city { grid-template-columns: 7rem 1fr; }
+#employer-legal-name { resize: vertical; }
 
 .report-table {
   width: 100%;

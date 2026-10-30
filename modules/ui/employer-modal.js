@@ -20,6 +20,7 @@ import { DAY_KEYS, DAY_LABELS } from '../compute.js';
 import { validateEmailField } from './email-validation.js';
 import { escapeHtml } from '../util-format.js';
 import { timeToMinutes } from '../util-time.js';
+import { normalizeLegalName, normalizeAddressField } from '../employer-address.js';
 
 export function buildScheduleGrid(schedule) {
   const container = document.getElementById('schedule-grid');
@@ -250,6 +251,7 @@ export function openEmployerModal(emp, ctx) {
   const defaultKind = isFreelance() ? 'client' : 'employer';
   const e = emp || {
     id: '', kind: defaultKind, name: '', color: '#3b82f6', phone: '', personnelNumber: '',
+    legalName: '', street: '', postalCode: '', city: '',
     contacts: [{ name:'', email:'' }, { name:'', email:'' }],
     hoursMode: 'week', weeklyHours: defWeekly, monthlyHours: defMonthly, yearlyHours: 0,
     breakMode: 'legal', annualVacation: 0, hiredSince: '', employmentEndDate: '', vacationCarryOver: 0,
@@ -265,6 +267,12 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-color').value = e.color;
   document.getElementById('employer-phone').value = e.phone || '';
   document.getElementById('employer-personnel-number').value = e.personnelNumber || '';
+  // Firmenbezeichnung und Adresse (seit v3.10.0)
+  const setVal = (/** @type {string} */ id, /** @type {any} */ v) => { const el = /** @type {HTMLInputElement|null} */ (document.getElementById(id)); if (el) el.value = typeof v === 'string' ? v : ''; };
+  setVal('employer-legal-name', e.legalName);
+  setVal('employer-street', e.street);
+  setVal('employer-postal-code', e.postalCode);
+  setVal('employer-city', e.city);
   const contacts = e.contacts || [];
   document.getElementById('employer-contact1-name').value = contacts[0]?.name || '';
   document.getElementById('employer-contact1-email').value = contacts[0]?.email || '';
@@ -369,6 +377,10 @@ export function saveEmployer(ev, ctx) {
     color: document.getElementById('employer-color').value,
     phone: document.getElementById('employer-phone').value.trim(),
     personnelNumber: document.getElementById('employer-personnel-number').value.trim(),
+    legalName: normalizeLegalName(/** @type {HTMLTextAreaElement|null} */ (document.getElementById('employer-legal-name'))?.value),
+    street: normalizeAddressField(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-street'))?.value),
+    postalCode: normalizeAddressField(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-postal-code'))?.value).slice(0, 10),
+    city: normalizeAddressField(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-city'))?.value),
     contacts: [
       {
         name: document.getElementById('employer-contact1-name').value.trim(),

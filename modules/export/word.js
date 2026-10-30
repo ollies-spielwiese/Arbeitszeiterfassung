@@ -12,6 +12,7 @@
 // }
 
 import { reportMode } from '../report-mode.js';
+import { getEmployerLetterhead } from '../employer-address.js';
 
 export async function generateWordBlob(report, ctx) {
   const {
@@ -137,6 +138,13 @@ export async function generateWordBlob(report, ctx) {
     new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'Arbeitszeitnachweis', bold: true })] }),
     new Paragraph({ children: [new TextRun({ text: `${report.employer.name} – ${formatMonthYear(report.ym)}`, size: 24 })] }),
   ];
+  // Firmenbezeichnung + Adresse (seit v3.10.0), nur wenn gepflegt; Zeilen per Zeilenumbruch.
+  const letterhead = getEmployerLetterhead(report.employer);
+  if (letterhead) {
+    const runs = [new TextRun({ text: (typeof isFreelance === 'function' && isFreelance()) ? 'Kunde: ' : 'Arbeitgeber: ', bold: true })];
+    letterhead.lines.forEach((line, i) => runs.push(new TextRun(i > 0 ? { text: line, break: 1 } : { text: line })));
+    headerLines.push(new Paragraph({ children: runs }));
+  }
   if (empName) {
     headerLines.push(new Paragraph({ children: [
       new TextRun({ text: isFreelance() ? 'Freiberufler/in: ' : 'Arbeitnehmer/in: ', bold: true }),

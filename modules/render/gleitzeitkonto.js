@@ -58,7 +58,7 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   // Seit v3.9.81: asOf.truncated -> Kachel zeigt den Saldo nur bis heute statt bis Dezember
   // (siehe computeGleitzeitkontoAsOfToday in modules/compute.js). Faellt ohne asOf (z. B.
   // aeltere Aufrufer/Regressionstests) auf den bisherigen vollen Jahres-Saldo zurueck.
-  const tileBalance = asOf ? asOf.cumulativeBalance : last.cumulativeBalance;
+  const tileBalance = asOf ? asOf.cumulativeBalance : last.cumulativeBalance - (payout ? payout.minutes : 0);
   const tileLabel = asOf && asOf.truncated ? `Aktueller Gleitzeitsaldo (Stand: ${formatMonthYear(asOf.asOfYm)})` : 'Aktueller Gleitzeitsaldo';
   const yearStartYm = year ? `${year}-01` : null;
   const yearEndYm = year ? `${year}-12` : null;

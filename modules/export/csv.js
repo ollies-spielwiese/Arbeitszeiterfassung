@@ -12,6 +12,7 @@
 // }
 
 import { reportMode } from '../report-mode.js';
+import { getEmployerLetterhead } from '../employer-address.js';
 const CSV_HEADER = ['Datum', 'Typ', 'Beginn', 'Ende', 'Pause (Min)', 'Stunden', 'Grund/Bemerkung'];
 
 const TYPE_LABELS = {
@@ -84,6 +85,9 @@ export function generateCsvBlob(report, ctx) {
   const csvFreelance = reportMode(report.employer) === 'freelance';
   if (empName) metaRows.push([csvFreelance ? 'Freiberufler/in' : 'Arbeitnehmer/in', empName]);
   if (personnelNumber) metaRows.push(['Pers.-Nr.', personnelNumber]);
+  // Firmenbezeichnung + Adresse (seit v3.10.0) als eine Metazeile.
+  const letterhead = getEmployerLetterhead(report.employer);
+  if (letterhead) metaRows.push([csvFreelance ? 'Kunde' : 'Arbeitgeber', letterhead.singleLine]);
   // Arbeitszeitmodell (nur im Angestellt-Modus relevant, seit v3.9.73).
   if (!csvFreelance) {
     const modelSummary = typeof ctx.formatEmploymentModelSummary === 'function'

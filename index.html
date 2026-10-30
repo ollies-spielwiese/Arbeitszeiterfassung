@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.99</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.10.0</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -434,7 +434,7 @@
             <ol>
               <li>Arbeitgeber und Monat auswählen.</li>
               <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo. Darüber stehen Kacheln für Ist, Soll, Saldo (mit Erklärung über das <strong>i</strong>), <strong>Urlaub / Krank</strong>, <strong>Gleitzeit-Überstundenabbau</strong> und <strong>Bildungsurlaub</strong> (nur wenn im Monat vorhanden). Im Monat von „Beschäftigt bis“ kommt ggf. <strong>Abgeltung bei Austritt</strong> hinzu (siehe Abschnitt 7). PDF und Word enthalten zusätzlich Jahresurlaub, Resturlaub und ggf. Resturlaub Vorjahr.</li>
-              <li>PDF, Word und CSV enthalten alle Tage des Monats einschließlich Bildungsurlaub; Kopf und Fußzeile nennen Name, ggf. Pers.-Nr. und das Arbeitszeitmodell des Arbeitgebers.</li>
+              <li>PDF, Word und CSV enthalten alle Tage des Monats einschließlich Bildungsurlaub; Kopf und Fußzeile nennen Name, ggf. Pers.-Nr. und das Arbeitszeitmodell des Arbeitgebers, der Kopf außerdem Firmenbezeichnung und Adresse des Arbeitgebers, sofern gepflegt.</li>
               <li>Am Ende der Seite stehen fünf Aktionen zur Verfügung:
                 <ul>
                   <li><strong>📄 Word (.docx):</strong> erstellt einen formatierten Word‑Nachweis mit fester Tabelle und Unterschriftszeile. <em>Hinweis:</em> Für das Öffnen und Bearbeiten der .docx-Datei muss auf dem Endgerät Microsoft Word oder eine kompatible Anwendung (Pages, LibreOffice/OpenOffice, Google Docs) installiert sein. Ohne solche Software lässt sich die Datei nur eingeschränkt anzeigen – in dem Fall empfehlen wir stattdessen den PDF‑Export.</li>
@@ -521,6 +521,7 @@
               <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Arbeitgebers:
                 <ul>
                   <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
+                  <li><strong>Firmenbezeichnung</strong> (bis zu 2 Zeilen, z. B. Firma und Bereich) sowie <strong>Straße und Hausnummer</strong>, <strong>PLZ</strong> und <strong>Ort:</strong> optional. Der Name oben bleibt der Kurzname für Auswahlfelder, Reiter, Dateinamen und E-Mail-Betreff. Ist etwas eingetragen, erscheint die Zeile „Arbeitgeber“ mit voller Firmenbezeichnung und Adresse im Monatsnachweis (PDF, Word, als Metazeile im CSV), im Gleitzeitkonto-PDF und in der Urlaubsbescheinigung. Ohne Firmenbezeichnung steht dort der Kurzname vor der Adresse. Die Übersicht über mehrere Arbeitgeber bleibt beim Kurznamen.</li>
                   <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber laut Gehaltsabrechnung. Erscheint, falls ausgefüllt, direkt unter deinem Namen im PDF- und Word-Export, als Kopf-Metadatenzeile im CSV-Export und als eigene Spalte in der Monatsübersicht (PDF).</li>
                   <li><strong>Arbeitszeitmodell:</strong> <strong>Beschäftigungsart</strong> (Vollzeit, Teilzeit mit Beschäftigungsgrad in ganzen Prozent von 1 bis 99 und optionaler Vollzeit-Referenz, Minijob oder Midijob) und <strong>Arbeitszeitorganisation</strong> (Klassisch, Gleitzeit, Vertrauensarbeitszeit, Jahresarbeitszeit, Vier-Tage-Woche, Schichtarbeit, Jobsharing oder Arbeit auf Abruf/KAPOVAZ). Die Zeile <strong>Anzeige</strong> zeigt die Zusammenfassung, die auch in PDF, Word, CSV und Übersicht erscheint. Bei der Vier-Tage-Woche weist die App darauf hin, wenn die Stunden pro Tag über 8 bzw. 10 Std. liegen (ArbZG § 3). Die Angaben dienen der Dokumentation und ändern die Berechnung nicht.</li>
                   <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen) oder <strong>pro Jahr</strong> (gleichmäßig auf 12 Monate verteilt).</li>
@@ -637,6 +638,7 @@
               <li>Am Ende von PDF- und Word-Berichten wird die <strong>Netto-Summe</strong> (Zeit × Stundensatz) ausgewiesen – als Rechengrundlage für deine eigene Fakturierung. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
               <li>Der Bundesland-/Feiertage-Block und die Sollstunden-Warnung in den Einstellungen, das Urlaubsanspruch-Feld und das Arbeitszeitmodell im Kunden-Formular sowie der Button „+ Urlaub / Krankheit“ im Reiter Erfassen sind im Freiberufler-Modus ausgeblendet. Der Reiter „Urlaubsplanung“ bleibt sichtbar, zeigt dort aber keine sinnvollen Werte, solange keine Urlaubstage erfasst werden können. Deine bereits erfassten Daten (z. B. Urlaubsansprüche) bleiben erhalten und werden bei Rückwechsel wieder angezeigt.</li>
               <li>Das Feld <strong>Pers.-Nr.</strong> steht auch im Kunden-Formular zur Verfügung, falls dir ein Kunde eine eigene Nummer zugewiesen hat. „Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> (siehe Abschnitt 7) funktionieren für Kunden genauso wie für Arbeitgeber.</li>
+              <li><strong>Firmenbezeichnung</strong> und <strong>Adresse</strong> (Straße, PLZ, Ort) stehen auch im Kunden-Formular zur Verfügung und erscheinen im Nachweis als Zeile „Kunde“.</li>
               <li>Bist du gleichzeitig angestellt <em>und</em> freiberuflich tätig (z. B. Lehrkraft mit abendlicher Nachhilfe), führt die App beide Erwerbsformen als getrennte Listen: der Reiter „Arbeitgeber“ zeigt nur Einträge mit Eintragstyp „Arbeitgeber“ (im Hauptmodus Freiberuflich/Nebenerwerb als „Arbeitgeber (Modus „Nebenerwerb“)“ bezeichnet), der Reiter „Kunde“ nur solche mit Eintragstyp „Kunde“. Jeder Eintrag bekommt seinen Typ automatisch beim Anlegen zugewiesen, lässt sich aber im Formular manuell umstellen. Der Reiter „Übersicht“ ist davon unberührt und fasst beide Erwerbsformen weiterhin gemeinsam zusammen.</li>
             </ol>
             <p>Ein Wechsel zwischen den Modi ist jederzeit möglich und verlustfrei.</p>
@@ -1017,7 +1019,7 @@
           </div>
           <div class="form-row two-col">
             <div>
-              <label for="employer-name">Name / Firma *</label>
+              <label for="employer-name">Name (Kurzname in der App) *</label>
               <input type="text" id="employer-name" required />
             </div>
             <div>
@@ -1025,6 +1027,26 @@
               <input type="color" id="employer-color" value="#3b82f6" />
             </div>
           </div>
+          <div class="form-row">
+            <label for="employer-legal-name">Firmenbezeichnung (laut Vertrag)</label>
+            <textarea id="employer-legal-name" rows="2" maxlength="242" placeholder="z. B. Muster GmbH&#10;Bereich oder Niederlassung" data-testid="input-employer-legal-name"></textarea>
+            <small class="hint">Bis zu 2 Zeilen, z. B. Firma und Bereich. Leer lassen: Nachweise zeigen weiter den Namen oben.</small>
+          </div>
+          <div class="form-row">
+            <label for="employer-street">Straße und Hausnummer</label>
+            <input type="text" id="employer-street" maxlength="120" autocomplete="off" placeholder="z. B. Musterstraße 1" data-testid="input-employer-street" />
+          </div>
+          <div class="form-row two-col plz-city">
+            <div>
+              <label for="employer-postal-code">PLZ</label>
+              <input type="text" id="employer-postal-code" maxlength="10" inputmode="numeric" autocomplete="off" placeholder="z. B. 60327" data-testid="input-employer-postal-code" />
+            </div>
+            <div>
+              <label for="employer-city">Ort</label>
+              <input type="text" id="employer-city" maxlength="120" autocomplete="off" placeholder="z. B. Frankfurt am Main" data-testid="input-employer-city" />
+            </div>
+          </div>
+          <small class="hint">Firmenbezeichnung und Adresse sind optional und erscheinen in Monatsnachweis (PDF, Word, CSV), Gleitzeitkonto-PDF und Urlaubsbescheinigung.</small>
           <div class="form-row">
             <label for="employer-phone">Telefon</label>
             <input type="tel" id="employer-phone" placeholder="+49 …" />
@@ -1409,6 +1431,7 @@
             <ul>
               <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail) für den Nachweiskopf und den E-Mail-Versand.</li>
               <li><strong>Pers.-Nr.:</strong> deine Personalnummer bei diesem Arbeitgeber — erscheint, falls ausgefüllt, im PDF-, Word- und CSV-Export sowie in der Monatsübersicht.</li>
+              <li><strong>Firmenbezeichnung und Adresse:</strong> optional, bis zu 2 Zeilen Firma plus Straße, PLZ und Ort. Erscheinen im Monatsnachweis, im Gleitzeitkonto-PDF und in der Urlaubsbescheinigung; der Name oben bleibt der Kurzname in der App.</li>
               <li><strong>Arbeitszeitmodell:</strong> Beschäftigungsart (Vollzeit, Teilzeit inkl. Beschäftigungsgrad in %, Minijob oder Midijob) und Arbeitszeitorganisation (z. B. Gleitzeit, Vertrauensarbeitszeit, Vier-Tage-Woche, Schichtarbeit). Die kombinierte Zusammenfassung (z. B. „Teilzeit, 60 % · Gleitzeit“) erscheint im PDF-, Word- und CSV-Export direkt unter der Pers.-Nr. sowie als Fußnote je Arbeitgeber in der Monatsübersicht.</li>
               <li><strong>Sollstunden:</strong> wahlweise <strong>pro Woche</strong> (das Monatssoll wird aus den unten festgelegten Wochentagen berechnet, minus Feiertage; ist im Wochenschema kein Tag aktiviert, verteilt die App die Wochenstunden stattdessen automatisch gleichmäßig auf alle echten Werktage Mo–Fr des jeweiligen Monats — praktisch bei Gleitzeit, Vertrauensarbeitszeit oder Arbeit auf Abruf (KAPOVAZ) ohne festen Tagesrhythmus) oder <strong>pro Monat</strong> fest (derselbe Wert für jeden Kalendermonat, unabhängig von dessen Anzahl an Werktagen).</li>
               <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
@@ -1429,6 +1452,7 @@
           <li>Ein Tipp auf eine Karte öffnet die Einstellungen des Kunden:
             <ul>
               <li><strong>Name, Farbe und Telefon</strong> sowie zwei optionale <strong>Ansprechpartner</strong> (Name + E-Mail), zusätzlich <strong>Pers.-Nr.</strong> für eine eigene Kunden-/Projektnummer.</li>
+              <li><strong>Firmenbezeichnung und Adresse:</strong> optional, erscheinen im Nachweis als Zeile „Kunde“.</li>
               <li><strong>Abrechnung:</strong> optionaler <strong>Stundensatz</strong> und <strong>Währung</strong> — Grundlage für die Netto-Summe (Zeit × Stundensatz), die am Ende von PDF-/Word-Berichten ausgewiesen wird. Es handelt sich nicht um eine Rechnung im Rechtssinne.</li>
               <li>Das <strong>Urlaubsanspruch</strong>-Feld und der Bereich <strong>Arbeitszeitmodell</strong> (Beschäftigungsart/-organisation) sind im Freiberufler-Modus ausgeblendet, da hier keine Anstellung vorliegt. Sollstunden, Pausenregelung und feste Wochenarbeitszeiten bleiben verfügbar.</li>
               <li>„Beschäftigt bis“, die Markierung als <strong>ehemalig</strong> und die Checkbox <strong>„Ehemalige anzeigen“</strong> funktionieren wie bei Arbeitgebern.</li>

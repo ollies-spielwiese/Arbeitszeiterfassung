@@ -12,6 +12,7 @@
 //   jsPDF,
 //   minutesToHM, formatMonthYear,
 // }
+import { getEmployerLetterhead } from '../employer-address.js';
 
 function wrapText(doc, text, x, y, maxWidth, lineHeight = 5) {
   const split = doc.splitTextToSize(text, maxWidth);
@@ -49,6 +50,19 @@ export function generateGleitzeitkontoPdfBlob(rows, emp, meta, ctx) {
   doc.setTextColor(0);
   y += 7;
 
+  // Firmenbezeichnung + Adresse (seit v3.10.0), nur wenn gepflegt.
+  const letterhead = getEmployerLetterhead(emp);
+  if (letterhead) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    const label = 'Arbeitgeber: ';
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    letterhead.lines.forEach((line) => { y = wrapText(doc, line, marginX + labelWidth + 1, y, 180 - labelWidth - 1); });
+    y += 3;
+  }
+
   if (!rows.length) {
     if (hiredAfterYear) {
       doc.setFontSize(10);
@@ -81,7 +95,7 @@ export function generateGleitzeitkontoPdfBlob(rows, emp, meta, ctx) {
   // Zusammenfassung, identisch zu den vier Kacheln der Bildschirmansicht (renderSummaryHTML).
   const totalWorked = rows.reduce((s, r) => s + r.workedMin, 0);
   const totalTarget = rows.reduce((s, r) => s + r.targetMin, 0);
-  const tileBalance = meta?.asOf ? meta.asOf.cumulativeBalance : last.cumulativeBalance;
+  const tileBalance = meta?.asOf ? meta.asOf.cumulativeBalance : last.cumulativeBalance - (meta?.payout ? meta.payout.minutes : 0);
   const tileLabel = meta?.asOf?.truncated
     ? `Aktueller Gleitzeitsaldo (Stand: ${formatMonthYear(meta.asOf.asOfYm)})` : 'Aktueller Gleitzeitsaldo';
   doc.setFontSize(10);
