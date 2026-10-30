@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.11.0</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.12.0</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -374,6 +374,7 @@
               <li><strong>📅 Urlaubszeitraum erfassen:</strong> legt Abwesenheiten über mehrere Tage an einem Stück an. Typ wählen (Urlaub, Bildungsurlaub, Krankheit, Gleitzeit-Überstundenabbau oder Freier Tag; bei Bildungsurlaub zeigt der Dialog Anspruch, bereits erfasste Tage und den Stand nach dem Anlegen), Von- und Bis-Datum setzen — Wochenenden und Feiertage werden dabei standardmäßig automatisch ausgelassen. Für jeden Tag im Zeitraum entsteht ein eigener Eintrag; Tage mit bereits vorhandenem Eintrag werden übersprungen. Bei Urlaub zeigt der Dialog live an, wie viele Urlaubstage danach noch übrig wären. Nach dem Anlegen erscheint eine Bestätigung mit der Aktion <strong>Rückgängig</strong>, die alle gerade angelegten Einträge des Zeitraums wieder in einem Schritt entfernt.</li>
               <li><strong>Schutz vor Doppelbelegung:</strong> Ganztägige Abwesenheiten (Urlaub, Bildungsurlaub, Krankheit, Gleitzeit-Überstundenabbau, Freier Tag) lassen sich nicht mit Arbeits- oder Home-Office-Einträgen am selben Tag beim selben Arbeitgeber kombinieren. Ist das Datum schon belegt, weist die App darauf hin — den vorhandenen Eintrag dann zuerst im Reiter „Einträge“ bearbeiten oder löschen.</li>
               <li><strong>Sollstunden-Warnung:</strong> Weicht dein Saldo deutlich vom Soll ab, erscheint oben ein Hinweisbanner mit <strong>Zum Gleitzeitkonto</strong> und <strong>Später erinnern</strong> (siehe Abschnitt 6c).</li>
+              <li><strong>Hinweis Arbeitszeitgesetz:</strong> Die App rechnet die Arbeitszeit aller Arbeitgeber zusammen (Kunden zählen nicht, Home-Office zählt mit). Liegt ein Tag über 10 Std. (§ 3 ArbZG, mehrere Arbeitgeber nach § 2 zusammengerechnet) oder liegen zwischen dem Arbeitsende eines Tages und dem Arbeitsbeginn am Folgetag weniger als 11 Std. Ruhezeit (§ 5 ArbZG), erscheint ein Hinweis direkt im Dialog „Zeit erfassen“ bzw. „Home-Office-Tag“. Es ist nur ein Hinweis, Speichern bleibt möglich. Ein laufender Timer wird erst nach dem Speichern geprüft. Abschalten lässt sich der Hinweis in den Einstellungen.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -422,6 +423,7 @@
               <li>Wähle Arbeitgeber und Kalenderwoche.</li>
               <li>Die App zeigt die Kacheln <strong>Ist</strong>, <strong>Soll</strong>, <strong>Saldo</strong> und ggf. <strong>Feiertage</strong> für die Woche sowie die einzelnen Tage. Reine Home-Office-Tage erscheinen nur mit dem Label „Home-Office“.</li>
               <li>Das kleine <strong>i</strong> an der Saldo-Kachel erklärt per Tipp, wie der Saldo zustande kommt — etwa, dass Urlaub, Krankheit und Bildungsurlaub mit dem Tages-Soll gutgeschrieben werden.</li>
+              <li>Bei einem <strong>Hinweis Arbeitszeitgesetz</strong> (über 10 Std. am Tag oder unter 11 Std. Ruhezeit, alle Arbeitgeber zusammen) steht am betroffenen Tag ein kleines Hinweisfeld mit der Zusammensetzung. Ist, Soll und Saldo bleiben unverändert.</li>
               <li>Ideal für einen schnellen Zwischenstand.</li>
             </ul>
           </div>
@@ -456,6 +458,7 @@
               <li>Monat oben auswählen.</li>
               <li>Die Spalte <strong>Tage</strong> zählt jeden Arbeitstag einmal, einschließlich Home-Office-Tagen. Die Tabelle listet alle Arbeitgeber mit Ist-, Soll- und Saldo-Stunden sowie Urlaubs-, Krankheits- und <strong>Abbau</strong>-Tagen (Gleitzeit-Überstundenabbau) auf.</li>
               <li>Am Ende steht eine Gesamt-Zeile mit den Summen über alle Arbeitgeber.</li>
+              <li>Gibt es im Monat Hinweise zum <strong>Arbeitszeitgesetz</strong> (über 10 Std. am Tag oder unter 11 Std. Ruhezeit, alle Arbeitgeber zusammen), listet ein Block unter der Tabelle jeden betroffenen Tag mit Hinweis und Zusammensetzung auf.</li>
               <li>Mit <strong>📕 PDF</strong> erstellst du einen kombinierten Nachweis als Download, mit <strong>📤 Teilen</strong> versendest du ihn per E‑Mail.</li>
             </ol>
             <p>Der PDF-Export enthält den gleichen Kopf wie der Monats-Nachweis und eine kompakte Tabelle mit einer Zeile pro Arbeitgeber (inkl. Pers.-Nr., falls gepflegt) sowie einer Summenzeile. Ist die Sollstunden-Warnung aktiv und weicht ein Saldo deutlich ab, erscheint auch hier das Hinweisbanner.</p>
@@ -577,6 +580,7 @@
             <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich/Nebenerwerb) — Details dazu in Abschnitt 12a. Der Button <strong>?</strong> öffnet eine kurze Hilfe zu diesem Reiter. Daneben findest du:</p>
             <ul>
               <li><strong>Name, eigene E-Mail-Adresse und Bundesland:</strong> Das Namensfeld heißt je nach Modus „Arbeitnehmer/in – Name“ oder „Freiberufler/in – Name“ und erscheint so auch in den Nachweisen. Die eigene Adresse wird auf ein gültiges Format geprüft. Das Bundesland bestimmt die Feiertage.</li>
+              <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</li>
               <li><strong>Sollstunden-Warnung:</strong> Monats-Saldo und Gleitzeitkonto-Saldo getrennt ein- oder ausschalten und jeweils eine Schwelle (10 %, 20 %, 30 % oder eigener Wert) wählen — siehe Abschnitt 6c.</li>
               <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
                 <ul>
@@ -747,6 +751,15 @@
         <div id="holiday-list" class="holiday-list" data-testid="list-holidays"></div>
       </div>
 
+      <div class="settings-block" id="settings-block-arbzg">
+        <h3>Hinweis Arbeitszeitgesetz</h3>
+        <label class="checkbox-row" for="setting-arbzg-hints">
+          <input type="checkbox" id="setting-arbzg-hints" data-testid="checkbox-arbzg-hints" />
+          <span>Hinweise anzeigen</span>
+        </label>
+        <p class="hint">Prüft alle Arbeitgeber zusammen (ohne Kunden): mehr als 10 Std. Arbeit am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit zwischen zwei Arbeitstagen (§ 5 ArbZG). Home-Office zählt mit, ein laufender Timer erst nach dem Speichern. Es ist nur ein Hinweis, Speichern bleibt möglich. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</p>
+      </div>
+
       <div class="settings-block" id="settings-block-sw">
         <h3>Sollstunden-Warnung</h3>
         <p class="hint">Warnt dich, wenn dein Saldo deutlich über oder unter dem Soll liegt — als Banner in der Erfassen-Ansicht und als Hervorhebung der Saldo-Kachel. Getrennt einstellbar für Monats-Saldo und Gleitzeitkonto-Saldo.</p>
@@ -894,6 +907,7 @@
             </select>
           </div>
         </div>
+        <div id="entry-arbzg-hint" class="arbzg-hint hidden" aria-live="polite" data-testid="hint-arbzg-entry"></div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
           <button type="button" id="btn-delete-entry" class="btn-danger hidden">Löschen</button>
@@ -989,6 +1003,7 @@
             </select>
           </div>
         </div>
+        <div id="ho-arbzg-hint" class="arbzg-hint hidden" aria-live="polite" data-testid="hint-arbzg-homeoffice"></div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
           <button type="button" id="btn-delete-homeoffice" class="btn-danger hidden">Löschen</button>
@@ -1404,6 +1419,7 @@
               <li>Alle Änderungen bleiben ausschließlich lokal auf dem Gerät und wandern automatisch ins Backup.</li>
             </ul>
           </li>
+          <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</li>
           <li><strong>Notizvorlagen:</strong> Textbausteine für Bemerkungen (z. B. „Überstunden wegen Projektabschluss"). Mit <strong>+ Neu</strong> anlegen, per <strong>✕</strong> wieder löschen.</li>
           <li><strong>Daten:</strong>
             <ul>

@@ -151,6 +151,7 @@ import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.
 import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
 import { buildEntriesHTML as _buildEntriesHTMLRaw } from './modules/render/entries.js';
 import { buildWeekHTML as _buildWeekHTMLRaw } from './modules/render/week.js';
+import { computeArbzgHints, arbzgHintsForEmployerDay, buildArbzgWeekBadgesHTML, buildArbzgOverviewHTML, isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
 import { buildArchiveHTML as _buildArchiveHTMLRaw } from './modules/render/archive.js';
 import {
@@ -189,6 +190,7 @@ import {
   applyScheduleToEntry as _applyScheduleToEntryRaw,
   updateEntryTypeFields as _updateEntryTypeFieldsRaw,
   updateBreakHint as _updateBreakHintRaw,
+  updateEntryArbzgHint as _updateEntryArbzgHintRaw,
   saveEntry as _saveEntryRaw,
   deleteEntry as _deleteEntryRaw,
 } from './modules/ui/entry-modal.js';
@@ -880,6 +882,10 @@ function updateBreakHint() {
   return _updateBreakHintRaw(_entryCtx());
 }
 
+function updateEntryArbzgHint() {
+  return _updateEntryArbzgHintRaw(_entryCtx());
+}
+
 function saveEntry(e) {
   return _saveEntryRaw(e, _entryCtx());
 }
@@ -1135,6 +1141,10 @@ function renderWeek() {
   const dates = isoWeekToDates(isoWeek);
   const stateCode = state.settings.state || 'HE';
 
+  // v3.12.0: Hinweise Arbeitszeitgesetz (alle Arbeitgeber zusammen) für die Tage dieser Woche.
+  const arbzgHints = isArbzgHintEnabled(state.settings)
+    ? computeArbzgHints(state.entries, state.employers, dates[0], dates[6]) : [];
+
   let totalMin = 0;
   const dayModels = dates.map((d) => {
     const holiday = isHoliday(d, stateCode);
@@ -1163,7 +1173,8 @@ function renderWeek() {
       detail = parts.join(', ');
     }
 
-    return { workMin, hoursDisplay, detail, isToday: d === today, holiday };
+    const arbzgHTML = buildArbzgWeekBadgesHTML(arbzgHintsForEmployerDay(arbzgHints, empId, d), escapeHtml);
+    return { workMin, hoursDisplay, detail, isToday: d === today, holiday, arbzgHTML };
   });
 
   const targetMin = computeWeekTargetMinutes(emp, dates);
@@ -1397,6 +1408,12 @@ function renderOverview() {
     getOverviewSummaryFields,
     renderSummaryHTML,
   });
+  // v3.12.0: Hinweise Arbeitszeitgesetz des Monats (alle Arbeitgeber zusammen).
+  if (isArbzgHintEnabled(state.settings)) {
+    const lastDay = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate();
+    const hints = computeArbzgHints(state.entries, state.employers, `${ym}-01`, `${ym}-${String(lastDay).padStart(2, '0')}`);
+    container.insertAdjacentHTML('beforeend', buildArbzgOverviewHTML(hints, formatMonthYear(ym), escapeHtml));
+  }
 }
 
 function renderAuditLog() {
@@ -2036,6 +2053,8 @@ function renderSettings() {
   document.getElementById('setting-own-email').value = state.settings.ownEmail || '';
   validateEmailField(document.getElementById('setting-own-email'));
   document.getElementById('setting-state').value = state.settings.state || 'HE';
+  const arbzgCb = document.getElementById('setting-arbzg-hints');
+  if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(state.settings);
   // Modus-Radios
   const mode = getAppMode();
   document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
@@ -2345,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   setShowFormerEmployers,
   startWork, endWork, setMode, updateModeVisibility,
   openEntryModal, saveEntry, deleteEntry,
-  updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
+  updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint, updateEntryArbzgHint,
   applyScheduleToEntry,
   openRangeEntryModal, saveRangeEntry, updateRangeVacationStats,
   openHomeofficeModal, saveHomeoffice, deleteHomeoffice,

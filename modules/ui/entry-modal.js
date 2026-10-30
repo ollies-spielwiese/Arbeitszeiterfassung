@@ -27,6 +27,7 @@
 import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
 import { findEntryConflict } from '../entry-conflicts.js';
+import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
@@ -60,6 +61,7 @@ export function openEntryModal(entry, opts, ctx) {
   updateEntryTypeFields();
   updateBreakHint(ctx);
   updateScheduleFillVisibility(ctx);
+  updateEntryArbzgHint(ctx);
 
   modal.classList.remove('hidden');
   // Erst NACH dem Sichtbarmachen des Modals messen — scrollHeight ist bei
@@ -100,6 +102,7 @@ export function applyScheduleToEntry(ctx) {
   document.getElementById('entry-end').value = day.end;
   document.getElementById('entry-break').value = day.break || 0;
   updateBreakHint(ctx);
+  updateEntryArbzgHint(ctx);
   toast('Wochenschema übernommen');
 }
 
@@ -114,6 +117,35 @@ export function updateEntryTypeFields() {
   if (otRow) otRow.style.display = type === 'work' ? '' : 'none';
   for (const id of ['entry-start', 'entry-end']) document.getElementById(id).disabled = !isTimed;
   for (const id of ['entry-break', 'entry-overtime-reason', 'entry-overtime-tpl']) document.getElementById(id).disabled = type !== 'work';
+}
+
+// v3.12.0: Hinweis Arbeitszeitgesetz im Eintragsdialog (nur Hinweis, keine Sperre).
+export function updateEntryArbzgHint(ctx) {
+  const el = document.getElementById('entry-arbzg-hint');
+  if (!el) return;
+  const state = ctx.getState();
+  const hide = () => { el.innerHTML = ''; el.classList.add('hidden'); };
+  if (!isArbzgHintEnabled(state.settings)) return hide();
+  const id = document.getElementById('entry-id').value;
+  const type = document.getElementById('entry-type').value;
+  const employerId = document.getElementById('entry-employer').value;
+  const date = document.getElementById('entry-date').value;
+  const start = document.getElementById('entry-start').value;
+  const end = document.getElementById('entry-end').value;
+  let candidate = null;
+  if (type === 'work') {
+    candidate = { id, employerId, date, type, start, end, breakMinutes: parseInt(document.getElementById('entry-break').value) || 0 };
+  } else if (type === 'homeoffice') {
+    const existing = id ? state.entries.find(x => x.id === id) : null;
+    const segments = (existing && existing.type === 'homeoffice' && Array.isArray(existing.segments)) ? existing.segments : [{ start, end }];
+    candidate = { id, employerId, date, type, segments };
+  } else {
+    candidate = { id, employerId, date, type };
+  }
+  const hints = computeArbzgHintsForCandidate(state.entries, state.employers, candidate);
+  if (!hints.length) return hide();
+  el.innerHTML = buildArbzgDialogHTML(hints, ctx.escapeHtml);
+  el.classList.remove('hidden');
 }
 
 export function updateBreakHint(ctx) {

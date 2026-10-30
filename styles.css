@@ -1658,3 +1658,27 @@ textarea.note-autogrow {
 }
 .storage-warning[hidden] { display: none; }
 .storage-warning button { margin: 0.3rem; }
+
+/* v3.12.0: Hinweis Arbeitszeitgesetz (Dialog, Woche, Übersicht) */
+.arbzg-hint { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: #fff4e5; border: 1px solid #f0b46a; color: #7a4a00; font-size: 0.9rem; line-height: 1.45; }
+.arbzg-hint.hidden { display: none; }
+.arbzg-hint-text { margin: 0 0 6px; }
+.arbzg-hint-text:last-child { margin-bottom: 0; }
+.arbzg-week { margin-top: 6px; }
+.arbzg-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; background: #fff4e5; border: 1px solid #f0b46a; color: #7a4a00; font-size: 0.8rem; font-weight: 600; }
+.arbzg-week-detail { font-size: 0.78rem; color: #7a4a00; margin-top: 3px; }
+.arbzg-block { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fff4e5; border: 1px solid #f0b46a; color: #3b2a00; }
+.arbzg-block h4 { margin: 0 0 4px; font-size: 1.05rem; }
+.arbzg-block-sub { font-size: 0.82rem; color: #7a4a00; margin-bottom: 8px; }
+.arbzg-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.arbzg-table th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #e0c08a; font-weight: 600; }
+.arbzg-table td { padding: 6px 4px; border-bottom: 1px solid #f3dcb5; vertical-align: top; }
+.arbzg-table tr:last-child td { border-bottom: none; }
+.arbzg-table td.arbzg-date { white-space: nowrap; }
+@media (prefers-color-scheme: dark) {
+  .arbzg-hint, .arbzg-badge, .arbzg-block { background: #3a2a10; border-color: #8a6420; color: #ffd9a0; }
+  .arbzg-week-detail, .arbzg-block-sub { color: #f5c980; }
+  .arbzg-table th { border-bottom-color: #8a6420; }
+  .arbzg-table td { border-bottom-color: #5a4218; }
+}
+.arbzg-nowrap { white-space: nowrap; }

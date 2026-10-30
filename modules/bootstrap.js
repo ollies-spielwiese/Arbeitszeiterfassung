@@ -39,7 +39,7 @@ export function wireEvents(ctx) {
     startWork, endWork, setMode, updateModeVisibility,
     // Entry Modal
     openEntryModal, saveEntry, deleteEntry,
-    updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint,
+    updateEntryTypeFields, updateScheduleFillVisibility, updateBreakHint, updateEntryArbzgHint,
     applyScheduleToEntry,
     // Range-Entry Modal (Zeitraum erfassen, Option B)
     openRangeEntryModal, saveRangeEntry, updateRangeVacationStats,
@@ -128,6 +128,9 @@ export function wireEvents(ctx) {
     const hoDateInput = document.getElementById('ho-date');
     if (hoEmpSel) hoEmpSel.addEventListener('change', updateHomeofficeContext);
     if (hoDateInput) hoDateInput.addEventListener('change', updateHomeofficeContext);
+    // v3.12.0: Hinweis Arbeitszeitgesetz auch bei Arbeitgeber- oder Datumswechsel prüfen.
+    if (hoEmpSel) hoEmpSel.addEventListener('change', () => updateHomeofficeLiveTotal());
+    if (hoDateInput) hoDateInput.addEventListener('change', () => updateHomeofficeLiveTotal());
     const hoSegments = document.getElementById('ho-segments');
     if (hoSegments) {
       // Delegation: Segment entfernen
@@ -153,6 +156,10 @@ export function wireEvents(ctx) {
     document.getElementById('entry-employer').addEventListener('change', () => { updateScheduleFillVisibility(); updateBreakHint(); });
     document.getElementById('entry-date').addEventListener('change', updateScheduleFillVisibility);
     document.getElementById('btn-apply-schedule').addEventListener('click', applyScheduleToEntry);
+    // v3.12.0: Hinweis Arbeitszeitgesetz bei jeder Formularänderung neu prüfen.
+    if (typeof updateEntryArbzgHint === 'function') {
+      ['input', 'change'].forEach(ev => document.getElementById('form-entry').addEventListener(ev, () => updateEntryArbzgHint()));
+    }
     ['entry-start', 'entry-end'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
         const empId = document.getElementById('entry-employer').value;
@@ -257,6 +264,12 @@ export function wireEvents(ctx) {
       if (!validateEmailField(ownEmailInput)) return;
       ownEmailInput.value = ownEmailInput.value.trim();
       getState().settings.ownEmail = ownEmailInput.value; saveState();
+    });
+    const arbzgCb = document.getElementById('setting-arbzg-hints');
+    if (arbzgCb) arbzgCb.addEventListener('change', (e) => {
+      getState().settings.arbzgHintsEnabled = !!e.target.checked; saveState();
+      try { renderWeek(); } catch (err) {}
+      try { renderOverview(); } catch (err) {}
     });
     document.getElementById('setting-state').addEventListener('change', (e) => {
       getState().settings.state = e.target.value; saveState();

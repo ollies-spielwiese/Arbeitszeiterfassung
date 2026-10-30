@@ -11,11 +11,17 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.11.0';
+export const APP_VERSION = '3.12.0';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.12.0', items: [
+    'Neu: Hinweis Arbeitszeitgesetz über alle Arbeitgeber. Die App meldet mehr als 10 Std. Arbeit am Tag (§ 3 ArbZG, Zeiten mehrerer Arbeitgeber zusammengerechnet) und weniger als 11 Std. Ruhezeit zwischen zwei Arbeitstagen (§ 5 ArbZG).',
+    'Der Hinweis erscheint im Eintragsdialog, im Home-Office-Dialog, in der Woche am betroffenen Tag und in der Übersicht als Monatsliste mit Zusammensetzung.',
+    'Nur ein Hinweis, Speichern bleibt möglich. Home-Office zählt mit, Kunden zählen nicht, ein laufender Timer wird erst nach dem Speichern geprüft. In den Einstellungen abschaltbar.',
+    'Anleitung und Hilfe ergänzt.',
+  ] },
   { version: '3.11.0', items: [
     'Neu: Bildungsurlaub für alle Bundesländer. Anspruch, Zeitraum und Wartezeit richten sich nach dem Bundesland aus den Einstellungen.',
     '2-Jahres-Zeiträume mit 10 Tagen: Rheinland-Pfalz und Mecklenburg-Vorpommern ab ungeradem Jahr, Brandenburg, Bremen und Hamburg ab dem Eintrittsjahr.',

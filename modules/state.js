@@ -106,6 +106,8 @@ export const DEFAULT_STATE = {
     sollWarningGleitzeitEnabled: false,
     sollWarningGleitzeitThresholdPct: 10,
     sollWarningSnoozeUntil: null,
+    // Hinweis Arbeitszeitgesetz (seit v3.12.0) — additiv, Standard eingeschaltet.
+    arbzgHintsEnabled: true,
   },
   activeEmployerId: null,
   runningTimer: null,

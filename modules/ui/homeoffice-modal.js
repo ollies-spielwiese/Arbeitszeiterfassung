@@ -29,6 +29,7 @@ import { pushAuditLog } from '../audit-log.js';
 import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from '../entry-conflicts.js';
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 import { autoGrowTextarea } from './autogrow.js';
+import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
 
 export function openHomeofficeModal(entry, opts, ctx) {
   opts = opts || {};
@@ -187,6 +188,27 @@ export function updateHomeofficeLiveTotal(ctx) {
   const segs = readHomeofficeSegmentsFromDom();
   const totalMin = computeHomeofficeMinutes({ segments: segs });
   el.textContent = minutesToHM(totalMin);
+  updateHomeofficeArbzgHint(ctx, segs);
+}
+
+// v3.12.0: Hinweis Arbeitszeitgesetz im Home-Office-Dialog (nur Hinweis, keine Sperre).
+export function updateHomeofficeArbzgHint(ctx, segs) {
+  const el = document.getElementById('ho-arbzg-hint');
+  if (!el) return;
+  const state = ctx.getState();
+  const hide = () => { el.innerHTML = ''; el.classList.add('hidden'); };
+  if (!isArbzgHintEnabled(state.settings)) return hide();
+  const candidate = {
+    id: document.getElementById('ho-id').value,
+    employerId: document.getElementById('ho-employer').value,
+    date: document.getElementById('ho-date').value,
+    type: 'homeoffice',
+    segments: segs || readHomeofficeSegmentsFromDom(),
+  };
+  const hints = computeArbzgHintsForCandidate(state.entries, state.employers, candidate);
+  if (!hints.length) return hide();
+  el.innerHTML = buildArbzgDialogHTML(hints, ctx.escapeHtml);
+  el.classList.remove('hidden');
 }
 
 export function saveHomeoffice(e, ctx) {

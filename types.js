@@ -177,6 +177,7 @@
  * @property {boolean} [sollWarningGleitzeitEnabled] Sollstunden-Warnung für den Gleitzeitkonto-Saldo aktiv (seit v3.9.78)
  * @property {number} [sollWarningGleitzeitThresholdPct] Schwelle in Prozent für den Gleitzeitkonto-Saldo-Baustein (seit v3.9.78)
  * @property {string|null} [sollWarningSnoozeUntil] ISO-Timestamp, bis zu dem der Sollstunden-Warnung-Banner stummgeschaltet ist (seit v3.9.78)
+ * @property {boolean} [arbzgHintsEnabled] Hinweis Arbeitszeitgesetz anzeigen (seit v3.12.0, Standard true; fehlend = an)
  */
 
 /**

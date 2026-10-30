@@ -165,7 +165,7 @@ export function validateBackup(data) {
     settings: (v, p) => fields(v, p, {
       ...texts('employeeName ownEmail state'), currency,
       appMode: choice(['employee', 'freelance']), holidayOverrides: overrides,
-      sollWarningMonthEnabled: bool, sollWarningGleitzeitEnabled: bool,
+      sollWarningMonthEnabled: bool, sollWarningGleitzeitEnabled: bool, arbzgHintsEnabled: bool,
       ...numbers('sollWarningMonthThresholdPct sollWarningGleitzeitThresholdPct'),
       lastBackupAt: timestamp, backupReminderSnoozeUntil: timestamp,
       backupReminderFirstSeenAt: timestamp, sollWarningSnoozeUntil: timestamp,

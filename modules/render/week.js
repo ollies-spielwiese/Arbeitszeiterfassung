@@ -15,7 +15,8 @@
 //   emp: { name },
 //   isoWeek: 'YYYY-Www',
 //   dates: [dateISO, ..., 7 Einträge],
-//   dayModels: [{ workMin, hoursDisplay, detail, isToday, holiday }] (7 Einträge),
+//   dayModels: [{ workMin, hoursDisplay, detail, isToday, holiday, arbzgHTML }] (7 Einträge),
+//   arbzgHTML: fertiges HTML aus modules/arbzg-hints.js (seit v3.12.0), sonst ''.
 //   weekFields: SummaryFields[],
 // }
 
@@ -27,7 +28,7 @@ export function buildWeekHTML(data, ctx) {
       <div class="week-day-card ${dm.isToday ? 'today' : ''}">
         <div>
           <div class="day-name">${DAY_LABELS_LONG[idx]}, ${formatDate(dates[idx])}${dm.holiday ? `<span class="holiday-badge">${escapeHtml(dm.holiday.name)}</span>` : ''}</div>
-          <div class="day-detail">${escapeHtml(dm.detail || '—')}</div>
+          <div class="day-detail">${escapeHtml(dm.detail || '—')}</div>${dm.arbzgHTML || ''}
         </div>
         <div class="day-hours">${dm.hoursDisplay}</div>
       </div>
