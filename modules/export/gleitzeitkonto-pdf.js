@@ -112,6 +112,9 @@ export function generateGleitzeitkontoPdfBlob(rows, emp, meta, ctx) {
     minutesToHM(r.balance),
     minutesToHM(r.cumulativeBalance),
   ]);
+  // Ausbezahlte Überstunden bei Austritt (seit v3.9.99), wie in der Bildschirmansicht.
+  const payout = meta && meta.payout;
+  if (payout) body.push(['Auszahlung bei Austritt', '', '', minutesToHM(-payout.minutes), minutesToHM(payout.balanceAfter)]);
 
   doc.autoTable({
     startY: y,
@@ -131,8 +134,11 @@ export function generateGleitzeitkontoPdfBlob(rows, emp, meta, ctx) {
       if (data.section !== 'body') return;
       if (data.column.index !== 3 && data.column.index !== 4) return;
       const row = rows[data.row.index];
-      if (!row) return;
-      const v = data.column.index === 3 ? row.balance : row.cumulativeBalance;
+      const isPayoutRow = !row && payout && data.row.index === rows.length;
+      if (!row && !isPayoutRow) return;
+      const v = row
+        ? (data.column.index === 3 ? row.balance : row.cumulativeBalance)
+        : (data.column.index === 3 ? -payout.minutes : payout.balanceAfter);
       if (v > 0) data.cell.styles.textColor = TABLE_POS_COLOR;
       else if (v < 0) data.cell.styles.textColor = TABLE_NEG_COLOR;
     },

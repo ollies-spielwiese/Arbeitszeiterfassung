@@ -62,6 +62,7 @@ function buildMailBody(report, ctx) {
     overtimeReductionDays: (report.overtimeReductionEntries || []).length,
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',
+    exitPayout: report.exitPayout || null,
   }));
   return `Sehr geehrte Damen und Herren,
 

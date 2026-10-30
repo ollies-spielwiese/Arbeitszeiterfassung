@@ -1305,6 +1305,12 @@ async function runGuideDocUnits(page) {
   assertTrue('GD18: Abschnitt 9 nennt Semikolon, Nur teilen und offline-Pruefung', has('9', 'Semikolon') && has('9', 'Nur teilen') && has('9', 'offline'));
   assertTrue('GD19: Abschnitt 10 nennt Notfall-Backup, Backup-Pruefung und Sollstunden-Warnung', has('10', 'Notfall-Backup') && has('10', 'abgelehnt') && has('10', 'Sollstunden-Warnung'));
   assertTrue('GD20: Abschnitt 10/12a verwenden Modus-Bezeichnung Freiberuflich/Nebenerwerb', has('10', 'Freiberuflich/Nebenerwerb') && has('12a', 'Freiberuflich/Nebenerwerb'));
+  // GD21-GD25 (v3.9.99): Abgeltung bei Austritt, Urlaubsbescheinigung, korrigierte Monatskacheln.
+  assertTrue('GD21: Abschnitt 6a nennt Ausbezahlt-Kachel und Urlaubsbescheinigung', has('6a', 'Ausbezahlt bei Austritt') && has('6a', 'Urlaubsbescheinigung (PDF)') && has('6a', '§ 6 Abs. 2 BUrlG'));
+  assertTrue('GD22: Abschnitt 6a erklaert Eintraege nach Beschaeftigungsende', has('6a', 'nach dem Beschäftigungsende'));
+  assertTrue('GD23: Abschnitt 6b nennt Auszahlung bei Austritt', has('6b', 'Auszahlung bei Austritt'));
+  assertTrue('GD24: Abschnitt 7 nennt ausbezahlte Urlaubstage und Ueberstunden', has('7', 'ausbezahlte Urlaubstage') && has('7', 'ausbezahlte Überstunden') && has('7', '§ 7 Abs. 4 BUrlG'));
+  assertTrue('GD25: Abschnitt 5 nennt Abgeltung, Jahresurlaub nur im PDF/Word', has('5', 'Abgeltung bei Austritt') && has('5', 'PDF und Word enthalten zusätzlich Jahresurlaub'));
 }
 
 // ---------- 1i) Undo (Zeitraum-Erfassung) Unit- + Integrationstest ----------
@@ -2888,6 +2894,120 @@ async function runEmploymentEndUnits(page) {
 }
 
 // ---------- 1o) Pers.-Nr. beim Arbeitgeber (v3.9.56) ----------
+
+async function runExitPayoutUnits(page) {
+  console.log('\n=== 1n-2) Abgeltung bei Austritt + Urlaubsbescheinigung (v3.9.99) ===');
+
+  const r = await page.evaluate(async () => {
+    const emp = { id: '__xp__', name: 'XP-Test', kind: 'employer', annualVacation: 28, vacationCarryOver: 0,
+      hiredSince: '2026-08-01', employmentEndDate: '2026-10-31', vacationPayoutDays: 3, overtimePayoutMinutes: 1503,
+      hoursMode: 'week', weeklyHours: 24, breakMode: 'none' };
+    const entries = ['2026-08-27', '2026-08-28', '2026-10-29', '2026-10-30', '2027-01-04', '2027-01-05']
+      .map((d, i) => ({ id: `xp${i}`, type: 'vacation', employerId: emp.id, date: d }));
+    const out = {};
+    out.xp = getExitPayout(emp);
+    out.xpNone = getExitPayout({ ...emp, vacationPayoutDays: 0, overtimePayoutMinutes: 0 });
+    out.xpNoEnd = getExitPayout({ ...emp, employmentEndDate: '' });
+    out.vrOct = computeVacationRemaining(emp, '2026-10', entries);
+    out.vrSep = computeVacationRemaining(emp, '2026-09', entries);
+    out.vr2027 = computeVacationRemaining(emp, '2027-01', entries);
+    out.vrExceeds = computeVacationRemaining({ ...emp, vacationPayoutDays: 5 }, '2026-10', entries);
+    out.vp = computeYearlyVacationPlanning(emp, '2027', entries, '2026-10-30');
+    out.cert = computeVacationCertificate(emp, entries);
+    out.certNone = computeVacationCertificate({ ...emp, employmentEndDate: '' }, entries);
+    out.rows = buildVacationCertificateRows(out.cert);
+    state.employers.push(emp);
+    const gk = computeGleitzeitkontoRows(emp, 2026, { state });
+    const gkNo = computeGleitzeitkontoRows({ ...emp, overtimePayoutMinutes: 0 }, 2026, { state });
+    state.employers = state.employers.filter((e) => e.id !== emp.id);
+    out.gk = { payout: gk.payout, rows: gk.rows.length, rowsNo: gkNo.rows.length, last: gk.rows[gk.rows.length - 1]?.cumulativeBalance, payoutNo: gkNo.payout };
+    out.fields = getSummaryFields({ ist: 0, soll: 0, exitPayout: out.xp }).filter((f) => f.key === 'exitPayout');
+    const em = await import('./modules/ui/employer-modal.js');
+    out.parse = ['25:03', '25', '', 'x', '1:75'].map((v) => em.parsePayoutHM(v));
+    out.fmt = em.formatPayoutHM(1503);
+    const bv = await import('./modules/backup-validation.js');
+    let bvErr = null;
+    try { bv.validateBackup({ schemaVersion: 1, employers: [{ id: 'e1', name: 'A', vacationPayoutDays: 2.5, overtimePayoutMinutes: 90 }], entries: [] }); } catch (e) { bvErr = String(e && e.message || e); }
+    out.bvErr = bvErr;
+    let bvBad = null;
+    try { bv.validateBackup({ schemaVersion: 1, employers: [{ id: 'e1', name: 'A', vacationPayoutDays: 'drei' }], entries: [] }); } catch (e) { bvBad = String(e && e.message || e); }
+    out.bvBad = bvBad;
+    const html = buildVacationPlanningHTML(
+      computeYearlyVacationPlanning(emp, '2026', entries, '2026-10-30'), out.vrOct, emp,
+      { escapeHtml: (s) => String(s), renderSummaryHTML, monthLabels: MONTH_LABELS_LONG, certificateButton: true });
+    out.html = html;
+    const blob = await generateVacationCertificatePdfBlob(emp);
+    out.pdfSize = blob ? blob.size : 0;
+    return out;
+  });
+
+  assertEq('XP1a: getExitPayout liefert Tage', r.xp && r.xp.vacationDays, 3);
+  assertEq('XP1b: getExitPayout liefert Minuten', r.xp && r.xp.overtimeMin, 1503);
+  assertEq('XP1c: getExitPayout ym = Endmonat', r.xp && r.xp.ym, '2026-10');
+  assertTrue('XP1d: ohne Werte → null', r.xpNone === null);
+  assertTrue('XP1e: ohne Beschäftigt bis → null', r.xpNoEnd === null);
+  assertEq('XP2a: Anspruch Aug–Okt = 28 × 3/12 = 7', r.vrOct.annual, 7);
+  assertEq('XP2b: genommen 4 (ohne 2027)', r.vrOct.taken, 4);
+  assertEq('XP2c: payoutDays im Endmonat 3', r.vrOct.payoutDays, 3);
+  assertEq('XP2d: Resturlaub nach Abgeltung 0', r.vrOct.remaining, 0);
+  assertEq('XP2e: months = 3', r.vrOct.months, 3);
+  assertEq('XP2f: vor dem Endmonat keine Abgeltung', r.vrSep.payoutDays, 0);
+  assertTrue('XP2g: payoutExceeds false bei 3 Tagen', r.vrOct.payoutExceeds === false);
+  assertTrue('XP3a: Jahr nach Austritt afterEmployment', r.vr2027.afterEmployment === true);
+  assertEq('XP3b: Jahr nach Austritt Anspruch 0', r.vr2027.annual, 0);
+  assertEq('XP3c: Jahr nach Austritt Einträge nicht gezählt', r.vr2027.taken, 0);
+  assertTrue('XP4: 5 ausbezahlte Tage > 3 offen → payoutExceeds', r.vrExceeds.payoutExceeds === true);
+  assertEq('XP5a: Planung 2027 zählt Einträge nach Ende nicht', r.vp.totalYear, 0);
+  assertEq('XP5b: afterEndDates nennt beide Tage', JSON.stringify(r.vp.afterEndDates), JSON.stringify(['2027-01-04', '2027-01-05']));
+  assertEq('XP6a: Bescheinigung gewährte Tage 4', r.cert && r.cert.grantedDays, 4);
+  assertEq('XP6b: Bescheinigung gewährt+abgegolten 7', r.cert && r.cert.totalGrantedOrPaid, 7);
+  assertEq('XP6c: Bescheinigung Resturlaub 0', r.cert && r.cert.remaining, 0);
+  assertTrue('XP6d: ohne Beschäftigt bis keine Bescheinigung', r.certNone === null);
+  assertTrue('XP6e: Zeile anteilig 3/12', r.rows.some((row) => row[0] === 'Urlaubsanspruch 2026 (anteilig 3/12)' && row[1] === '7 Tage'), JSON.stringify(r.rows));
+  assertTrue('XP6f: Zeile Abgeltung § 7 Abs. 4', r.rows.some((row) => row[0].includes('§ 7 Abs. 4') && row[1] === '3 Tage'));
+  assertTrue('XP6g: PDF-Blob wird erzeugt', r.pdfSize > 1000, `size=${r.pdfSize}`);
+  assertTrue('XP7a: Gleitzeitkonto payout gesetzt', !!r.gk.payout && r.gk.payout.ym === '2026-10' && r.gk.payout.minutes === 1503, JSON.stringify(r.gk.payout));
+  assertEq('XP7b: balanceAfter = kumulierter Saldo − 1503', r.gk.payout && r.gk.payout.balanceAfter, r.gk.last - 1503);
+  assertEq('XP7c: Monatszeilen unverändert', r.gk.rows, r.gk.rowsNo);
+  assertTrue('XP7d: ohne Überstunden kein payout', r.gk.payoutNo === null);
+  assertEq('XP8a: Summary-Feld exitPayout vorhanden', r.fields.length, 1);
+  assertContains('XP8b: Label nennt Datum', r.fields[0]?.label || '', '31.10.2026');
+  assertContains('XP8c: Wert nennt Urlaub', String(r.fields[0]?.value || ''), 'Urlaub 3 Tage');
+  assertContains('XP8d: Wert nennt Überstunden', String(r.fields[0]?.value || ''), '25:03');
+  assertEq('XP9: parsePayoutHM', JSON.stringify(r.parse), JSON.stringify([1503, 1500, 0, null, null]));
+  assertEq('XP10: formatPayoutHM(1503)', r.fmt, '25:03');
+  assertTrue('XP11a: Backup mit neuen Feldern gültig', r.bvErr === null, r.bvErr || '');
+  assertTrue('XP11b: Backup mit Text statt Zahl abgelehnt', r.bvBad !== null);
+  assertContains('XP12a: Kachel Ausbezahlt bei Austritt', r.html, 'Ausbezahlt bei Austritt');
+  assertContains('XP12b: Button Urlaubsbescheinigung', r.html, 'btn-export-vacation-certificate');
+
+  // CSV: Meta-Zeilen im Endmonat
+  const csv = await page.evaluate(async () => {
+    const mod = await import('./modules/export/csv.js');
+    const blob = mod.generateCsvBlob({ workEntries: [], homeofficeEntries: [], vacationEntries: [], sickEntries: [], employer: { name: 'X', weeklyHours: 24, employmentEndDate: '2026-10-31' },
+      exitPayout: { endDate: '2026-10-31', ym: '2026-10', year: '2026', vacationDays: 3, overtimeMin: 1503 } },
+      { formatDate: (d) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`, minutesToHM: (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, computeWorkMinutes: () => 0, computeHomeofficeMinutes: () => 0 });
+    return await blob.text();
+  });
+  assertContains('XP13a: CSV Beschäftigt bis', csv, 'Beschäftigt bis');
+  assertContains('XP13b: CSV Urlaubsabgeltung', csv, 'Urlaubsabgeltung (Tage)');
+  assertContains('XP13c: CSV ausbezahlte Überstunden', csv, '25:03');
+
+  // UI: Felder nur mit Beschäftigt bis sichtbar
+  const vis = await page.evaluate(async () => {
+    const em = await import('./modules/ui/employer-modal.js');
+    const end = document.getElementById('employer-employment-end-date');
+    const row = document.getElementById('employer-exit-payout-row');
+    if (!end || !row) return null;
+    const old = end.value;
+    end.value = ''; em.updateExitPayoutVisibility(); const hiddenEmpty = row.classList.contains('hidden');
+    end.value = '2026-10-31'; em.updateExitPayoutVisibility(); const hiddenSet = row.classList.contains('hidden');
+    end.value = old; em.updateExitPayoutVisibility();
+    return { hiddenEmpty, hiddenSet };
+  });
+  assertTrue('XP14a: Austritts-Felder ohne Datum verborgen', vis && vis.hiddenEmpty === true, JSON.stringify(vis));
+  assertTrue('XP14b: Austritts-Felder mit Datum sichtbar', vis && vis.hiddenSet === false, JSON.stringify(vis));
+}
 
 async function runPersonnelNumberUnits(page) {
   console.log('\n=== 1o) Pers.-Nr. beim Arbeitgeber Unit- + Integrationstests (v3.9.56) ===');
@@ -4560,6 +4680,7 @@ function runServiceWorkerCacheBustCheck() {
     await runFlexibleScheduleUnits(page);
     await runSollWarningUnits(page);
     await runEmploymentEndUnits(page);
+    await runExitPayoutUnits(page);
     await runPersonnelNumberUnits(page);
     await runEmployerKindUnits(page);
     await runEmploymentModelUnits(page);

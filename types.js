@@ -195,6 +195,7 @@
  * @property {number} workedMin
  * @property {number} [targetMin]
  * @property {number} [balance]
+ * @property {{endDate:string, ym:string, year:string, vacationDays:number, overtimeMin:number}|null} [exitPayout] Abgeltung bei Austritt (seit v3.9.99)
  * @property {number} [vacationDays]
  * @property {number} [sickDays]
  * @property {number} [educationLeaveDays] Bildungsurlaubstage (seit v3.9.97)

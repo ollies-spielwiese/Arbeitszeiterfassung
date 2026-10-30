@@ -492,6 +492,10 @@ textarea.note-autogrow {
 .future-row { opacity: 0.55; }
 .future-row td { font-style: italic; }
 .future-tag { font-style: normal; color: var(--text-muted); font-size: 0.8em; }
+/* Ausbezahlte Überstunden bei Austritt (seit v3.9.99) */
+.payout-row td { border-top: 2px solid var(--border, #cbd5e1); }
+.vacation-cert-actions { margin-top: 12px; }
+.form-row label.exit-payout-second-label { margin-top: 12px; }
 
 .report-table {
   width: 100%;

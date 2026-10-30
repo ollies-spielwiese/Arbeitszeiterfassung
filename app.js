@@ -106,6 +106,8 @@ import {
   computeYearlyVacationPlanning,
   computeEducationLeaveYear,
   computeVacationCalendarMonth,
+  computeVacationCertificate,
+  getExitPayout,
   computeGleitzeitkontoRows as _computeGleitzeitkontoRowsRaw,
   computeGleitzeitkontoAsOfToday as _computeGleitzeitkontoAsOfTodayRaw,
   computeGleitzeitkontoRollingWindow as _computeGleitzeitkontoRollingWindowRaw,
@@ -160,6 +162,7 @@ import { generateCsvBlob as _generateCsvBlobRaw } from './modules/export/csv.js'
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
 import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './modules/export/overview-pdf.js';
 import { generateGleitzeitkontoPdfBlob as _generateGleitzeitkontoPdfBlobRaw } from './modules/export/gleitzeitkonto-pdf.js';
+import { generateVacationCertificatePdfBlob as _generateVacationCertificatePdfBlobRaw, buildVacationCertificateRows } from './modules/export/vacation-certificate-pdf.js';
 import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
@@ -1579,6 +1582,33 @@ function renderVacationPlanning() {
   });
 
   wireVacationCalendarNav();
+  const certBtn = document.getElementById('btn-export-vacation-certificate');
+  if (certBtn) certBtn.addEventListener('click', exportVacationCertificatePdf);
+}
+
+/* ---------- Urlaubsbescheinigung (§ 6 Abs. 2 BUrlG, seit v3.9.99) ---------- */
+
+async function generateVacationCertificatePdfBlob(emp) {
+  const cert = computeVacationCertificate(emp, state.entries);
+  if (!cert) throw new Error('Kein Beschäftigungsende hinterlegt');
+  await ensurePdfLibs();
+  const { jsPDF } = window.jspdf;
+  return _generateVacationCertificatePdfBlobRaw(cert, emp, { employeeName: state.settings?.employeeName || '' }, { jsPDF, formatDate, todayISO });
+}
+
+async function exportVacationCertificatePdf() {
+  ensureActiveEmployer();
+  const emp = getEmployer(state.activeEmployerId);
+  if (!emp) return;
+  try {
+    const blob = await generateVacationCertificatePdfBlob(emp);
+    const empSlug = (emp.name || 'Arbeitgeber').replace(/[^\p{L}\p{N}]+/gu, '_');
+    downloadBlob(blob, `Urlaubsbescheinigung_${empSlug}_${String(emp.employmentEndDate).slice(0, 4)}.pdf`);
+    toast('Urlaubsbescheinigung als PDF heruntergeladen');
+  } catch (err) {
+    console.error(err);
+    toast('PDF-Export fehlgeschlagen: ' + err.message);
+  }
 }
 
 // Verschiebt vacationCalendarYm um +/-1 Monat, begrenzt auf Januar..Dezember des im
@@ -1636,7 +1666,7 @@ function renderGleitzeitkonto() {
 
   // Kalenderjahr-Ansicht (Jan-Dez), seit v3.9.48: der kumulierte Saldo läuft über
   // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
 
   // Seit v3.9.81 "kombiniertes Modell":
   // - Kachel-ANZEIGE: voller Jahres-Saldo, aber nur bis heute (asOfToday) statt bis Dezember,
@@ -1657,7 +1687,7 @@ function renderGleitzeitkonto() {
     buildBalanceTooltipText: _buildBalanceTooltipTextRaw,
     balanceWarning,
     asOf,
-  }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear });
+  }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout });
 }
 
 function getCurrentGleitzeitkonto() {
@@ -1669,9 +1699,9 @@ function getCurrentGleitzeitkonto() {
     toast(`Bitte zuerst einen ${L('employer')} anlegen`);
     return null;
   }
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
   const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, todayISO());
-  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, asOf } };
+  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, asOf, payout } };
 }
 
 async function generateGleitzeitkontoPdfBlob(rows, emp, meta) {
@@ -2385,6 +2415,7 @@ if (typeof window !== 'undefined') {
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, computeEducationLeaveYear, computeVacationCalendarMonth, MONTH_LABELS_LONG,
+    computeVacationCertificate, getExitPayout, buildVacationCertificateRows, generateVacationCertificatePdfBlob,
     computeGleitzeitkontoRows: _computeGleitzeitkontoRowsRaw,
     buildVacationPlanningHTML: _buildVacationPlanningHTMLRaw,
     buildVacationCalendarHTML: _buildVacationCalendarHTMLRaw,

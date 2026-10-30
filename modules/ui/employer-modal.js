@@ -295,6 +295,16 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-hired-since').value = e.hiredSince || '';
   const endDateEl = document.getElementById('employer-employment-end-date');
   if (endDateEl) endDateEl.value = e.employmentEndDate || '';
+  const payoutDaysEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-vacation-payout-days'));
+  if (payoutDaysEl) payoutDaysEl.value = Number(e.vacationPayoutDays) > 0 ? String(e.vacationPayoutDays) : '';
+  const overtimePayoutEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-overtime-payout'));
+  if (overtimePayoutEl) overtimePayoutEl.value = Number(e.overtimePayoutMinutes) > 0 ? formatPayoutHM(Number(e.overtimePayoutMinutes)) : '';
+  if (!exitPayoutWired) {
+    ['input', 'change'].forEach(evt => endDateEl?.addEventListener(evt, updateExitPayoutVisibility));
+    kindEl?.addEventListener('change', updateExitPayoutVisibility);
+    exitPayoutWired = true;
+  }
+  updateExitPayoutVisibility();
   document.getElementById('employer-vacation-carryover').value = e.vacationCarryOver || 0;
   document.getElementById('employer-notes').value = e.notes || '';
   const rateEl = document.getElementById('employer-hourly-rate');
@@ -310,6 +320,37 @@ export function openEmployerModal(emp, ctx) {
   refreshEmploymentModelUI();
   document.getElementById('btn-delete-employer').classList.toggle('hidden', isNew);
   modal.classList.remove('hidden');
+}
+
+let exitPayoutWired = false;
+
+/** 'H:MM' für ausbezahlte Überstunden (seit v3.9.99). */
+export function formatPayoutHM(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0));
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Parst die Eingabe „Bei Austritt ausbezahlte Überstunden“: 'H:MM', 'HH:MM' oder ganze Stunden.
+ * Leer → 0. Ungültig → null.
+ * @param {string} raw
+ * @returns {number|null}
+ */
+export function parsePayoutHM(raw) {
+  const v = String(raw || '').trim();
+  if (!v) return 0;
+  const m = v.match(/^(\d{1,4})(?::([0-5]\d))?$/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0);
+}
+
+/** Austritts-Felder nur zeigen, wenn „Beschäftigt bis“ gesetzt ist und kein Kunde gewählt ist. */
+export function updateExitPayoutVisibility() {
+  const row = document.getElementById('employer-exit-payout-row');
+  if (!row) return;
+  const endVal = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-employment-end-date'))?.value || '';
+  const kindVal = /** @type {HTMLSelectElement|null} */ (document.getElementById('employer-kind'))?.value;
+  row.classList.toggle('hidden', !endVal || kindVal === 'client');
 }
 
 export function saveEmployer(ev, ctx) {
@@ -350,6 +391,8 @@ export function saveEmployer(ev, ctx) {
     annualVacation: parseInt(document.getElementById('employer-annual-vacation').value) || 0,
     hiredSince: document.getElementById('employer-hired-since').value || '',
     employmentEndDate: document.getElementById('employer-employment-end-date')?.value || '',
+    vacationPayoutDays: 0,
+    overtimePayoutMinutes: 0,
     vacationCarryOver: parseInt(document.getElementById('employer-vacation-carryover').value) || 0,
     hourlyRate: parseFloat(document.getElementById('employer-hourly-rate')?.value) || 0,
     currency: document.getElementById('employer-currency')?.value || 'EUR',
@@ -379,6 +422,26 @@ export function saveEmployer(ev, ctx) {
   if (data.hiredSince && data.employmentEndDate && data.employmentEndDate < data.hiredSince) {
     toast('„Beschäftigt bis" darf nicht vor „Angestellt seit" liegen');
     return;
+  }
+  // Abgeltung bei Austritt (seit v3.9.99): nur mit „Beschäftigt bis“ und nicht für Kunden.
+  if (data.employmentEndDate && data.kind !== 'client') {
+    const daysEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-vacation-payout-days'));
+    const rawDays = daysEl ? daysEl.value.trim().replace(',', '.') : '';
+    const days = rawDays ? Number(rawDays) : 0;
+    if (!Number.isFinite(days) || days < 0 || Math.round(days * 2) !== days * 2) {
+      toast('Ausbezahlte Urlaubstage: bitte 0 oder ein Vielfaches von 0,5 eingeben');
+      daysEl?.focus();
+      return;
+    }
+    const otEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-overtime-payout'));
+    const otMin = parsePayoutHM(otEl ? otEl.value : '');
+    if (otMin === null) {
+      toast('Ausbezahlte Überstunden: bitte im Format Std:Min eingeben, z. B. 25:03');
+      otEl?.focus();
+      return;
+    }
+    data.vacationPayoutDays = days;
+    data.overtimePayoutMinutes = otMin;
   }
   if (id) {
     const idx = state.employers.findIndex(e => e.id === id);

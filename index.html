@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.98</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.9.99</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -433,7 +433,7 @@
             <p>Hier entsteht dein offizieller Stundennachweis.</p>
             <ol>
               <li>Arbeitgeber und Monat auswählen.</li>
-              <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo. Darüber stehen Kacheln für Ist, Soll, Saldo (mit Erklärung über das <strong>i</strong>), Jahresurlaub, Resturlaub, ggf. Resturlaub Vorjahr, <strong>Urlaub / Krank</strong>, <strong>Gleitzeit-Überstundenabbau</strong>, <strong>Bildungsurlaub</strong> (nur wenn im Monat vorhanden) und Feiertage.</li>
+              <li>Die Auswertung zeigt Tage, Zeiten, Pausen, Ist‑ und Sollstunden sowie einen Saldo. Darüber stehen Kacheln für Ist, Soll, Saldo (mit Erklärung über das <strong>i</strong>), <strong>Urlaub / Krank</strong>, <strong>Gleitzeit-Überstundenabbau</strong> und <strong>Bildungsurlaub</strong> (nur wenn im Monat vorhanden). Im Monat von „Beschäftigt bis“ kommt ggf. <strong>Abgeltung bei Austritt</strong> hinzu (siehe Abschnitt 7). PDF und Word enthalten zusätzlich Jahresurlaub, Resturlaub und ggf. Resturlaub Vorjahr.</li>
               <li>PDF, Word und CSV enthalten alle Tage des Monats einschließlich Bildungsurlaub; Kopf und Fußzeile nennen Name, ggf. Pers.-Nr. und das Arbeitszeitmodell des Arbeitgebers.</li>
               <li>Am Ende der Seite stehen fünf Aktionen zur Verfügung:
                 <ul>
@@ -468,7 +468,9 @@
             <p>Dieser Reiter zeigt eine Jahresübersicht des Urlaubs für den aktuell ausgewählten Arbeitgeber (dieselbe Auswahl wie oben im Reiter Erfassen).</p>
             <ol>
               <li>Jahr oben im Auswahlfeld wählen.</li>
-              <li>Oben siehst du vier Kennzahlen: <strong>Jahresanspruch</strong> (ggf. mit Hinweis „anteilig“ bei unterjährigem Eintritt), <strong>bereits genommene</strong> Urlaubstage, <strong>eingegebene</strong> Urlaubstage in der Zukunft und <strong>noch nicht erfasster</strong> Resturlaub.</li>
+              <li>Oben siehst du vier Kennzahlen: <strong>Jahresanspruch</strong> (ggf. mit Hinweis „anteilig“ bei unterjährigem Eintritt), <strong>bereits genommene</strong> Urlaubstage, <strong>eingegebene</strong> Urlaubstage in der Zukunft und <strong>noch nicht erfasster</strong> Resturlaub. Sind bei Austritt Urlaubstage ausbezahlt worden, steht davor die Kachel <strong>Ausbezahlt bei Austritt</strong>; diese Tage mindern den Resturlaub, zählen aber nicht als genommen.</li>
+              <li><strong>Nach „Beschäftigt bis“:</strong> Urlaubseinträge nach dem Beschäftigungsende werden nicht gezählt; ein Hinweis nennt die betroffenen Tage. In Jahren nach dem Austritt besteht bei diesem Arbeitgeber kein Urlaubsanspruch mehr (Jahresanspruch 0).</li>
+              <li><strong>📕 Urlaubsbescheinigung (PDF):</strong> erscheint im Jahr des Beschäftigungsendes. Die Bescheinigung nach § 6 Abs. 2 BUrlG nennt Beschäftigungszeitraum, Jahresurlaub, anteiligen Anspruch, im Jahr gewährten und abgegoltenen Urlaub sowie den Resturlaub und listet die Urlaubstage einzeln auf. Ein neuer Arbeitgeber rechnet diese Tage auf deinen Anspruch an. Die App erstellt eine Vorlage aus deinen Aufzeichnungen mit Feldern für Ort, Datum, Stempel und Unterschrift des Arbeitgebers.</li>
               <li>Direkt darunter folgt der Block <strong>Bildungsurlaub</strong> mit eigenem Kontingent nach HBUG: Anspruch im Jahr, bereits genommene, eingegebene und noch verfügbare Tage. Ein Hinweis nennt die Berechnungsgrundlage und die 6-monatige Wartezeit; wird das Kontingent überschritten, erscheint eine Warnung. Bildungsurlaub zählt nicht zum Urlaub in Tabelle und Kalender.</li>
               <li>Darunter listet eine Tabelle jeden Monat des Jahres mit den Spalten Genommen, Eingegeben und Summe auf, plus einer Gesamtzeile am Ende.</li>
               <li>Unter der Tabelle zeigt ein <strong>Monatskalender</strong> den gewählten Monat im Detail: Urlaubstage erscheinen farblich markiert (getrennt nach <strong>genommen</strong> und <strong>eingegeben</strong>), gesetzliche <strong>Feiertage</strong> sowie <strong>Wochenenden</strong> sind ebenfalls eingefärbt — eine Legende darunter erklärt die Farben. Mit den Pfeilen ‹ › neben dem Monatsnamen blätterst du einen Monat vor oder zurück, jeweils begrenzt auf Januar bis Dezember des oben gewählten Jahres. Beim ersten Öffnen zeigt der Kalender automatisch den aktuellen Monat, falls das gewählte Jahr das laufende Kalenderjahr ist, sonst Januar.</li>
@@ -487,7 +489,7 @@
               <li>Die Tabelle listet pro Monat Ist, Soll, den Saldo dieses einzelnen Monats sowie den <strong>kumulierten Saldo</strong> — also die fortlaufende Summe aller Salden bis zu diesem Monat.</li>
               <li>Der kumulierte Saldo läuft bewusst über Jahresgrenzen hinweg durch (kein Reset zum 1. Januar) — er startet aber niemals vor dem im Arbeitgeber hinterlegten Datum <strong>„Angestellt seit“</strong>. Ist dieses Datum nicht gepflegt, wird stattdessen der Monat des frühesten Eintrags dieses Arbeitgebers verwendet.</li>
               <li>Beginnt die Anstellung erst mitten in einem Jahr, zeigt die Tabelle nur die Monate ab der Anstellung (mit Hinweisbanner) — Monate davor würden sonst ein Soll gegen 0h Ist zeigen, obwohl du dort noch gar nicht angestellt warst. Liegt die Anstellung komplett nach dem gewählten Jahr, erscheint stattdessen ein entsprechender Hinweis statt einer leeren Tabelle.</li>
-              <li>Ist <strong>„Beschäftigt bis“</strong> gepflegt, endet die Tabelle mit diesem Monat; ein Hinweisbanner weist darauf hin.</li>
+              <li>Ist <strong>„Beschäftigt bis“</strong> gepflegt, endet die Tabelle mit diesem Monat; ein Hinweisbanner weist darauf hin. Sind bei Austritt Überstunden ausbezahlt worden, folgt die Schlusszeile <strong>„Auszahlung bei Austritt“</strong>, die den kumulierten Saldo entsprechend mindert (auch in der Kachel „Aktueller Gleitzeitsaldo“ und im PDF). Die Sollstunden-Warnung bleibt davon unberührt.</li>
               <li>Noch nicht begonnene Monate erscheinen abgesetzt mit dem Zusatz <strong>„(geplant)“</strong>.</li>
               <li>Über <strong>PDF</strong> erstellst du einen Gleitzeitkonto-Nachweis des gewählten Jahres mit denselben Werten wie in der App.</li>
             </ol>
@@ -525,6 +527,7 @@
                   <li><strong>Pausenregelung:</strong> <strong>Gesetzlich</strong> (ArbZG: 30 Min ab 6 Std., 45 Min ab 9 Std.), <strong>Manuell pro Eintrag</strong>, <strong>Gleitzeit</strong> (gesetzlicher Vorschlag, überschreibbar) oder <strong>Keine Pause</strong> (z. B. Minijob).</li>
                   <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>, die zum Jahresanspruch hinzugerechnet werden.</li>
                   <li><strong>Angestellt seit</strong> und <strong>Beschäftigt bis:</strong> grenzen die anteilige Urlaubsberechnung und das Gleitzeitkonto ein. Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> — er erhält in der Liste einen rot hinterlegten Namen und das Badge „Ehemalig seit ...“ und verschwindet aus den Auswahlfeldern für neue Einträge. Über die Checkbox <strong>„Ehemalige anzeigen“</strong> (verfügbar in Erfassen, Einträge, Übersicht und Gleitzeitkonto) blendest du ehemalige Arbeitgeber bei Bedarf wieder ein, etwa um nachträglich noch einen Nachweis zu erstellen.</li>
+                  <li><strong>Bei Austritt ausbezahlte Urlaubstage</strong> und <strong>ausbezahlte Überstunden (Std:Min):</strong> erscheinen, sobald „Beschäftigt bis“ gesetzt ist. Trage hier die Urlaubsabgeltung nach § 7 Abs. 4 BUrlG und ggf. ausbezahlte Überstunden laut Lohnabrechnung ein (Urlaubstage in Schritten von 0,5). Die Tage mindern den Resturlaub in Urlaubsplanung und Monatsnachweis, die Stunden das Gleitzeitkonto. Geldbeträge werden nicht gespeichert. Übersteigen die ausbezahlten Tage den offenen Resturlaub, weist die Urlaubsplanung darauf hin.</li>
                   <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular. Lässt du bei Sollstunden „pro Woche“ alle Tage leer, zeigt die App darunter einen Hinweis, dass die Sollstunden gleichmäßig auf alle Werktage verteilt werden.</li>
                   <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag im Reiter „Arbeitgeber“ (Modus „Angestellt“, im Hauptmodus Freiberuflich/Nebenerwerb als „Nebenerwerb“ bezeichnet) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint — beide Listen sind seit v3.9.58 strikt getrennt. Neue Einträge übernehmen automatisch den aktuellen Modus; du kannst den Typ im Formular aber jederzeit manuell umstellen, etwa wenn du parallel angestellt und freiberuflich tätig bist. Die Monatsübersicht (Reiter „Übersicht“) zeigt weiterhin beide Typen gemeinsam an.</li>
                 </ul>
@@ -1152,6 +1155,14 @@
             <label for="employer-employment-end-date">Beschäftigt bis</label>
             <input type="date" id="employer-employment-end-date" data-testid="input-employer-employment-end-date" />
           </div>
+          <div class="form-row hidden" id="employer-exit-payout-row">
+            <label for="employer-vacation-payout-days">Bei Austritt ausbezahlte Urlaubstage</label>
+            <input type="number" id="employer-vacation-payout-days" min="0" step="0.5" inputmode="decimal" placeholder="0" data-testid="input-employer-vacation-payout-days" />
+            <small class="hint" id="employer-vacation-payout-hint">Urlaubsabgeltung nach § 7 Abs. 4 BUrlG laut Lohnabrechnung. Mindert den Resturlaub, zählt aber nicht als genommener Urlaub.</small>
+            <label for="employer-overtime-payout" class="exit-payout-second-label">Bei Austritt ausbezahlte Überstunden (Std:Min)</label>
+            <input type="text" id="employer-overtime-payout" inputmode="numeric" placeholder="z. B. 25:03" autocomplete="off" data-testid="input-employer-overtime-payout" />
+            <small class="hint">Leer lassen, wenn Überstunden nicht ausbezahlt, sondern abgebaut wurden oder verfallen sind. Es werden keine Beträge gespeichert.</small>
+          </div>
           <div class="form-row" id="employer-vacation-carryover-row">
             <label for="employer-vacation-carryover">Resturlaubstage Vorjahr</label>
             <input type="number" id="employer-vacation-carryover" min="0" value="0" />
@@ -1403,6 +1414,7 @@
               <li><strong>Pausenregelung:</strong> keine Pause (z. B. Minijob), gesetzlich, oder eigene Regel.</li>
               <li><strong>Urlaubsanspruch pro Jahr</strong> in Tagen, plus optionale <strong>Resturlaubstage Vorjahr</strong>.</li>
               <li><strong>Angestellt seit</strong> / <strong>Beschäftigt bis:</strong> Liegt „Beschäftigt bis“ in der Vergangenheit, gilt der Arbeitgeber als <strong>ehemalig</strong> (rote Markierung, Badge) und verschwindet aus den Auswahlfeldern für neue Einträge — über die Checkbox <strong>„Ehemalige anzeigen“</strong> blendest du ihn wieder ein.</li>
+              <li><strong>Bei Austritt ausbezahlte Urlaubstage / Überstunden:</strong> nur sichtbar mit „Beschäftigt bis“. Mindern Resturlaub bzw. Gleitzeitkonto; die Urlaubsplanung bietet dann eine <strong>Urlaubsbescheinigung (PDF)</strong> an.</li>
               <li><strong>Feste Wochenarbeitszeiten:</strong> optionales Raster mit Beginn/Ende/Pause pro Wochentag. Ist ein Tag hier hinterlegt, schlägt dir die App beim nachträglichen Erfassen (Reiter Erfassen) automatisch die passende Uhrzeit für den gewählten Tag vor — ein Tipp auf den Vorschlag übernimmt die Werte ins Formular. Lässt du bei Sollstunden „pro Woche“ alle Tage leer, zeigt die App darunter einen Hinweis, dass die Sollstunden gleichmäßig auf alle Werktage verteilt werden.</li>
               <li><strong>Eintragstyp:</strong> legt fest, ob der Eintrag hier im Reiter „Arbeitgeber“ (Modus „Angestellt“) oder im Reiter „Kunde“ (Modus „Freiberuflich“) erscheint. Neue Einträge übernehmen automatisch den aktuellen Modus, lassen sich aber jederzeit manuell umstellen — z. B. wenn du parallel angestellt und freiberuflich tätig bist.</li>
             </ul>

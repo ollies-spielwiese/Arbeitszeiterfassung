@@ -121,6 +121,7 @@ export function generatePdfBlob(report, ctx) {
     hourlyRate: Number(report.employer.hourlyRate) || 0,
     currency: report.employer.currency || 'EUR',
     vacationRemaining: report.vacationRemaining,
+    exitPayout: report.exitPayout || null,
     monthLabel: formatMonthYear(report.ym),
   });
   const lines = renderSummaryPdfLines(pdfSummaryFields);

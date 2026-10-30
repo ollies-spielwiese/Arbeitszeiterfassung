@@ -19,6 +19,29 @@ export function buildVacationPlanningHTML(vp, vr, emp, ctx) {
     { kind: 'count', label: 'Eingegeben (Zukunft)', value: `${vp.totalUpcoming} Tage` },
     { kind: 'count', label: 'Noch nicht erfasst', value: `${vr.remaining} Tage` },
   ];
+  // Abgeltung bei Austritt (seit v3.9.99): ausbezahlte Urlaubstage als eigene Kachel vor
+  // „Noch nicht erfasst“ — sie mindern den Resturlaub, zählen aber nicht als genommen.
+  if (vr.payoutDays > 0) {
+    summaryFields.splice(3, 0, { kind: 'count', label: 'Ausbezahlt bei Austritt', value: `${String(vr.payoutDays).replace('.', ',')} ${vr.payoutDays === 1 ? 'Tag' : 'Tage'}` });
+  }
+  const fmt = (/** @type {string} */ d) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+  const endDate = (typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 10) ? emp.employmentEndDate : '';
+  const hints = [];
+  if (vr.payoutExceeds) {
+    hints.push(`Die ausbezahlten Urlaubstage (${String(vr.payoutDays).replace('.', ',')}) übersteigen den offenen Resturlaub (${Math.max(0, vr.annual + vr.carryOver - vr.taken)}). Bitte die Angaben beim Arbeitgeber mit der Lohnabrechnung abgleichen.`);
+  }
+  if (vp.afterEndDates && vp.afterEndDates.length) {
+    const n = vp.afterEndDates.length;
+    hints.push(`${n} ${n === 1 ? 'Urlaubseintrag liegt' : 'Urlaubseinträge liegen'} nach dem Beschäftigungsende (${escapeHtml(fmt(endDate))}) und ${n === 1 ? 'wird' : 'werden'} nicht gezählt: ${vp.afterEndDates.map(d => escapeHtml(fmt(d))).join(', ')}. Bitte im Reiter „Einträge“ löschen oder einem anderen Arbeitgeber zuordnen.`);
+  }
+  if (vr.afterEmployment && endDate) {
+    hints.push(`Die Beschäftigung endete am ${escapeHtml(fmt(endDate))}. Für ${escapeHtml(vp.year)} besteht bei diesem Arbeitgeber kein Urlaubsanspruch mehr.`);
+  }
+  const hintsHTML = hints.map(h => `<div class="hint-banner" data-testid="vacation-planning-hint">Hinweis: ${h}</div>`).join('');
+  // Urlaubsbescheinigung (§ 6 Abs. 2 BUrlG, seit v3.9.99) im Jahr des Beschäftigungsendes.
+  const certHTML = (endDate && endDate.slice(0, 4) === String(vp.year) && emp.kind !== 'client')
+    ? `<div class="report-actions vacation-cert-actions"><button id="btn-export-vacation-certificate" class="btn-primary" data-testid="button-export-vacation-certificate">📕 Urlaubsbescheinigung (PDF)</button></div>`
+    : '';
 
   const bodyRows = vp.months.map((m) => `
     <tr${(m.taken + m.upcoming) === 0 ? ' class="muted-row"' : ''}>
@@ -43,7 +66,9 @@ export function buildVacationPlanningHTML(vp, vr, emp, ctx) {
       <h3>Urlaubsplanung – ${escapeHtml(emp.name)}</h3>
       <div class="subtitle">Jahr ${escapeHtml(vp.year)}</div>
     </div>
+    ${hintsHTML}
     <div class="summary-grid">${renderSummaryHTML(summaryFields)}</div>
+    ${certHTML}
     ${educationLeave ? buildEducationLeaveBlockHTML(educationLeave, { escapeHtml, renderSummaryHTML }) : ''}
     ${calendarHTML || ''}
     <div class="report-table-wrap">

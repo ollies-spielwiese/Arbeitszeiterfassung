@@ -11,11 +11,19 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.9.98';
+export const APP_VERSION = '3.9.99';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.9.99', items: [
+    'Neu: Abgeltung bei Austritt. Beim Arbeitgeber lassen sich mit „Beschäftigt bis“ ausbezahlte Urlaubstage und ausbezahlte Überstunden erfassen.',
+    'Ausbezahlte Urlaubstage mindern den Resturlaub in Urlaubsplanung und Monatsnachweis; das Gleitzeitkonto zeigt die Zeile „Auszahlung bei Austritt“.',
+    'Neu: Urlaubsbescheinigung nach § 6 Abs. 2 BUrlG als PDF in der Urlaubsplanung (Jahr des Beschäftigungsendes).',
+    'Urlaubseinträge nach dem Beschäftigungsende werden nicht mehr gezählt; in Jahren nach dem Austritt besteht kein Urlaubsanspruch mehr.',
+    'Monatsnachweis (Ansicht, PDF, Word, CSV) nennt im Endmonat die Abgeltung.',
+    'Anleitung aktualisiert, Beschreibung der Kacheln im Reiter „Monat“ korrigiert.',
+  ] },
   { version: '3.9.98', items: [
     'Doku: Bedienungsanleitung auf den aktuellen Stand gebracht — Arbeitszeitmodell, Sollstunden pro Jahr, Pausenregelungen, Doppelbelegungsschutz, Home-Office über Mitternacht, Saldo-Erklärung, Gleitzeitkonto-PDF und -Kacheln, Archiv als Momentaufnahme, E-Mail-Prüfung, Backup-Prüfung, Speicherfehler und Modus Freiberuflich/Nebenerwerb',
   ]},

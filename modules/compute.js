@@ -387,12 +387,29 @@ export function computeElapsedMonthProgress(employer, ym, todayISOStr, ctx) {
  * @param {any} emp Employer-Objekt (mit annualVacation, vacationCarryOver, hiredSince)
  * @param {string} ym Monat im Format YYYY-MM — bestimmt Kalenderjahr und Stichtag
  * @param {Array<any>} allEntries Alle Einträge (state.entries) — werden employer-/jahresgefiltert
- * @returns {{annual:number, carryOver:number, taken:number, remaining:number, prorated:boolean, hiredMonth:number|null, endMonth:number|null}}
+ * @returns {{annual:number, carryOver:number, taken:number, remaining:number, prorated:boolean, hiredMonth:number|null, endMonth:number|null, months?:number, payoutDays?:number, payoutExceeds?:boolean, afterEmployment?:boolean}}
  */
+/**
+ * Abgeltung bei Austritt (seit v3.9.99): bei Beendigung des Arbeitsverhältnisses ausbezahlte
+ * Urlaubstage (§ 7 Abs. 4 BUrlG) und Überstunden. Nur wirksam, wenn „Beschäftigt bis“ gesetzt
+ * ist und mindestens einer der beiden Werte > 0 ist. Es werden bewusst KEINE Geldbeträge
+ * gespeichert — die Lohnabrechnung bleibt maßgeblich.
+ * @param {any} emp
+ * @returns {{endDate:string, ym:string, year:string, vacationDays:number, overtimeMin:number}|null}
+ */
+export function getExitPayout(emp) {
+  if (!emp || typeof emp.employmentEndDate !== 'string' || emp.employmentEndDate.length < 10) return null;
+  const vacationDays = Math.max(0, Number(emp.vacationPayoutDays) || 0);
+  const overtimeMin = Math.max(0, Math.round(Number(emp.overtimePayoutMinutes) || 0));
+  if (!vacationDays && !overtimeMin) return null;
+  const endDate = emp.employmentEndDate;
+  return { endDate, ym: endDate.slice(0, 7), year: endDate.slice(0, 4), vacationDays, overtimeMin };
+}
+
 export function computeVacationRemaining(emp, ym, allEntries) {
-  if (!emp) return { annual: 0, carryOver: 0, taken: 0, remaining: 0, prorated: false, hiredMonth: null, endMonth: null };
+  if (!emp) return { annual: 0, carryOver: 0, taken: 0, remaining: 0, prorated: false, hiredMonth: null, endMonth: null, months: 12, payoutDays: 0, payoutExceeds: false, afterEmployment: false };
   const annualBase = Math.max(0, parseInt(emp.annualVacation) || 0);
-  const carryOver = Math.max(0, parseInt(emp.vacationCarryOver) || 0);
+  let carryOver = Math.max(0, parseInt(emp.vacationCarryOver) || 0);
   const year = ym.slice(0, 4);
   const yearNum = parseInt(year, 10);
   const lastDayOfMonth = new Date(yearNum, parseInt(ym.slice(5, 7), 10), 0).getDate();
@@ -403,6 +420,7 @@ export function computeVacationRemaining(emp, ym, allEntries) {
   // die Monate dazwischen. Liegt nur eine der beiden Grenzen im Jahr, wird nur diese angewendet
   // (analog zur bisherigen Start-Logik).
   let annual = annualBase;
+  let months = 12;
   let prorated = false;
   let hiredMonth = null;
   let endMonth = null;
@@ -417,27 +435,77 @@ export function computeVacationRemaining(emp, ym, allEntries) {
   if (hiredMonth !== null && endMonth !== null) {
     const monthsWorked = Math.max(0, endMonth - hiredMonth + 1); // z.B. Mär-Aug → 6 Monate
     annual = Math.round((annualBase * monthsWorked) / 12);
+    months = monthsWorked;
     prorated = true;
   } else if (hiredMonth !== null) {
     const monthsWorked = 13 - hiredMonth; // Mai=5 → 8 Monate
     annual = Math.round((annualBase * monthsWorked) / 12);
+    months = monthsWorked;
     prorated = true;
   } else if (endMonth !== null) {
     const monthsWorked = endMonth; // Ende im August=8 → 8 Monate (Jan-Aug)
     annual = Math.round((annualBase * monthsWorked) / 12);
+    months = monthsWorked;
     prorated = true;
   }
+  // Seit v3.9.99: Jahre NACH dem Beschäftigungsende haben keinen Urlaubsanspruch mehr
+  // (vorher zeigte z. B. 2027 nach Austritt 2026 wieder den vollen Jahresurlaub).
+  const endDate = (typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 10) ? emp.employmentEndDate : null;
+  const afterEmployment = !!(endDate && endDate.slice(0, 4) < year);
+  if (afterEmployment) { annual = 0; carryOver = 0; months = 0; prorated = true; }
 
   // Genommene Urlaubstage im Kalenderjahr bis Stichtag
   const taken = (allEntries || []).filter(e =>
     e.type === 'vacation' &&
     e.employerId === emp.id &&
     e.date && e.date.startsWith(year) &&
-    e.date <= stichtag
+    e.date <= stichtag &&
+    (!endDate || e.date <= endDate) // seit v3.9.99: Einträge nach Beschäftigungsende zählen nicht
   ).length;
 
-  const remaining = Math.max(0, annual + carryOver - taken);
-  return { annual, carryOver, taken, remaining, prorated, hiredMonth, endMonth };
+  // Abgeltung bei Austritt (seit v3.9.99): mindert den Resturlaub ab dem Monat des
+  // Beschäftigungsendes, zählt aber NICHT als genommener Urlaub.
+  const payout = getExitPayout(emp);
+  const payoutDays = (payout && payout.year === year && stichtag >= payout.endDate) ? payout.vacationDays : 0;
+  const open = Math.max(0, annual + carryOver - taken);
+  const remaining = Math.max(0, open - payoutDays);
+  const payoutExceeds = payoutDays > open + 1e-9;
+  return { annual, carryOver, taken, remaining, prorated, hiredMonth, endMonth, months, payoutDays, payoutExceeds, afterEmployment };
+}
+
+/**
+ * Daten für die Urlaubsbescheinigung nach § 6 Abs. 2 BUrlG (seit v3.9.99): im Kalenderjahr des
+ * Beschäftigungsendes gewährter und abgegoltener Urlaub. Pure Funktion, keine DOM-Zugriffe.
+ * @param {any} emp
+ * @param {Array<any>} allEntries
+ * @returns {{year:string, hiredSince:string, endDate:string, annualContract:number, months:number, prorated:boolean, entitlement:number, carryOver:number, grantedDays:number, grantedDates:string[], payoutDays:number, totalGrantedOrPaid:number, remaining:number, payoutExceeds:boolean}|null}
+ */
+export function computeVacationCertificate(emp, allEntries) {
+  if (!emp || typeof emp.employmentEndDate !== 'string' || emp.employmentEndDate.length < 10) return null;
+  const endDate = emp.employmentEndDate;
+  const year = endDate.slice(0, 4);
+  const vr = computeVacationRemaining(emp, endDate.slice(0, 7), allEntries);
+  const grantedDates = (allEntries || [])
+    .filter(e => e && e.type === 'vacation' && e.employerId === emp.id && e.date && e.date.startsWith(year) && e.date <= endDate)
+    .map(e => e.date)
+    .sort();
+  const payoutDays = vr.payoutDays || 0;
+  return {
+    year,
+    hiredSince: typeof emp.hiredSince === 'string' ? emp.hiredSince : '',
+    endDate,
+    annualContract: Math.max(0, parseInt(emp.annualVacation) || 0),
+    months: vr.months == null ? 12 : vr.months,
+    prorated: !!vr.prorated,
+    entitlement: vr.annual,
+    carryOver: vr.carryOver,
+    grantedDays: grantedDates.length,
+    grantedDates,
+    payoutDays,
+    totalGrantedOrPaid: grantedDates.length + payoutDays,
+    remaining: vr.remaining,
+    payoutExceeds: !!vr.payoutExceeds,
+  };
 }
 
 /**
@@ -459,15 +527,21 @@ export function computeVacationRemaining(emp, ym, allEntries) {
  * @param {number|string} year Kalenderjahr, z.B. 2026
  * @param {Array<any>} allEntries Alle Eintraege (state.entries)
  * @param {string} today Stichtag im ISO-Format YYYY-MM-DD (i.d.R. todayISO())
- * @returns {{year:string, months:Array<{month:number, taken:number, upcoming:number}>, totalTaken:number, totalUpcoming:number, totalYear:number}}
+ * @returns {{year:string, months:Array<{month:number, taken:number, upcoming:number}>, totalTaken:number, totalUpcoming:number, totalYear:number, afterEndDates?:string[]}}
  */
 export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
   const yearStr = String(year);
   const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, taken: 0, upcoming: 0 }));
+  // Seit v3.9.99: Urlaubseinträge nach „Beschäftigt bis“ zählen nicht mehr mit, werden aber
+  // gesammelt, damit die Ansicht einen Hinweis zum Bereinigen zeigen kann.
+  const endDate = (emp && typeof emp.employmentEndDate === 'string' && emp.employmentEndDate.length >= 10) ? emp.employmentEndDate : null;
+  /** @type {string[]} */
+  const afterEndDates = [];
   if (emp) {
     (allEntries || []).forEach((e) => {
       if (!e || e.type !== 'vacation' || e.employerId !== emp.id) return;
       if (!e.date || !e.date.startsWith(yearStr)) return;
+      if (endDate && e.date > endDate) { afterEndDates.push(e.date); return; }
       const monthIdx = parseInt(e.date.slice(5, 7), 10) - 1;
       if (monthIdx < 0 || monthIdx > 11) return;
       if (today && e.date <= today) months[monthIdx].taken++;
@@ -476,7 +550,8 @@ export function computeYearlyVacationPlanning(emp, year, allEntries, today) {
   }
   const totalTaken = months.reduce((s, m) => s + m.taken, 0);
   const totalUpcoming = months.reduce((s, m) => s + m.upcoming, 0);
-  return { year: yearStr, months, totalTaken, totalUpcoming, totalYear: totalTaken + totalUpcoming };
+  afterEndDates.sort();
+  return { year: yearStr, months, totalTaken, totalUpcoming, totalYear: totalTaken + totalUpcoming, afterEndDates };
 }
 
 /**
@@ -668,11 +743,14 @@ export function computeMonthReport(employerId, ym, ctx) {
   const overtimeEntries = workEntries.filter(e => e.overtimeReason);
   const holidays = getHolidaysInRange(`${ym}-01`, `${ym}-31`, stateCode, overrides);
   const vacationRemaining = computeVacationRemaining(emp, ym, state.entries);
+  // Abgeltung bei Austritt (seit v3.9.99) nur im Monat des Beschäftigungsendes ausweisen.
+  const payout = getExitPayout(emp);
+  const exitPayout = (payout && payout.ym === ym) ? payout : null;
 
   return {
     employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, educationLeaveEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
-    vacationRemaining,
+    vacationRemaining, exitPayout,
   };
 }
 
@@ -739,7 +817,7 @@ export function computeMonthOverview(ym, ctx) {
  * @param {AZEmployer} emp
  * @param {number} year z.B. 2026
  * @param {AZComputeCtx} ctx muss ctx.state enthalten (fuer computeMonthReport)
- * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, cumulativeTargetMin:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number, cumulativeEducationLeaveDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean}}
+ * @returns {{rows: Array<{ym:string, workedMin:number, targetMin:number, balance:number, cumulativeBalance:number, cumulativeTargetMin:number, creditedAbsenceMin:number, vacationDays:number, sickDays:number, cumulativeCreditedAbsenceMin:number, cumulativeVacationDays:number, cumulativeSickDays:number, cumulativeEducationLeaveDays:number}>, effectiveStartYm: string, effectiveEndYm: string, hiredAfterYear: boolean, endedBeforeYear: boolean, payout?: {ym:string, minutes:number, balanceAfter:number}|null}}
  */
 export function computeGleitzeitkontoRows(emp, year, ctx) {
   const state = ctx && ctx.state;
@@ -814,7 +892,15 @@ export function computeGleitzeitkontoRows(emp, year, ctx) {
     }
     cursor = shiftYearMonth(cursor, 1);
   }
-  return { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear: false, endedBeforeYear: false };
+  // Ausbezahlte Überstunden bei Austritt (seit v3.9.99): eigene Schlusszeile im Monat des
+  // Beschäftigungsendes. Die Monatszeilen (und damit die Sollstunden-Warnung) bleiben unverändert.
+  const exit = getExitPayout(emp);
+  let payout = null;
+  if (exit && exit.overtimeMin > 0) {
+    const row = rows.find(r => r.ym === exit.ym);
+    if (row) payout = { ym: exit.ym, minutes: exit.overtimeMin, balanceAfter: row.cumulativeBalance - exit.overtimeMin };
+  }
+  return { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear: false, endedBeforeYear: false, payout };
 }
 
 /**
@@ -840,9 +926,10 @@ export function computeGleitzeitkontoAsOfToday(emp, year, todayISOStr, ctx) {
 
   if (!currentYm.startsWith(String(year)) || hiredAfterYear || endedBeforeYear || !rows.length) {
     const last = rows.length ? rows[rows.length - 1] : null;
+    const payoutMin = (full.payout && last && last.ym >= full.payout.ym) ? full.payout.minutes : 0;
     return {
       rows,
-      cumulativeBalance: last ? last.cumulativeBalance : 0,
+      cumulativeBalance: last ? last.cumulativeBalance - payoutMin : 0,
       cumulativeTargetMin: last ? last.cumulativeTargetMin : 0,
       asOfYm: last ? last.ym : null,
       truncated: false,
@@ -861,6 +948,7 @@ export function computeGleitzeitkontoAsOfToday(emp, year, todayISOStr, ctx) {
     }
   }
 
+  if (full.payout && throughDate.slice(0, 7) >= full.payout.ym) cumulativeBalance -= full.payout.minutes;
   return { rows, cumulativeBalance, cumulativeTargetMin, asOfYm: throughDate.slice(0, 7), truncated: true };
 }
 

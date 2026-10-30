@@ -214,6 +214,24 @@ export function getSummaryFields(input, ctx) {
     }
   }
 
+  // 4e. Abgeltung bei Austritt (seit v3.9.99) — nur im Monat von „Beschäftigt bis“, wenn
+  // ausbezahlte Urlaubstage und/oder Überstunden gepflegt sind (siehe getExitPayout).
+  if (!freelance && input.exitPayout) {
+    const xp = input.exitPayout;
+    const parts = [];
+    if (xp.vacationDays > 0) parts.push(`Urlaub ${String(xp.vacationDays).replace('.', ',')} ${xp.vacationDays === 1 ? 'Tag' : 'Tage'}`);
+    if (xp.overtimeMin > 0) parts.push(`Überstunden ${minutesToHM(xp.overtimeMin)} Std.`);
+    const d = String(xp.endDate || '');
+    const endLabel = d.length >= 10 ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}` : d;
+    fields.push({
+      key: 'exitPayout',
+      label: `Abgeltung bei Austritt (${endLabel})`,
+      kind: 'count',
+      value: parts.join(' · '),
+      rawExitPayout: xp,
+    });
+  }
+
   // 5. Feiertage (wenn explizit angefordert, z.B. Woche)
   if (includeHolidays) {
     fields.push({

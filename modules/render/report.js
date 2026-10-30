@@ -91,6 +91,7 @@ export function buildReportHTML(r, ctx) {
     currency: r.employer.currency || 'EUR',
     mode: reportMode(r.employer),
     creditedAbsenceMin: r.creditedAbsenceMin,
+    exitPayout: r.exitPayout || null,
     // Sollstunden-Warnung (seit v3.9.78), siehe modules/soll-warning.js.
     balanceWarning,
   });

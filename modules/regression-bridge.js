@@ -43,6 +43,7 @@ export function exportBridge(target, refs) {
     computeMonthTargetMinutes, computeWeekTargetMinutes, computeDayTargetMinutes, countWorkdaysInMonth,
     computeMonthReport, computeMonthOverview, computeVacationRemaining,
     computeYearlyVacationPlanning, computeEducationLeaveYear, computeVacationCalendarMonth, MONTH_LABELS_LONG,
+    computeVacationCertificate, getExitPayout, buildVacationCertificateRows, generateVacationCertificatePdfBlob,
     buildVacationPlanningHTML, buildVacationCalendarHTML,
     generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
     // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
@@ -133,6 +134,11 @@ export function exportBridge(target, refs) {
   if (typeof computeVacationRemaining === 'function') target.computeVacationRemaining = computeVacationRemaining;
   if (typeof computeYearlyVacationPlanning === 'function') target.computeYearlyVacationPlanning = computeYearlyVacationPlanning;
   if (typeof computeEducationLeaveYear === 'function') target.computeEducationLeaveYear = computeEducationLeaveYear;
+  // Abgeltung bei Austritt + Urlaubsbescheinigung (seit v3.9.99)
+  if (typeof computeVacationCertificate === 'function') target.computeVacationCertificate = computeVacationCertificate;
+  if (typeof getExitPayout === 'function') target.getExitPayout = getExitPayout;
+  if (typeof buildVacationCertificateRows === 'function') target.buildVacationCertificateRows = buildVacationCertificateRows;
+  if (typeof generateVacationCertificatePdfBlob === 'function') target.generateVacationCertificatePdfBlob = generateVacationCertificatePdfBlob;
   if (typeof computeVacationCalendarMonth === 'function') target.computeVacationCalendarMonth = computeVacationCalendarMonth;
   if (typeof MONTH_LABELS_LONG !== 'undefined') target.MONTH_LABELS_LONG = MONTH_LABELS_LONG;
   if (typeof buildVacationPlanningHTML === 'function') target.buildVacationPlanningHTML = buildVacationPlanningHTML;

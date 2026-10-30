@@ -31,7 +31,7 @@
  *   auf das gewählte Kalenderjahr begrenzt (siehe computeGleitzeitkontoRows in modules/compute.js)
  * @param {any} emp
  * @param {{escapeHtml:(s:string)=>string, minutesToHM:(m:number)=>string, formatMonthYear:(ym:string)=>string, renderSummaryHTML:(fields:any[])=>string, buildBalanceTooltipText?:(creditedAbsenceMin:number, vacationDays:number, sickDays:number, minutesToHM:(m:number)=>string, educationLeaveDays?:number)=>(string|null), balanceWarning?:(import('../soll-warning.js').SollWarning & {tooltipText:string})|null, asOf?:{cumulativeBalance:number, asOfYm:string, truncated:boolean}}} ctx
- * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean}} [meta] seit v3.9.48
+ * @param {{year?: number, effectiveStartYm?: string, effectiveEndYm?: string, hiredAfterYear?: boolean, endedBeforeYear?: boolean, payout?: {ym:string, minutes:number, balanceAfter:number}|null}} [meta] seit v3.9.48
  *   (Endgrenze "Beschäftigt bis" seit v3.9.55): Metadaten aus computeGleitzeitkontoRows, um
  *   Hinweise zu "Angestellt seit"/"Beschäftigt bis"/fehlenden Daten anzuzeigen (siehe
  *   RELEASE.md → "Gleitzeitkonto: Kalenderjahr statt rollierendem Zeitraum").
@@ -39,7 +39,7 @@
  */
 export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   const { escapeHtml, minutesToHM, formatMonthYear, renderSummaryHTML, buildBalanceTooltipText, balanceWarning, asOf } = ctx;
-  const { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear } = meta || {};
+  const { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = meta || {};
 
   if (!rows || !rows.length) {
     if (hiredAfterYear) {
@@ -110,6 +110,16 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
   `;
   }).join('');
 
+  // Ausbezahlte Überstunden bei Austritt (seit v3.9.99) als eigene Schlusszeile.
+  const payoutRowHTML = payout ? `
+    <tr class="payout-row" data-testid="row-gleitzeitkonto-payout">
+      <td data-label="Monat"><strong>Auszahlung bei Austritt</strong></td>
+      <td class="num" data-label="Ist"></td>
+      <td class="num" data-label="Soll"></td>
+      <td class="num neg" data-label="Saldo (Monat)">${minutesToHM(-payout.minutes)}</td>
+      <td class="num ${payout.balanceAfter < 0 ? 'neg' : (payout.balanceAfter > 0 ? 'pos' : '')}" data-label="Saldo (kumuliert)"><strong>${minutesToHM(payout.balanceAfter)}</strong></td>
+    </tr>` : '';
+
   const subtitle = year
     ? `Kumulierter Saldoverlauf, Kalenderjahr ${escapeHtml(String(year))}`
     : `Kumulierter Saldoverlauf über ${rows.length} ${rows.length === 1 ? 'Monat' : 'Monate'}`;
@@ -134,6 +144,7 @@ export function buildGleitzeitkontoHTML(rows, emp, ctx, meta) {
         </thead>
         <tbody>
           ${bodyRows}
+          ${payoutRowHTML}
         </tbody>
       </table>
     </div>

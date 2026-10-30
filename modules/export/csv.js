@@ -90,6 +90,13 @@ export function generateCsvBlob(report, ctx) {
       ? ctx.formatEmploymentModelSummary(report.employer)
       : '';
     if (modelSummary) metaRows.push(['Arbeitszeitmodell', modelSummary]);
+    // Abgeltung bei Austritt (seit v3.9.99), nur im Monat von „Beschäftigt bis“.
+    const xp = report.exitPayout;
+    if (xp) {
+      metaRows.push(['Beschäftigt bis', formatDate(xp.endDate)]);
+      if (xp.vacationDays > 0) metaRows.push(['Urlaubsabgeltung (Tage)', String(xp.vacationDays).replace('.', ',')]);
+      if (xp.overtimeMin > 0) metaRows.push(['Ausbezahlte Überstunden', minutesToHM(xp.overtimeMin)]);
+    }
   }
 
   const tableRows = [CSV_HEADER, ...formattedRows];
