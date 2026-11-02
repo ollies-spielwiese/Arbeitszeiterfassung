@@ -12,6 +12,7 @@
 
 import { reportMode } from '../report-mode.js';
 import { getEmployerLetterhead } from '../employer-address.js';
+import { noteWithFieldService, fieldServiceSummaryText } from '../field-service.js';
 
 function wrapText(doc, text, x, y, maxWidth) {
   const split = doc.splitTextToSize(text, maxWidth);
@@ -208,7 +209,7 @@ export function generatePdfBlob(report, ctx) {
         String(e.breakMinutes || 0),
         minutesToHM(computeWorkMinutes(e)),
         e.overtimeReason || '',
-        e.note || '',
+        report.fieldService ? noteWithFieldService(e, report.fieldService.settings) : (e.note || ''),
       ];
     });
     doc.autoTable({
@@ -237,6 +238,19 @@ export function generatePdfBlob(report, ctx) {
       doc.setTextColor(0);
       doc.setFont('helvetica', 'normal');
       y += 6;
+    }
+    // Außendienst-Nachweis (seit v3.13.0): Aufteilung nach Tätigkeit + Kilometer.
+    const fsText = fieldServiceSummaryText(report.fieldService, minutesToHM);
+    if (fsText) {
+      if (y > 265) { doc.addPage(); y = 20; }
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      const fsLines = doc.splitTextToSize(fsText, 180);
+      doc.text(fsLines, marginX, y);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'normal');
+      y += fsLines.length * 4.5 + 2;
     }
   }
 

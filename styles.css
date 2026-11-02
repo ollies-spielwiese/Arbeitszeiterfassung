@@ -1682,3 +1682,46 @@ textarea.note-autogrow {
   .arbzg-table td { border-bottom-color: #5a4218; }
 }
 .arbzg-nowrap { white-space: nowrap; }
+
+/* ---------- Außendienst-Nachweis (seit v3.13.0) ---------- */
+.fs-label { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 6px; font-weight: 600; }
+.fs-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.fs-chip { appearance: none; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 0.88rem; cursor: pointer; line-height: 1.2; }
+.fs-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.fs-chip-custom { background: #ecfdf3; border-color: #86d6a4; color: #14532d; }
+.fs-chip-custom.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.fs-chip-builtin.fs-chip-hidden, .fs-chip-custom.fs-chip-hidden { background: transparent; color: var(--text-muted); text-decoration: line-through; border-style: dashed; }
+.fs-chip-add { background: transparent; border-style: dashed; color: var(--text-muted); }
+.fs-chip:disabled { cursor: default; opacity: 0.9; }
+.fs-location { width: 100%; box-sizing: border-box; }
+.fs-block { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.fs-km-fields { margin-top: 8px; margin-bottom: 0; }
+.fs-more-toggle { display: block; width: 100%; text-align: left; margin: 4px 0 10px; padding: 9px 12px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.9rem; cursor: pointer; }
+.fs-more-toggle strong { color: var(--primary); }
+.fs-more-toggle.hidden { display: none; }
+#form-entry.fs-collapsed .fs-collapsible { display: none !important; }
+.fs-next-row { margin: 8px 0 0; }
+.fs-next-row .btn-secondary { width: 100%; }
+.fs-tracker { margin: 10px 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.fs-tracker .hint { display: block; margin-top: 6px; }
+.fs-today { margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.fs-today h3 { margin: 0 0 6px; font-size: 1rem; }
+.fs-today-list { list-style: none; margin: 0; padding: 0; }
+.fs-today-row { display: grid; grid-template-columns: 96px 1fr auto; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; cursor: pointer; }
+.fs-today-row:last-child { border-bottom: 0; }
+.fs-today-time, .fs-today-dur { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fs-today-dur { color: var(--text-muted); }
+.fs-today-desc { min-width: 0; overflow-wrap: anywhere; }
+.fs-today-running { color: var(--primary); cursor: default; }
+.fs-link { background: none; border: 0; padding: 0; color: var(--primary); text-decoration: underline; font: inherit; cursor: pointer; }
+.fs-km-row label { font-size: 0.88rem; }
+#settings-block-fieldservice h4 { margin: 14px 0 4px; font-size: 0.95rem; }
+#settings-block-fieldservice.fs-off .fs-settings-body { display: none; }
+.fs-emp-list { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 6px; }
+.fs-seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.fs-seg-btn { appearance: none; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 0.88rem; cursor: pointer; }
+.fs-seg-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+.arbzg-sub { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+@media (prefers-color-scheme: dark) {
+  .fs-chip-custom { background: #12301f; border-color: #2f7a4d; color: #b7f0cc; }
+}

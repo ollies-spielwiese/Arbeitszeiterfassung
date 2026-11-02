@@ -45,7 +45,8 @@ export function exportBridge(target, refs) {
     computeYearlyVacationPlanning, computeEducationLeaveYear, computeVacationCalendarMonth, MONTH_LABELS_LONG,
     computeVacationCertificate, getExitPayout, buildVacationCertificateRows, generateVacationCertificatePdfBlob,
     buildVacationPlanningHTML, buildVacationCalendarHTML,
-    generatePdfBlob, generateOverviewPdfBlob, generateWordBlob,
+    generatePdfBlob, generateOverviewPdfBlob, generateWordBlob, generateKmPdfBlob,
+    openEntryModal, openEmployerModal,
     // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)
     pushAuditLog, formatAuditLogLine, buildAuditLogHTML, renderAuditLog, updateBackupReminderBanner,
     // Sollstunden-Warnung (seit v3.9.78, dynamischer Mindest-Arbeitstage-Schutz seit v3.9.80)
@@ -145,6 +146,10 @@ export function exportBridge(target, refs) {
   if (typeof buildVacationCalendarHTML === 'function') target.buildVacationCalendarHTML = buildVacationCalendarHTML;
   if (typeof generatePdfBlob === 'function') target.generatePdfBlob = generatePdfBlob;
   if (typeof generateOverviewPdfBlob === 'function') target.generateOverviewPdfBlob = generateOverviewPdfBlob;
+  if (typeof generateKmPdfBlob === 'function') target.generateKmPdfBlob = generateKmPdfBlob;
+  // Dialoge (seit v3.13.0, für Regressionstests)
+  if (typeof openEntryModal === 'function') target.openEntryModal = openEntryModal;
+  if (typeof openEmployerModal === 'function') target.openEmployerModal = openEmployerModal;
   if (typeof generateWordBlob === 'function') target.generateWordBlob = generateWordBlob;
 
   // Änderungsprotokoll / Backup-Erinnerung (seit v3.9.47)

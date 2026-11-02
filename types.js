@@ -51,6 +51,7 @@
  * @property {string} name
  * @property {string} color Hex-Farbe '#RRGGBB'
  * @property {string} [phone]
+ * @property {number} [minFreeSundays] Mindestens freie Sonntage pro Jahr (15, per Tarifvertrag 10/8/6; seit v3.13.0)
  * @property {string} [personnelNumber] Personalnummer beim Arbeitgeber ("Pers.-Nr."), erscheint auf der
  *   Gehaltsabrechnung. Rein informativ, seit v3.9.56 in PDF-/Word-/CSV-Export sowie Arbeitgeberliste
  *   und Monatsübersicht (PDF) sichtbar, direkt unter dem Namen des Mitarbeiters.
@@ -128,6 +129,11 @@
  * @property {number} [breakMinutes] (work)
  * @property {AZSegment[]} [segments] (homeoffice)
  * @property {string} [overtimeReason] (work, optional)
+ * @property {string} [activity] Außendienst: Tätigkeits-ID (work, seit v3.13.0)
+ * @property {string} [activityLabel] Außendienst: Tätigkeitsname zum Zeitpunkt der Erfassung
+ * @property {string} [location] Außendienst: Einsatzort
+ * @property {number} [km] Außendienst: gefahrene Kilometer (nur Fahrten)
+ * @property {'private'|'company'|''} [vehicle] Außendienst: Fahrzeug der Fahrt
  * @property {string} [note]
  * @property {string} [createdAt] ISO-Timestamp
  */
@@ -157,6 +163,9 @@
  * @property {string} employerId
  * @property {string} startISO
  * @property {'work'|'homeoffice'} [type]
+ * @property {string} [activity] Außendienst: Tätigkeit des laufenden Blocks (seit v3.13.0)
+ * @property {string} [activityLabel]
+ * @property {string} [location]
  */
 
 /**
@@ -178,6 +187,8 @@
  * @property {number} [sollWarningGleitzeitThresholdPct] Schwelle in Prozent für den Gleitzeitkonto-Saldo-Baustein (seit v3.9.78)
  * @property {string|null} [sollWarningSnoozeUntil] ISO-Timestamp, bis zu dem der Sollstunden-Warnung-Banner stummgeschaltet ist (seit v3.9.78)
  * @property {boolean} [arbzgHintsEnabled] Hinweis Arbeitszeitgesetz anzeigen (seit v3.12.0, Standard true; fehlend = an)
+ * @property {boolean} [sundayHintEnabled] Hinweis Sonn- und Feiertagsarbeit (seit v3.13.0, Standard true)
+ * @property {any} [fieldService] Außendienst-Nachweis (seit v3.13.0), siehe modules/field-service.js
  */
 
 /**
@@ -265,6 +276,7 @@
  * @property {number} dailyTargetMin
  * @property {AZHoliday[]} holidays
  * @property {number} workdays
+ * @property {any} [fieldService] Außendienst-Monatsauswertung (seit v3.13.0) oder null
  */
 
 /**

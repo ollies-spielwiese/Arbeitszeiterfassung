@@ -13,7 +13,11 @@
 
 import { reportMode } from '../report-mode.js';
 import { getEmployerLetterhead } from '../employer-address.js';
+import { activityLabelOf, entryKm, entryVehicle, formatKm, FS_VEHICLE_LABELS } from '../field-service.js';
+import { isSundayISO } from '../sunday-hints.js';
 const CSV_HEADER = ['Datum', 'Typ', 'Beginn', 'Ende', 'Pause (Min)', 'Stunden', 'Grund/Bemerkung'];
+// Zusatzspalten Außendienst-Nachweis (seit v3.13.0)
+const CSV_FS_HEADER = ['Tätigkeit', 'Einsatzort', 'Sonn/Feiertag', 'Kilometer', 'Fahrzeug'];
 
 const TYPE_LABELS = {
   work: 'Arbeit',
@@ -47,10 +51,19 @@ export function generateCsvBlob(report, ctx) {
   const { formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes, employeeName } = ctx;
 
   const rows = [];
+  // Außendienst-Nachweis (seit v3.13.0): Zusatzspalten nur, wenn für den Arbeitgeber aktiv.
+  const fsm = report.fieldService || null;
+  const holidayDates = new Set((report.holidays || []).map(h => h.date));
+  const sunHol = (d) => (isSundayISO(d) ? (holidayDates.has(d) ? 'Sonntag, Feiertag' : 'Sonntag') : (holidayDates.has(d) ? 'Feiertag' : ''));
 
   (report.workEntries || []).forEach((e) => {
     const mins = computeWorkMinutes(e);
-    rows.push([e.date, TYPE_LABELS.work, e.start || '', e.end || '', e.breakMinutes ?? '', minutesToHM(mins), e.overtimeReason || e.note || '']);
+    const row = [e.date, TYPE_LABELS.work, e.start || '', e.end || '', e.breakMinutes ?? '', minutesToHM(mins), e.overtimeReason || e.note || ''];
+    if (fsm) {
+      const km = entryKm(e);
+      row.push(activityLabelOf(e, fsm.settings), e.location || '', sunHol(e.date), km > 0 ? formatKm(km) : '', km > 0 ? FS_VEHICLE_LABELS[entryVehicle(e, fsm.settings)] : '');
+    }
+    rows.push(row);
   });
   (report.homeofficeEntries || []).forEach((e) => {
     const mins = computeHomeofficeMinutes(e);
@@ -76,7 +89,12 @@ export function generateCsvBlob(report, ctx) {
   });
 
   rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-  const formattedRows = rows.map((r) => [formatDate(r[0]), ...r.slice(1)]);
+  const formattedRows = rows.map((r) => {
+    const out = [formatDate(r[0]), ...r.slice(1)];
+    // Nicht-Präsenz-Zeilen: nur Sonn/Feiertag füllen (Home-Office kann Sonntagsarbeit sein).
+    if (fsm && out.length === CSV_HEADER.length) out.push('', '', r[1] === TYPE_LABELS.homeoffice ? sunHol(r[0]) : '', '', '');
+    return out;
+  });
 
   // Kopf-Metadatenzeilen (Arbeitnehmer/in, Pers.-Nr.) — nur wenn jeweils gesetzt, seit v3.9.56.
   const empName = (employeeName || '').trim();
@@ -103,7 +121,12 @@ export function generateCsvBlob(report, ctx) {
     }
   }
 
-  const tableRows = [CSV_HEADER, ...formattedRows];
+  const header = fsm ? [...CSV_HEADER, ...CSV_FS_HEADER] : CSV_HEADER;
+  if (fsm && fsm.km > 0) {
+    metaRows.push(['Kilometer gesamt', formatKm(fsm.km)]);
+    if (fsm.amount > 0) metaRows.push(['Kilometer-Betrag (EUR)', fsm.amount.toFixed(2).replace('.', ',')]);
+  }
+  const tableRows = [header, ...formattedRows];
   const allRows = metaRows.length ? [...metaRows, [], ...tableRows] : tableRows;
   const lines = allRows.map((row) => row.map(csvField).join(';'));
   // BOM für Excel-de-DE (UTF-8-Erkennung von Umlauten in geöffneten CSVs).

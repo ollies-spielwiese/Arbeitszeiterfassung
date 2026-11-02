@@ -17,6 +17,7 @@
 // }
 
 import { reportMode } from '../report-mode.js';
+import { noteWithFieldService, fieldServiceSummaryText } from '../field-service.js';
 
 export function buildReportHTML(r, ctx) {
   const {
@@ -31,6 +32,9 @@ export function buildReportHTML(r, ctx) {
     renderSummaryHTML,
     balanceWarning,
   } = ctx;
+
+  // Außendienst-Nachweis (seit v3.13.0): Tätigkeit · Ort · km vor der Bemerkung.
+  const fsm = r.fieldService || null;
 
   // Gemeinsame, chronologisch sortierte Zeilen aus Arbeit + Home-Office
   const combined = [
@@ -60,7 +64,7 @@ export function buildReportHTML(r, ctx) {
         <td class="num" data-label="Pause (Min)">${e.breakMinutes || 0}</td>
         <td class="num" data-label="Std.">${minutesToHM(mins)}</td>
         <td data-label="Grund Überstunden">${escapeHtml(e.overtimeReason || '')}</td>
-        <td data-label="Bemerkung">${escapeHtml(e.note || '')}</td>
+        <td data-label="Bemerkung">${escapeHtml(fsm ? noteWithFieldService(e, fsm.settings) : (e.note || ''))}</td>
       </tr>
     `;
   }).join('');
@@ -111,6 +115,13 @@ export function buildReportHTML(r, ctx) {
         <tbody>${rows}</tbody>
       </table>
       ${homeofficeFooter}
+      ${buildFieldServiceFooter(fsm, minutesToHM, escapeHtml)}
     ` : '<div class="empty-state">Keine Arbeitszeiten in diesem Monat.</div>'}
   `;
+}
+
+/** Aufteilung nach Tätigkeit und Kilometer-Summe (seit v3.13.0). */
+export function buildFieldServiceFooter(fsm, minutesToHM, escapeHtml) {
+  const text = fieldServiceSummaryText(fsm, minutesToHM);
+  return text ? `<div class="report-footer-note" data-testid="report-fs-footer">${escapeHtml(text)}</div>` : '';
 }

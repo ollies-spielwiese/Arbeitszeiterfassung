@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-12-0';
+const CACHE_NAME = 'arbeitszeit-v3-13-0';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,7 @@ const ASSETS = [
   './modules/audit-log.js',
   './modules/export/word.js',
   './modules/export/pdf.js',
+  './modules/export/km-pdf.js',
   './modules/export/overview-pdf.js',
   './modules/export/gleitzeitkonto-pdf.js',
   './modules/export/vacation-certificate-pdf.js',
@@ -36,6 +37,8 @@ const ASSETS = [
   './modules/employer-address.js',
   './modules/education-leave-rules.js',
   './modules/arbzg-hints.js',
+  './modules/sunday-hints.js',
+  './modules/field-service.js',
   './modules/export/download.js',
   './modules/sw-update.js',
   './modules/whatsnew.js',
@@ -48,6 +51,7 @@ const ASSETS = [
   './modules/backupFolder.js',
   './modules/share.js',
   './modules/ui/entry-modal.js',
+  './modules/ui/field-service-ui.js',
   './modules/ui/autogrow.js',
   './modules/ui/email-validation.js',
   './modules/ui/range-entry-modal.js',

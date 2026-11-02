@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.12.0</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.13.0</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -167,6 +167,21 @@
         </div>
       </div>
 
+      <div id="tracker-fs" class="fs-tracker hidden" data-testid="tracker-fs">
+        <div id="tracker-fs-pick">
+          <div class="fs-label">Tätigkeit</div>
+          <div id="tracker-fs-chips" class="fs-chips" role="group" aria-label="Tätigkeit"></div>
+          <input type="text" id="tracker-fs-location" class="fs-location" maxlength="120" placeholder="Einsatzort (optional)" aria-label="Einsatzort" data-testid="input-tracker-location" />
+        </div>
+        <div id="tracker-fs-switch" class="hidden">
+          <div class="fs-label">Tätigkeit wechseln</div>
+          <div id="tracker-fs-switch-chips" class="fs-chips" role="group" aria-label="Tätigkeit wechseln"></div>
+          <input type="text" id="tracker-fs-next-location" class="fs-location" maxlength="120" placeholder="Einsatzort für den nächsten Block (optional)" aria-label="Einsatzort für den nächsten Block" data-testid="input-tracker-next-location" />
+          <small class="hint">Beendet den laufenden Block und startet den nächsten ohne Lücke.</small>
+        </div>
+      </div>
+      <div id="tracker-sunday-hint" class="arbzg-hint hidden" aria-live="polite" data-testid="hint-sunday-tracker"></div>
+
       <div class="big-buttons">
         <button id="btn-start" class="btn-huge btn-start" data-testid="button-start">
           <span class="btn-icon">▶</span>
@@ -177,6 +192,7 @@
           <span class="btn-label">Arbeitsende</span>
         </button>
       </div>
+      <div id="tracker-fs-today" class="fs-today hidden" data-testid="tracker-fs-today"></div>
 
       <div class="secondary-actions">
         <button id="btn-add-manual" class="btn-secondary" data-testid="button-add-manual">
@@ -239,6 +255,9 @@
         </button>
         <button id="btn-export-csv" class="btn-primary" data-testid="button-export-csv">
           📊 CSV
+        </button>
+        <button id="btn-export-km-pdf" class="btn-primary hidden" data-testid="button-export-km-pdf">
+          🚗 Kilometer-PDF
         </button>
         <button id="btn-share" class="btn-primary" data-testid="button-share">
           📤 Teilen
@@ -375,6 +394,8 @@
               <li><strong>Schutz vor Doppelbelegung:</strong> Ganztägige Abwesenheiten (Urlaub, Bildungsurlaub, Krankheit, Gleitzeit-Überstundenabbau, Freier Tag) lassen sich nicht mit Arbeits- oder Home-Office-Einträgen am selben Tag beim selben Arbeitgeber kombinieren. Ist das Datum schon belegt, weist die App darauf hin — den vorhandenen Eintrag dann zuerst im Reiter „Einträge“ bearbeiten oder löschen.</li>
               <li><strong>Sollstunden-Warnung:</strong> Weicht dein Saldo deutlich vom Soll ab, erscheint oben ein Hinweisbanner mit <strong>Zum Gleitzeitkonto</strong> und <strong>Später erinnern</strong> (siehe Abschnitt 6c).</li>
               <li><strong>Hinweis Arbeitszeitgesetz:</strong> Die App rechnet die Arbeitszeit aller Arbeitgeber zusammen (Kunden zählen nicht, Home-Office zählt mit). Liegt ein Tag über 10 Std. (§ 3 ArbZG, mehrere Arbeitgeber nach § 2 zusammengerechnet) oder liegen zwischen dem Arbeitsende eines Tages und dem Arbeitsbeginn am Folgetag weniger als 11 Std. Ruhezeit (§ 5 ArbZG), erscheint ein Hinweis direkt im Dialog „Zeit erfassen“ bzw. „Home-Office-Tag“. Es ist nur ein Hinweis, Speichern bleibt möglich. Ein laufender Timer wird erst nach dem Speichern geprüft. Abschalten lässt sich der Hinweis in den Einstellungen.</li>
+              <li><strong>Sonn- und Feiertage:</strong> Erfasst du Arbeit an einem Sonntag oder Feiertag, weist der Dialog auf §§ 9–11 ArbZG und den Ersatzruhetag hin. Für Sonntage zählt die App, an wie vielen Sonntagen im Jahr du gearbeitet hast (alle Arbeitgeber). Mindestens 15 müssen frei bleiben, per Tarifvertrag 10, 8 oder 6 – einstellbar je Arbeitgeber unter „Mindestens freie Sonntage pro Jahr“.</li>
+              <li><strong>Außendienst (wenn eingeschaltet):</strong> Vor dem Start Tätigkeit und Einsatzort wählen. Während der Timer läuft, beendet „Tätigkeit wechseln“ den Block und startet den nächsten ohne Lücke. Nach einer Fahrt fragt die App die Kilometer ab (oder erst bei Arbeitsende). Die Liste „Heute“ zeigt alle Blöcke des Tages. Im Dialog legt „Speichern und nächsten Block anlegen“ direkt den Anschluss-Block an.</li>
             </ul>
             <p>Unten auf dem Reiter siehst du eine kurze Zusammenfassung des heutigen Tages.</p>
           </div>
@@ -580,7 +601,8 @@
             <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich/Nebenerwerb) — Details dazu in Abschnitt 12a. Der Button <strong>?</strong> öffnet eine kurze Hilfe zu diesem Reiter. Daneben findest du:</p>
             <ul>
               <li><strong>Name, eigene E-Mail-Adresse und Bundesland:</strong> Das Namensfeld heißt je nach Modus „Arbeitnehmer/in – Name“ oder „Freiberufler/in – Name“ und erscheint so auch in den Nachweisen. Die eigene Adresse wird auf ein gültiges Format geprüft. Das Bundesland bestimmt die Feiertage.</li>
-              <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</li>
+              <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Zusätzlich (abschaltbar) ein Hinweis bei Arbeit an Sonn- und Feiertagen (§§ 9–11 ArbZG) mit Zählung der Sonntage mit Arbeit im Jahr. Nicht geprüft werden Durchschnittswerte, Wochengrenzen und Ausnahmen aus Tarifverträgen.</li>
+              <li><strong>Außendienst-Nachweis:</strong> standardmäßig aus. Eingeschaltet und je Arbeitgeber freigegeben erscheinen im Dialog „Zeit erfassen“ und im Reiter „Erfassen“ die Tätigkeiten Büro, Kundentermin, Fahrt sowie eigene Tätigkeiten, dazu ein Einsatzort und bei Fahrten die Kilometer. Alle Tätigkeiten zählen als Arbeitszeit. Die Kilometer-Aufstellung für die Reisekosten gibt es im Reiter „Monat“ als Kilometer-PDF.</li>
               <li><strong>Sollstunden-Warnung:</strong> Monats-Saldo und Gleitzeitkonto-Saldo getrennt ein- oder ausschalten und jeweils eine Schwelle (10 %, 20 %, 30 % oder eigener Wert) wählen — siehe Abschnitt 6c.</li>
               <li><strong>Feiertage anpassen:</strong> Die App berechnet gesetzliche Feiertage automatisch offline. In diesem Block kannst du zusätzliche Feiertage ergänzen (z. B. regionale wie das Augsburger Friedensfest), einzelne deaktivieren oder umbenennen — nützlich, falls sich künftig Gesetze ändern.
                 <ul>
@@ -757,7 +779,58 @@
           <input type="checkbox" id="setting-arbzg-hints" data-testid="checkbox-arbzg-hints" />
           <span>Hinweise anzeigen</span>
         </label>
-        <p class="hint">Prüft alle Arbeitgeber zusammen (ohne Kunden): mehr als 10 Std. Arbeit am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit zwischen zwei Arbeitstagen (§ 5 ArbZG). Home-Office zählt mit, ein laufender Timer erst nach dem Speichern. Es ist nur ein Hinweis, Speichern bleibt möglich. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</p>
+        <p class="hint">Prüft alle Arbeitgeber zusammen (ohne Kunden): mehr als 10 Std. Arbeit am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit zwischen zwei Arbeitstagen (§ 5 ArbZG). Home-Office zählt mit, ein laufender Timer erst nach dem Speichern. Es ist nur ein Hinweis, Speichern bleibt möglich. Nicht geprüft werden Durchschnittswerte, Wochengrenzen und Ausnahmen aus Tarifverträgen.</p>
+        <div class="arbzg-sub">
+          <label class="checkbox-row" for="setting-sunday-hint">
+            <input type="checkbox" id="setting-sunday-hint" data-testid="checkbox-sunday-hint" />
+            <span>Hinweis bei Arbeit an Sonn- und Feiertagen (§§ 9–11 ArbZG)</span>
+          </label>
+          <p class="hint">Zeigt beim Erfassen den Hinweis auf Ausnahmen und Ersatzruhetag und zählt die Sonntage mit Arbeit im Jahr (alle Arbeitgeber). Mindestens 15 müssen frei bleiben (§ 11 Abs. 1 ArbZG), per Tarifvertrag weniger – einstellbar je Arbeitgeber.</p>
+        </div>
+      </div>
+
+      <div class="settings-block" id="settings-block-fieldservice" data-testid="settings-block-fieldservice">
+        <h3>Außendienst-Nachweis</h3>
+        <label class="checkbox-row" for="setting-fs-enabled">
+          <input type="checkbox" id="setting-fs-enabled" data-testid="checkbox-fs-enabled" />
+          <span>Tätigkeit und Einsatzort erfassen</span>
+        </label>
+        <p class="hint">Standard: aus. Ohne Haken sehen Erfassen-Reiter und Dialog aus wie bisher. Alle Tätigkeiten zählen als Arbeitszeit – Soll und Saldo ändern sich nicht.</p>
+        <div class="fs-settings-body">
+          <div class="fs-label">Gilt für Arbeitgeber:</div>
+          <div id="setting-fs-employers" class="fs-emp-list"></div>
+          <h4>Tätigkeiten</h4>
+          <p class="hint">Blau = fest (antippen zum Aus- oder Einblenden). Grün = eigene Tätigkeit (umbenennen, ausblenden, löschen).</p>
+          <div id="setting-fs-activities" class="fs-chips"></div>
+          <label class="checkbox-row" for="setting-fs-km">
+            <input type="checkbox" id="setting-fs-km" data-testid="checkbox-fs-km" />
+            <span>Kilometer bei Fahrten erfassen</span>
+          </label>
+          <div class="form-row two-col">
+            <div>
+              <label for="setting-fs-rate">Kilometersatz (€ pro km)</label>
+              <input type="text" inputmode="decimal" id="setting-fs-rate" data-testid="input-fs-rate" />
+            </div>
+            <div>
+              <label for="setting-fs-vehicle">Standard-Fahrzeug</label>
+              <select id="setting-fs-vehicle" data-testid="select-fs-vehicle">
+                <option value="private">Privat-PKW</option>
+                <option value="company">Dienstwagen</option>
+              </select>
+            </div>
+          </div>
+          <p class="hint">Bei Dienstwagen nur Kilometer, kein Betrag. Fahrten Wohnung – erste Tätigkeitsstätte gehören nicht hinein. Ergebnis ist eine Kilometer-Aufstellung für die Reisekosten.</p>
+          <h4>Reiter „Erfassen“</h4>
+          <div class="fs-label">Kilometer abfragen:</div>
+          <div class="fs-seg" role="group" aria-label="Kilometer abfragen">
+            <button type="button" class="fs-seg-btn" data-fs-prompt="switch" data-testid="button-fs-prompt-switch">beim Tätigkeitswechsel</button>
+            <button type="button" class="fs-seg-btn" data-fs-prompt="end" data-testid="button-fs-prompt-end">erst bei Arbeitsende</button>
+          </div>
+          <label class="checkbox-row" for="setting-fs-today">
+            <input type="checkbox" id="setting-fs-today" data-testid="checkbox-fs-today" />
+            <span>Liste „Heute“ anzeigen</span>
+          </label>
+        </div>
       </div>
 
       <div class="settings-block" id="settings-block-sw">
@@ -868,6 +941,25 @@
           </select>
         </div>
         <div id="work-fields">
+          <div id="entry-fs-block" class="fs-block hidden" data-testid="entry-fs-block">
+            <input type="hidden" id="entry-fs-activity" />
+            <div class="fs-label">Tätigkeit</div>
+            <div id="entry-fs-chips" class="fs-chips" role="group" aria-label="Tätigkeit"></div>
+            <input type="text" id="entry-fs-location" class="fs-location" maxlength="120" placeholder="Einsatzort (optional)" aria-label="Einsatzort" data-testid="input-entry-location" />
+            <div id="entry-fs-km-row" class="form-row two-col fs-km-fields hidden">
+              <div>
+                <label for="entry-fs-km">Kilometer</label>
+                <input type="text" inputmode="decimal" id="entry-fs-km" placeholder="z. B. 120" data-testid="input-entry-km" />
+              </div>
+              <div>
+                <label for="entry-fs-vehicle">Fahrzeug</label>
+                <select id="entry-fs-vehicle" data-testid="select-entry-vehicle">
+                  <option value="private">Privat-PKW</option>
+                  <option value="company">Dienstwagen</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div class="form-row two-col">
             <div>
               <label for="entry-start">Beginn</label>
@@ -888,7 +980,10 @@
             <input type="number" id="entry-break" min="0" value="0" />
             <small id="break-hint" class="hint"></small>
           </div>
-          <div class="form-row">
+          <button type="button" id="entry-more-toggle" class="fs-more-toggle hidden" aria-expanded="false" data-testid="button-entry-more">
+            <span class="fs-more-arrow">▸</span> <strong>Bemerkung / Grund für Überstunden</strong> (optional)
+          </button>
+          <div class="form-row fs-collapsible">
             <label for="entry-overtime-reason">Grund für Überstunden (optional)</label>
             <div class="input-with-templates">
               <textarea id="entry-overtime-reason" rows="2" placeholder="z.B. Projektabschluss, Kollege krank ..."></textarea>
@@ -898,7 +993,7 @@
             </div>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row fs-collapsible">
           <label for="entry-note">Bemerkung (optional)</label>
           <div class="input-with-templates">
             <textarea id="entry-note" rows="1" class="note-autogrow"></textarea>
@@ -908,10 +1003,60 @@
           </div>
         </div>
         <div id="entry-arbzg-hint" class="arbzg-hint hidden" aria-live="polite" data-testid="hint-arbzg-entry"></div>
+        <div id="entry-save-next-row" class="fs-next-row hidden">
+          <button type="button" id="btn-save-next-entry" class="btn-secondary" data-testid="button-save-next-entry">Speichern und nächsten Block anlegen</button>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
           <button type="button" id="btn-delete-entry" class="btn-danger hidden">Löschen</button>
           <button type="submit" class="btn-primary">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Kilometer erfassen (Außendienst, seit v3.13.0) -->
+  <div id="modal-fs-km" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-fs-km-title" data-testid="modal-fs-km">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-fs-km-title">Kilometer erfassen</h3>
+        <button type="button" class="modal-close" data-fs-km-close>✕</button>
+      </div>
+      <p class="hint">Strecke der Fahrt in km (ohne Kilometerstand).</p>
+      <div id="fs-km-rows"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" data-fs-km-close data-testid="button-fs-km-later">Später</button>
+        <button type="button" id="btn-fs-km-save" class="btn-primary" data-testid="button-fs-km-save">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Eigene Tätigkeit (Außendienst, seit v3.13.0) -->
+  <div id="modal-fs-activity" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-fs-activity-title" data-testid="modal-fs-activity">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-fs-activity-title">Eigene Tätigkeit</h3>
+        <button type="button" class="modal-close" data-close-modal>✕</button>
+      </div>
+      <form id="form-fs-activity">
+        <input type="hidden" id="fs-activity-id" />
+        <div class="form-row">
+          <label for="fs-activity-label">Bezeichnung</label>
+          <input type="text" id="fs-activity-label" maxlength="40" required placeholder="z. B. Messe" data-testid="input-fs-activity-label" />
+        </div>
+        <label class="checkbox-row" for="fs-activity-trip">
+          <input type="checkbox" id="fs-activity-trip" data-testid="checkbox-fs-activity-trip" />
+          <span>Ist eine Fahrt (Kilometer abfragen)</span>
+        </label>
+        <label class="checkbox-row hidden" for="fs-activity-hidden" id="fs-activity-hidden-row">
+          <input type="checkbox" id="fs-activity-hidden" data-testid="checkbox-fs-activity-hidden" />
+          <span>Ausblenden (nicht mehr zur Auswahl)</span>
+        </label>
+        <p class="hint" id="fs-activity-delete-hint"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" data-close-modal>Abbrechen</button>
+          <button type="button" id="btn-fs-activity-delete" class="btn-danger hidden" data-testid="button-fs-activity-delete">Löschen</button>
+          <button type="submit" class="btn-primary" data-testid="button-fs-activity-save">Speichern</button>
         </div>
       </form>
     </div>
@@ -1071,6 +1216,16 @@
             <label for="employer-personnel-number">Pers.-Nr.:</label>
             <input type="text" id="employer-personnel-number" placeholder="z. B. 48213" data-testid="input-employer-personnel-number" />
             <small class="hint">Personalnummer laut Gehaltsabrechnung – erscheint im PDF-, Word- und CSV-Export direkt unter dem Namen des Mitarbeiters.</small>
+          </div>
+          <div class="form-row" id="employer-min-free-sundays-row">
+            <label for="employer-min-free-sundays">Mindestens freie Sonntage pro Jahr</label>
+            <select id="employer-min-free-sundays" data-testid="select-employer-min-free-sundays">
+              <option value="15">15 (Gesetz, § 11 Abs. 1 ArbZG)</option>
+              <option value="10">10 (Tarifvertrag, z. B. Gaststätten, Verkehr)</option>
+              <option value="8">8 (Tarifvertrag, Rundfunk, Theater, Presse)</option>
+              <option value="6">6 (Tarifvertrag, Filmtheater, Tierhaltung)</option>
+            </select>
+            <small class="hint">Für den Hinweis Sonntagsarbeit. Weniger als 15 nur, wenn ein Tarifvertrag das erlaubt (§ 12 ArbZG).</small>
           </div>
         </fieldset>
 
@@ -1419,7 +1574,8 @@
               <li>Alle Änderungen bleiben ausschließlich lokal auf dem Gerät und wandern automatisch ins Backup.</li>
             </ul>
           </li>
-          <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Nicht geprüft werden Durchschnittswerte, Wochengrenzen, Sonn- und Feiertagsarbeit und Ausnahmen aus Tarifverträgen.</li>
+          <li><strong>Hinweis Arbeitszeitgesetz:</strong> standardmäßig eingeschaltet. Prüft alle Arbeitgeber zusammen auf mehr als 10 Std. am Tag (§ 3 ArbZG) und weniger als 11 Std. Ruhezeit (§ 5 ArbZG) und zeigt Hinweise im Eintragsdialog, in der Woche und in der Übersicht. Zusätzlich (abschaltbar) ein Hinweis bei Arbeit an Sonn- und Feiertagen (§§ 9–11 ArbZG) mit Zählung der Sonntage mit Arbeit im Jahr. Nicht geprüft werden Durchschnittswerte, Wochengrenzen und Ausnahmen aus Tarifverträgen.</li>
+              <li><strong>Außendienst-Nachweis:</strong> standardmäßig aus. Eingeschaltet und je Arbeitgeber freigegeben erscheinen im Dialog „Zeit erfassen“ und im Reiter „Erfassen“ die Tätigkeiten Büro, Kundentermin, Fahrt sowie eigene Tätigkeiten, dazu ein Einsatzort und bei Fahrten die Kilometer. Alle Tätigkeiten zählen als Arbeitszeit. Die Kilometer-Aufstellung für die Reisekosten gibt es im Reiter „Monat“ als Kilometer-PDF.</li>
           <li><strong>Notizvorlagen:</strong> Textbausteine für Bemerkungen (z. B. „Überstunden wegen Projektabschluss"). Mit <strong>+ Neu</strong> anlegen, per <strong>✕</strong> wieder löschen.</li>
           <li><strong>Daten:</strong>
             <ul>

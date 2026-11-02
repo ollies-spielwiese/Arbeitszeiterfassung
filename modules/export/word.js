@@ -13,6 +13,7 @@
 
 import { reportMode } from '../report-mode.js';
 import { getEmployerLetterhead } from '../employer-address.js';
+import { noteWithFieldService, fieldServiceSummaryText } from '../field-service.js';
 
 export async function generateWordBlob(report, ctx) {
   const {
@@ -71,7 +72,7 @@ export async function generateWordBlob(report, ctx) {
         cellW(e.breakMinutes || 0, colWidths[2], AlignmentType.RIGHT),
         cellW(minutesToHM(mins), colWidths[3], AlignmentType.RIGHT),
         cellW(e.overtimeReason || '', colWidths[4]),
-        cellW(e.note || '', colWidths[5]),
+        cellW(report.fieldService ? noteWithFieldService(e, report.fieldService.settings) : (e.note || ''), colWidths[5]),
       ],
     });
   });
@@ -199,6 +200,10 @@ export async function generateWordBlob(report, ctx) {
       workTable,
       ...((report.homeofficeEntries && report.homeofficeEntries.length) ? [new Paragraph({ children: [
         new TextRun({ text: `davon Home-Office: ${report.homeofficeEntries.length} ${report.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(report.homeofficeMin || 0)}`, italics: true, color: '64748B', size: 18 }),
+      ]})] : []),
+      // Außendienst-Nachweis (seit v3.13.0): Aufteilung nach Tätigkeit + Kilometer.
+      ...(fieldServiceSummaryText(report.fieldService, minutesToHM) ? [new Paragraph({ children: [
+        new TextRun({ text: fieldServiceSummaryText(report.fieldService, minutesToHM), italics: true, color: '64748B', size: 18 }),
       ]})] : []),
       new Paragraph({ text: '' }),
     ] : []),

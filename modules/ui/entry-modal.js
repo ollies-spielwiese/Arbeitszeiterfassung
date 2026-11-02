@@ -28,6 +28,8 @@ import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
 import { findEntryConflict } from '../entry-conflicts.js';
 import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
+import { computeSundayHintsForCandidate, buildSundayHintParagraphs, isSundayHintEnabled } from '../sunday-hints.js';
+import { syncEntryFieldService, readEntryFieldService } from './field-service-ui.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
@@ -61,6 +63,7 @@ export function openEntryModal(entry, opts, ctx) {
   updateEntryTypeFields();
   updateBreakHint(ctx);
   updateScheduleFillVisibility(ctx);
+  syncEntryFieldService(entry, opts, ctx);
   updateEntryArbzgHint(ctx);
 
   modal.classList.remove('hidden');
@@ -143,8 +146,14 @@ export function updateEntryArbzgHint(ctx) {
     candidate = { id, employerId, date, type };
   }
   const hints = computeArbzgHintsForCandidate(state.entries, state.employers, candidate);
-  if (!hints.length) return hide();
-  el.innerHTML = buildArbzgDialogHTML(hints, ctx.escapeHtml);
+  // v3.13.0: Sonn- und Feiertagsarbeit (§§ 9–11 ArbZG).
+  const sundayHints = isSundayHintEnabled(state.settings)
+    ? computeSundayHintsForCandidate(state.entries, state.employers, candidate, ctx.holidayOf)
+    : [];
+  if (!hints.length && !sundayHints.length) return hide();
+  const arbzgHTML = hints.length ? buildArbzgDialogHTML(hints, ctx.escapeHtml).replace(/<p class="arbzg-hint-text arbzg-hint-foot">[^<]*<\/p>$/, '') : '';
+  el.innerHTML = arbzgHTML + buildSundayHintParagraphs(sundayHints, ctx.escapeHtml)
+    + '<p class="arbzg-hint-text arbzg-hint-foot">Du kannst trotzdem speichern.</p>';
   el.classList.remove('hidden');
 }
 
@@ -213,6 +222,9 @@ export function saveEntry(e, ctx) {
       overtimeReason,
       note,
     };
+    // v3.13.0: Außendienst-Nachweis (Tätigkeit, Einsatzort, Kilometer), nur wenn aktiv.
+    const fsData = readEntryFieldService(state, employerId);
+    if (fsData) Object.assign(entryData, fsData);
   } else if (type === 'homeoffice') {
     // Wechsel work → homeoffice: start/end als einzelnes Segment übernehmen.
     // Bestehende segments (bei reinem Bemerkungs-Edit) beibehalten.
@@ -253,6 +265,10 @@ export function saveEntry(e, ctx) {
   renderEntries();
   if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
   toast('Gespeichert');
+  // v3.13.0: „Speichern und nächsten Block anlegen“ — neuer Block beginnt am Ende des gespeicherten.
+  if (ctx.__saveAndNext && type === 'work' && typeof ctx.openEntryModal === 'function') {
+    ctx.openEntryModal(null, { presetType: 'work', nextBlock: { employerId, date, start: endVal } });
+  }
 }
 
 export function deleteEntry(ctx) {

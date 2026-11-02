@@ -282,6 +282,9 @@ export function openEmployerModal(emp, ctx) {
   document.getElementById('employer-color').value = e.color;
   document.getElementById('employer-phone').value = e.phone || '';
   document.getElementById('employer-personnel-number').value = e.personnelNumber || '';
+  // Mindestens freie Sonntage (seit v3.13.0, Hinweis Sonntagsarbeit)
+  const mfs = /** @type {HTMLSelectElement|null} */ (document.getElementById('employer-min-free-sundays'));
+  if (mfs) mfs.value = String([15, 10, 8, 6].includes(Number(e.minFreeSundays)) ? Number(e.minFreeSundays) : 15);
   // Firmenbezeichnung und Adresse (seit v3.10.0)
   const setVal = (/** @type {string} */ id, /** @type {any} */ v) => { const el = /** @type {HTMLInputElement|null} */ (document.getElementById(id)); if (el) el.value = typeof v === 'string' ? v : ''; };
   setVal('employer-legal-name', e.legalName);
@@ -387,6 +390,8 @@ export function updateExitPayoutVisibility() {
   const endVal = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-employment-end-date'))?.value || '';
   const kindVal = /** @type {HTMLSelectElement|null} */ (document.getElementById('employer-kind'))?.value;
   row.classList.toggle('hidden', !endVal || kindVal === 'client');
+  const mfsRow = document.getElementById('employer-min-free-sundays-row');
+  if (mfsRow) mfsRow.classList.toggle('hidden', kindVal === 'client');
 }
 
 export function saveEmployer(ev, ctx) {
@@ -405,6 +410,7 @@ export function saveEmployer(ev, ctx) {
     color: document.getElementById('employer-color').value,
     phone: document.getElementById('employer-phone').value.trim(),
     personnelNumber: document.getElementById('employer-personnel-number').value.trim(),
+    minFreeSundays: (() => { const n = Number(/** @type {HTMLSelectElement|null} */ (document.getElementById('employer-min-free-sundays'))?.value); return [15, 10, 8, 6].includes(n) ? n : 15; })(),
     legalName: normalizeLegalName(/** @type {HTMLTextAreaElement|null} */ (document.getElementById('employer-legal-name'))?.value),
     street: normalizeAddressField(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-street'))?.value),
     postalCode: normalizeAddressField(/** @type {HTMLInputElement|null} */ (document.getElementById('employer-postal-code'))?.value).slice(0, 10),

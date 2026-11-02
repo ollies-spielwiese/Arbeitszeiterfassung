@@ -11,6 +11,7 @@
 
 import { pad, timeToMinutes, dayOfWeekISO, monthDates, shiftYearMonth } from './util-time.js';
 import { getHolidays, getHolidaysInRange } from './holidays.js';
+import { getFieldServiceSettings, isFieldServiceActive, computeFieldServiceMonth } from './field-service.js';
 import { EDUCATION_LEAVE_RULES, getEducationLeaveRule, getEducationLeaveFirstYear, getEducationLeavePeriod } from './education-leave-rules.js';
 
 /* ---------- Konstanten (Single Source of Truth) ---------- */
@@ -775,11 +776,15 @@ export function computeMonthReport(employerId, ym, ctx) {
   // Abgeltung bei Austritt (seit v3.9.99) nur im Monat des Beschäftigungsendes ausweisen.
   const payout = getExitPayout(emp);
   const exitPayout = (payout && payout.ym === ym) ? payout : null;
+  // Außendienst-Nachweis (seit v3.13.0), nur wenn für diesen Arbeitgeber aktiv.
+  const fieldService = isFieldServiceActive(state.settings, emp.id)
+    ? { ...computeFieldServiceMonth(workEntries, getFieldServiceSettings(state.settings), computeWorkMinutes), settings: getFieldServiceSettings(state.settings) }
+    : null;
 
   return {
     employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, educationLeaveEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
-    vacationRemaining, exitPayout,
+    vacationRemaining, exitPayout, fieldService,
   };
 }
 

@@ -165,6 +165,12 @@ import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './module
 import { generateGleitzeitkontoPdfBlob as _generateGleitzeitkontoPdfBlobRaw } from './modules/export/gleitzeitkonto-pdf.js';
 import { generateVacationCertificatePdfBlob as _generateVacationCertificatePdfBlobRaw, buildVacationCertificateRows } from './modules/export/vacation-certificate-pdf.js';
 import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
+import {
+  wireFieldServiceUI, renderTrackerFieldService, renderFieldServiceSettings,
+  getTrackerStartFieldService, resetTrackerPick, fieldServiceFromTimer, tripsMissingKm, openKmModal,
+} from './modules/ui/field-service-ui.js';
+import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
+import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
@@ -662,6 +668,17 @@ function renderTracker() {
   }
 }
 
+/* ---------- Außendienst-Nachweis (seit v3.13.0) ---------- */
+function _fsCtx() {
+  return {
+    getState: _getState, saveState, escapeHtml, getEmployer, todayISO,
+    holidayOf: (iso) => isHoliday(iso, (state.settings && state.settings.state) || 'HE'),
+    computeSuggestedBreak, openEntryModal, renderTracker, refreshAll, toast, uid,
+    minutesToHM, computeWorkMinutes,
+    saveEntryAndNext: (e) => _saveEntryRaw(e, { ..._entryCtx(), __saveAndNext: true }),
+  };
+}
+
 function startLiveTimer() {
   stopLiveTimer();
   const update = () => {
@@ -708,6 +725,14 @@ function renderTodaySummary() {
     currency: emp.currency || 'EUR',
   });
 
+  // Außendienst-Nachweis (seit v3.13.0): zusätzliche Kacheln, nur wenn aktiv und Daten vorhanden.
+  const fsm = report.fieldService;
+  if (fsm && (fsm.tripMin > 0 || fsm.km > 0)) {
+    if (fsm.tripMin > 0) summaryFields.push({ kind: 'time', key: 'fsTrip', label: 'davon Fahrt', valueHM: minutesToHM(fsm.tripMin) });
+    if (fsm.km > 0) summaryFields.push({ kind: 'text', key: 'fsKm', label: 'Kilometer', value: `${formatKm(fsm.km)} km` });
+    if (fsm.amount > 0) summaryFields.push({ kind: 'text', key: 'fsAmount', label: 'Kilometer-Betrag', value: formatEuro(fsm.amount) });
+  }
+
   container.innerHTML = _buildTodaySummaryHTMLRaw({ ym, summaryFields }, {
     formatMonthYear,
     renderSummaryHTML,
@@ -730,7 +755,10 @@ function startWork() {
     employerId: state.activeEmployerId,
     startISO: new Date().toISOString(),
     type: currentMode === 'homeoffice' ? 'homeoffice' : 'work',
+    // Außendienst-Nachweis (seit v3.13.0): Tätigkeit und Einsatzort des ersten Blocks.
+    ...getTrackerStartFieldService(state, state.activeEmployerId, currentMode),
   };
+  resetTrackerPick();
   saveState();
   renderTracker();
   toast(currentMode === 'homeoffice' ? 'Home-Office-Block gestartet' : 'Arbeitsbeginn erfasst');
@@ -802,6 +830,7 @@ function endWork() {
     breakMinutes: suggestedBreak || 0,
     overtimeReason: '',
     note: '',
+    ...fieldServiceFromTimer(state, r),
     createdAt: new Date().toISOString(),
   };
   state.entries.push(entry);
@@ -810,12 +839,20 @@ function endWork() {
   renderTracker();
 
   openEntryModal(entry, { justEnded: true });
+  // Außendienst (seit v3.13.0): bei „erst bei Arbeitsende“ fehlende Kilometer der Fahrten von heute abfragen.
+  const fsSettings = getFieldServiceSettings(state.settings);
+  if (fsSettings.kmPrompt === 'end') {
+    const missing = tripsMissingKm(state, r.employerId, dateISO, entry.id);
+    if (missing.length) openKmModal(missing, _fsCtx());
+  }
 }
 
 /* ---------- Entry Modal ---------- */
 
 function _entryCtx() {
   return {
+    holidayOf: (iso) => isHoliday(iso, (state.settings && state.settings.state) || 'HE'),
+    openEntryModal: (entry, opts) => openEntryModal(entry, opts),
     getState: _getState,
     saveState,
     getEmployer,
@@ -936,6 +973,7 @@ function setMode(mode) {
   btnH.classList.toggle('active', isHO);
   btnP.setAttribute('aria-checked', String(!isHO));
   btnH.setAttribute('aria-checked', String(isHO));
+  try { renderTrackerFieldService(_fsCtx(), currentMode); } catch (err) { console.error(err); }
 }
 
 function _hoCtx() {
@@ -1146,6 +1184,7 @@ function renderWeek() {
     ? computeArbzgHints(state.entries, state.employers, dates[0], dates[6]) : [];
 
   let totalMin = 0;
+  const fsWeekActive = isFieldServiceActive(state.settings, empId);
   const dayModels = dates.map((d) => {
     const holiday = isHoliday(d, stateCode);
     const dayEntries = state.entries.filter(e => e.employerId === empId && e.date === d);
@@ -1171,6 +1210,11 @@ function renderWeek() {
       for (const e of dayEntries.filter(e => e.type === 'work')) parts.push(`${e.start}–${e.end}`);
       if (hasHomeoffice) parts.push('Home-Office');
       detail = parts.join(', ');
+    }
+    // Außendienst-Nachweis (seit v3.13.0): Kilometer des Tages.
+    if (fsWeekActive) {
+      const dayKm = dayEntries.reduce((sum, e) => sum + (e.type === 'work' ? entryKm(e) : 0), 0);
+      if (dayKm > 0) detail += ` · ${formatKm(dayKm)} km`;
     }
 
     const arbzgHTML = buildArbzgWeekBadgesHTML(arbzgHintsForEmployerDay(arbzgHints, empId, d), escapeHtml);
@@ -1316,6 +1360,30 @@ function renderReport() {
     renderSummaryHTML,
     balanceWarning: computeBalanceWarningInfo(r.balance, r.targetMin, 'month'),
   });
+  const kmBtn = document.getElementById('btn-export-km-pdf');
+  if (kmBtn) kmBtn.classList.toggle('hidden', !(r.fieldService && r.fieldService.km > 0));
+}
+
+/* ---------- Kilometer-Aufstellung (seit v3.13.0) ---------- */
+
+async function generateKmPdfBlob(report) {
+  await ensurePdfLibs();
+  const { jsPDF } = window.jspdf;
+  return _generateKmPdfBlobRaw(report, { jsPDF, state, formatDateLong, formatMonthYear });
+}
+
+async function exportKmPdf() {
+  const r = getCurrentReport();
+  if (!r) return;
+  if (!(r.fieldService && r.fieldService.km > 0)) { toast('Keine Fahrten mit Kilometern in diesem Monat'); return; }
+  try {
+    const blob = await generateKmPdfBlob(r);
+    downloadBlob(blob, fileNameForReport(r, 'pdf').replace(/\.pdf$/, '-kilometer.pdf'));
+    toast('Kilometer-PDF heruntergeladen');
+  } catch (err) {
+    console.error(err);
+    toast('Kilometer-PDF fehlgeschlagen: ' + err.message);
+  }
 }
 
 /* ---------- Word Export (.docx) ---------- */
@@ -2055,6 +2123,7 @@ function renderSettings() {
   document.getElementById('setting-state').value = state.settings.state || 'HE';
   const arbzgCb = document.getElementById('setting-arbzg-hints');
   if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(state.settings);
+  try { renderFieldServiceSettings(_fsCtx()); } catch (err) { console.error(err); }
   // Modus-Radios
   const mode = getAppMode();
   document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
@@ -2351,6 +2420,13 @@ function toast(msg, opts) {
 /* ---------- Event Wiring ---------- */
 // Siehe modules/bootstrap.js (extrahiert in Phase 3.10b).
 // DOMContentLoaded-Wrapper bleibt hier, damit type=module (defer) das Event nicht verpasst.
+document.addEventListener('DOMContentLoaded', () => {
+  wireFieldServiceUI(_fsCtx());
+  const kmBtn = document.getElementById('btn-export-km-pdf');
+  if (kmBtn) kmBtn.addEventListener('click', exportKmPdf);
+  const arbzgCbFs = document.getElementById('setting-arbzg-hints');
+  if (arbzgCbFs) arbzgCbFs.addEventListener('change', () => { try { renderFieldServiceSettings(_fsCtx()); renderTracker(); } catch (err) {} });
+});
 document.addEventListener('DOMContentLoaded', () => wireEvents({
   getState: _getState, saveState, storage,
   exportEmergencyBackup: () => {
@@ -2444,5 +2520,6 @@ if (typeof window !== 'undefined') {
     isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO,
     buildEmployerCardsHTML: _buildEmployerCardsHTMLRaw,
     exportBackup, renderBackupFolderSection,
+    generateKmPdfBlob, openEntryModal, openEmployerModal,
   });
 }

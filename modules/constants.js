@@ -11,11 +11,19 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.12.0';
+export const APP_VERSION = '3.13.0';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.13.0', items: [
+    'Neu: Außendienst-Nachweis (Standard aus). Je Arbeitgeber einschaltbar: Tätigkeit (Büro, Kundentermin, Fahrt oder eigene Tätigkeiten) und Einsatzort je Arbeitsblock, bei Fahrten die Kilometer. Alle Tätigkeiten zählen als Arbeitszeit, Soll und Saldo ändern sich nicht.',
+    'Reiter „Erfassen“: Tätigkeit vor dem Start wählen, „Tätigkeit wechseln“ beendet den Block und startet den nächsten ohne Lücke, Kilometer-Abfrage nach Fahrten, Liste „Heute“ und Monatskacheln für Fahrtzeit, Kilometer und Kilometer-Betrag.',
+    'Dialog „Zeit erfassen“: Tätigkeit und Einsatzort oben, Bemerkung und Grund für Überstunden zuklappbar, neuer Knopf „Speichern und nächsten Block anlegen“.',
+    'Neu: Kilometer-PDF im Reiter „Monat“ mit Einzelnachweis (Von, Nach, Anlass, km, Betrag), Tagessummen und Unterschriftszeilen für die Reisekostenabrechnung. Monatsnachweis und CSV zeigen Tätigkeit, Einsatzort und Kilometer.',
+    'Neu: Hinweis bei Arbeit an Sonn- und Feiertagen (§§ 9–11 ArbZG) mit Ersatzruhetag und Zählung der Sonntage mit Arbeit im Jahr über alle Arbeitgeber. Mindestens 15 freie Sonntage, per Tarifvertrag 10, 8 oder 6 – einstellbar je Arbeitgeber.',
+    'Anleitung und Hilfe ergänzt.',
+  ] },
   { version: '3.12.0', items: [
     'Neu: Hinweis Arbeitszeitgesetz über alle Arbeitgeber. Die App meldet mehr als 10 Std. Arbeit am Tag (§ 3 ArbZG, Zeiten mehrerer Arbeitgeber zusammengerechnet) und weniger als 11 Std. Ruhezeit zwischen zwei Arbeitstagen (§ 5 ArbZG).',
     'Der Hinweis erscheint im Eintragsdialog, im Home-Office-Dialog, in der Woche am betroffenen Tag und in der Übersicht als Monatsliste mit Zusammensetzung.',

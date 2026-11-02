@@ -57,6 +57,7 @@ function employer(v, p) {
   fields(v, p, {
     ...texts('phone personnelNumber legalName street postalCode city notes employmentScope workTimeModel'), currency,
     ...numbers('weeklyHours monthlyHours yearlyHours fullTimeReferenceHours annualVacation vacationCarryOver hourlyRate vacationPayoutDays overtimePayoutMinutes'),
+    minFreeSundays: choice([15, 10, 8, 6]),
     parttimePercent: (x, path) => { if (x !== null) number(x, path); },
     educationLeaveDays: (x, path) => { if (x !== null) number(x, path); },
     color: (x, path) => { if (typeof x !== 'string' || !/^#(?:[a-f\d]{3}|[a-f\d]{6}|[a-f\d]{8})$/i.test(x)) fail(path); },
@@ -83,7 +84,20 @@ function entry(v, p) {
   choice(entryTypes)(v.type, `${p}.type`);
   fields(v, p, {
     ...texts('note overtimeReason'), start: time, end: time, breakMinutes: number,
+    // Außendienst-Nachweis (seit v3.13.0)
+    ...texts('activity activityLabel location'), km: number, vehicle: choice(['private', 'company', '']),
     createdAt: timestamp, segments: (x, path) => list(x, path, segment),
+  });
+}
+function fieldService(v, p) {
+  fields(v, p, {
+    enabled: bool, kmEnabled: bool, showTodayList: bool, kmRate: number,
+    employerIds: (x, xp) => list(x, xp, id),
+    defaultVehicle: choice(['private', 'company']), kmPrompt: choice(['switch', 'end']),
+    activities: (x, xp) => list(x, xp, (a, ap) => {
+      object(a, ap); id(a.id, `${ap}.id`); text(a.label, `${ap}.label`);
+      fields(a, ap, { builtin: bool, hidden: bool, isTrip: bool });
+    }),
   });
 }
 function holidays(v, p) {
@@ -166,6 +180,7 @@ export function validateBackup(data) {
       ...texts('employeeName ownEmail state'), currency,
       appMode: choice(['employee', 'freelance']), holidayOverrides: overrides,
       sollWarningMonthEnabled: bool, sollWarningGleitzeitEnabled: bool, arbzgHintsEnabled: bool,
+      sundayHintEnabled: bool, fieldService,
       ...numbers('sollWarningMonthThresholdPct sollWarningGleitzeitThresholdPct'),
       lastBackupAt: timestamp, backupReminderSnoozeUntil: timestamp,
       backupReminderFirstSeenAt: timestamp, sollWarningSnoozeUntil: timestamp,
@@ -180,7 +195,7 @@ export function validateBackup(data) {
       if (!employerIds.has(v.employerId)) fail(`${p}.employerId (unbekannt)`);
       if (v.startISO === null || v.startISO === undefined) fail(`${p}.startISO`);
       timestamp(v.startISO, `${p}.startISO`);
-      fields(v, p, { type: choice(['work', 'homeoffice']) });
+      fields(v, p, { type: choice(['work', 'homeoffice']), ...texts('activity activityLabel location') });
     },
     pendingMigrationNotice: (v, p) => {
       if (v === null) return;
