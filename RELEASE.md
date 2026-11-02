@@ -4,9 +4,11 @@ Dieses Dokument beschreibt den vollständigen Release-Workflow für die PWA. Zie
 
 ## Versionierung
 
-- App-Version steht an vier Stellen und muss synchron bleiben:
+- Version immer mit `npm run -s bump -- X.Y.Z --item "…"` setzen (siehe CONTRIBUTING.md). Die CI prüft mit `npm run -s version:check`, dass alle Stellen übereinstimmen.
+- App-Version steht an diesen Stellen und muss synchron bleiben:
   - `modules/constants.js` — Konstante `APP_VERSION` (z. B. `'3.9.47'`)
   - `package.json` — Feld `"version"`
+  - `package-lock.json` — Zeile 3 und Zeile 9 (`packages[""]`)
   - `index.html` — `#app-version-badge`
   - `sw.js` — Konstante `CACHE_NAME` (z. B. `'arbeitszeit-v3-9-47'`)
 - Schema: `MAJOR.MINOR.PATCH` in `APP_VERSION`/`package.json`, `arbeitszeit-vMAJOR-MINOR-PATCH` in `CACHE_NAME`.

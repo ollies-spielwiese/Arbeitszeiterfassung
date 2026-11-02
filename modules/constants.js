@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.13.0';
+export const APP_VERSION = '3.13.1';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.13.1', items: [
+    'Intern: Neues Skript setzt die Versionsnummer an allen Stellen auf einmal und prüft, dass sie übereinstimmen. Für Nutzer ändert sich nichts.',
+  ] },
   { version: '3.13.0', items: [
     'Neu: Außendienst-Nachweis (Standard aus). Je Arbeitgeber einschaltbar: Tätigkeit (Büro, Kundentermin, Fahrt oder eigene Tätigkeiten) und Einsatzort je Arbeitsblock, bei Fahrten die Kilometer. Alle Tätigkeiten zählen als Arbeitszeit, Soll und Saldo ändern sich nicht.',
     'Reiter „Erfassen“: Tätigkeit vor dem Start wählen, „Tätigkeit wechseln“ beendet den Block und startet den nächsten ohne Lücke, Kilometer-Abfrage nach Fahrten, Liste „Heute“ und Monatskacheln für Fahrtzeit, Kilometer und Kilometer-Betrag.',

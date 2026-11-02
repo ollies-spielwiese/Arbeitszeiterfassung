@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Versionsnummern einheitlich
+        run: npm run -s version:check
+
       - name: Typecheck (tsc --noEmit mit DOM-Rausch-Filter)
         run: npm run typecheck
 

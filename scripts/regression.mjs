@@ -35,6 +35,7 @@ import { runAuditRegressionTests } from './audit-regression-tests.mjs';
 import { runEducationLeaveTests } from './education-leave-tests.mjs';
 import { runEducationLeaveStatesTests } from './education-leave-states-tests.mjs';
 import { runArbzgHintsTests } from './arbzg-hints-tests.mjs';
+import { runBumpVersionTests } from './bump-version-tests.mjs';
 import { runFieldServiceTests } from './field-service-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -4755,6 +4756,7 @@ function runServiceWorkerCacheBustCheck() {
   const t0 = Date.now();
   runServiceWorkerPrecacheCheck();
   runVersionBadgeSyncCheck();
+  runBumpVersionTests({ assertEq, assertTrue, repoRoot: REPO_ROOT });
   runActiveUpdateCheckOnLoadCheck();
   runLibIntegritySourceCheck();
   runRangeVacationStatsEscapingSourceCheck();

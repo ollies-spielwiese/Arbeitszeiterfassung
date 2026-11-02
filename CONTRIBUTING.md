@@ -102,18 +102,12 @@ Jede Änderung, die Nutzer sichtbar erreicht (Feature, Bugfix, UI-Änderung, Reg
 ### Checkliste
 
 1. `npm run qa` — grün.
-2. Version an **vier Stellen** anheben, synchron:
-   - `modules/constants.js` → `export const APP_VERSION = 'X.Y.Z';`
-   - `package.json` → `"version": "X.Y.Z"`
-   - `sw.js` → `const CACHE_NAME = 'arbeitszeit-vX-Y-Z';`
-   - `index.html` → `#app-version-badge` (`vX.Y.Z`)
-3. `CHANGELOG` in `modules/constants.js` erweitern — neuer Eintrag oben (Umlaute direkt als UTF-8 schreiben):
-   ```js
-   { version: 'X.Y.Z', items: [
-       'Kurzer Satz, was drin ist',
-       'Nächster Punkt',
-   ]},
+2. Version per Skript anheben. Das ändert alle Stellen synchron (`modules/constants.js` APP_VERSION und CHANGELOG, `package.json`, `package-lock.json` Zeile 3 und 9, `index.html` Badge, `sw.js` CACHE_NAME):
    ```
+   npm run -s bump -- X.Y.Z --item "Kurzer Satz, was drin ist" --item "Nächster Punkt"
+   ```
+   Mit `--dry-run` nur anzeigen, mit `npm run -s version:check` nur prüfen. Das Skript bricht ab bei falschem Format, kleinerer Version, fehlendem `--item` oder uneinheitlichen Altständen und warnt, wenn ein Modul unter `modules/` in der `ASSETS`-Liste von `sw.js` fehlt. Neue Module trägt man weiter von Hand in `ASSETS` ein.
+3. Changelog-Texte prüfen: Umlaute direkt als UTF-8, neuester Eintrag oben.
 4. `npm run qa` erneut — grün.
 5. Commit mit klarer Nachricht:
    ```
