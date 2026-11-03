@@ -332,16 +332,24 @@ export function wireEvents(ctx) {
     });
 
     // Backup-Erinnerung (seit v3.9.47)
-    const btnBackupReminderExport = document.getElementById('btn-backup-reminder-export');
-    if (btnBackupReminderExport) btnBackupReminderExport.addEventListener('click', exportBackup);
-    const btnBackupReminderSnooze = document.getElementById('btn-backup-reminder-snooze');
-    if (btnBackupReminderSnooze) btnBackupReminderSnooze.addEventListener('click', () => {
+    // Seit v3.14.0 zusätzlich im Reiter Erfassen (gleiche Aktionen, gemeinsames Verschieben).
+    const snoozeBackupReminder = () => {
       const snoozeUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       getState().settings.backupReminderSnoozeUntil = snoozeUntil;
       saveState();
       if (typeof updateBackupReminderBanner === 'function') updateBackupReminderBanner();
       toast('Erinnerung für 7 Tage verschoben');
-    });
+    };
+    const exportFromReminder = async () => {
+      await exportBackup();
+      if (typeof updateBackupReminderBanner === 'function') updateBackupReminderBanner();
+    };
+    for (const suffix of ['', '-tracker']) {
+      const btnExport = document.getElementById('btn-backup-reminder-export' + suffix);
+      if (btnExport) btnExport.addEventListener('click', suffix ? exportFromReminder : exportBackup);
+      const btnSnooze = document.getElementById('btn-backup-reminder-snooze' + suffix);
+      if (btnSnooze) btnSnooze.addEventListener('click', snoozeBackupReminder);
+    }
 
     // Sollstunden-Warnung (seit v3.9.78): Einstellungen (2 Bausteine: Monats-Saldo,
     // Gleitzeitkonto-Saldo) + Banner-Buttons (Erfassen-Ansicht).

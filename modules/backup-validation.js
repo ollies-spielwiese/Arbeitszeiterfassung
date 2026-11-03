@@ -184,6 +184,7 @@ export function validateBackup(data) {
       ...numbers('sollWarningMonthThresholdPct sollWarningGleitzeitThresholdPct'),
       lastBackupAt: timestamp, backupReminderSnoozeUntil: timestamp,
       backupReminderFirstSeenAt: timestamp, sollWarningSnoozeUntil: timestamp,
+      persistRequestedAt: timestamp, ...numbers('changesSinceBackup'),
     }),
     activeEmployerId: (v, p) => {
       if (v === null || v === '') return;

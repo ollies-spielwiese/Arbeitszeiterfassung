@@ -22,7 +22,7 @@ export function exportBackup(ctx) {
   const { getState, saveState, downloadBlob, todayISO, toast } = ctx;
   const state = getState();
   // Backup-Erinnerung (seit v3.9.47): Zeitpunkt des letzten Exports vermerken.
-  if (state.settings) state.settings.lastBackupAt = new Date().toISOString();
+  if (state.settings) { state.settings.lastBackupAt = new Date().toISOString(); state.settings.changesSinceBackup = 0; }
   if (typeof saveState === 'function') saveState();
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   downloadBlob(blob, `arbeitszeit-backup-${todayISO()}.json`);

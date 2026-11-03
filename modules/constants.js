@@ -11,11 +11,16 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.13.1';
+export const APP_VERSION = '3.14.0';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.14.0', items: [
+    'Neu: Karte „Speicherstatus“ in den Einstellungen. Sie zeigt, ob der Browser die Daten dauerhaft speichert, wann das letzte Backup war, wie viele Änderungen es seitdem gibt und wie viel Speicher die Daten belegen.',
+    'Die App bittet den Browser nach dem ersten Eintrag um dauerhaften Speicher, als installierte App bei jedem Start. Die Anfrage lässt sich auch von Hand stellen.',
+    'Die Backup-Erinnerung erscheint jetzt auch im Reiter Erfassen, ab 7 Tagen ohne Backup und nur, wenn sich seitdem etwas geändert hat. „Später erinnern“ gilt für beide Reiter.',
+  ] },
   { version: '3.13.1', items: [
     'Intern: Neues Skript setzt die Versionsnummer an allen Stellen auf einmal und prüft, dass sie übereinstimmen. Für Nutzer ändert sich nichts.',
   ] },

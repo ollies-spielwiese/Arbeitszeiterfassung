@@ -17,6 +17,7 @@
  */
 
 import { SCHEMA_VERSION, runMigrations } from './migrations.js';
+import { contentFingerprint, normalizeChangesSinceBackup } from './storage-status.js';
 
 export const STORAGE_KEY = 'arbeitszeit_v1';
 
@@ -193,7 +194,11 @@ export function loadState(helpers) {
       if (changed) {
         try { storage.set(STORAGE_KEY, JSON.stringify(migrated)); } catch (e) { /* ignore */ }
       }
+      // v3.14.0: Zähler „Änderungen seit dem letzten Backup“ — fehlt er (ältere Daten),
+      // gilt mit Backup 1 (bisherige 7-Tage-Erinnerung bleibt erhalten), sonst 0.
+      if (migrated.settings) migrated.settings.changesSinceBackup = normalizeChangesSinceBackup(migrated.settings);
       _currentState = migrated;
+      _lastFingerprint = contentFingerprint(migrated);
       return migrated;
     } catch (e) {
       console.error('State load failed — gespeicherte Daten sind beschädigt, rette Rohkopie', e);
@@ -215,6 +220,20 @@ export function loadState(helpers) {
   return fresh;
 }
 
+// v3.14.0: Inhalt beim letzten Speichern (ohne Verwaltungsfelder). Weicht der Inhalt
+// beim nächsten Speichern ab, zählt das als eine Änderung seit dem letzten Backup.
+/** @type {string|null} */
+let _lastFingerprint = null;
+
+/** @param {any} s */
+function trackChangeSinceBackup(s) {
+  const fp = contentFingerprint(s);
+  if (_lastFingerprint !== null && fp !== _lastFingerprint && s.settings) {
+    s.settings.changesSinceBackup = normalizeChangesSinceBackup(s.settings) + 1;
+  }
+  _lastFingerprint = fp;
+}
+
 /**
  * Persistiert den internen State. schemaVersion wird auf SCHEMA_VERSION gezwungen.
  * @returns {void}
@@ -222,6 +241,7 @@ export function loadState(helpers) {
 export function saveState() {
   if (!_currentState || _replacingState) return;
   _currentState.schemaVersion = SCHEMA_VERSION;
+  trackChangeSinceBackup(_currentState);
   storage.set(STORAGE_KEY, JSON.stringify(_currentState));
 }
 
@@ -241,7 +261,9 @@ export function replaceStateAtomically(candidate, apply) {
     _currentState = candidate;
     apply(candidate);
     candidate.schemaVersion = SCHEMA_VERSION;
+    if (candidate.settings) candidate.settings.changesSinceBackup = normalizeChangesSinceBackup(candidate.settings);
     storage.set(STORAGE_KEY, JSON.stringify(candidate));
+    _lastFingerprint = contentFingerprint(candidate);
   } catch (error) {
     _currentState = previous;
     try { apply(previous); } catch (_) { /* Preserve the original error; state/storage are restored. */ }
@@ -260,4 +282,4 @@ export function getState() { return _currentState; }
  * @param {any} s
  * @returns {void}
  */
-export function setState(s) { _currentState = s; }
+export function setState(s) { _currentState = s; _lastFingerprint = null; }

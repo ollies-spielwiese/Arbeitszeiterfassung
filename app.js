@@ -169,6 +169,8 @@ import {
   wireFieldServiceUI, renderTrackerFieldService, renderFieldServiceSettings,
   getTrackerStartFieldService, resetTrackerPick, fieldServiceFromTimer, tripsMissingKm, openKmModal,
 } from './modules/ui/field-service-ui.js';
+import { renderStorageStatus, maybeRequestPersist, wireStorageStatusUI } from './modules/ui/storage-status-ui.js';
+import { computeBackupReminder } from './modules/storage-status.js';
 import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
@@ -669,6 +671,10 @@ function renderTracker() {
 }
 
 /* ---------- Außendienst-Nachweis (seit v3.13.0) ---------- */
+function _storageStatusCtx() {
+  return { getState: _getState, saveState, toast, escapeHtml };
+}
+
 function _fsCtx() {
   return {
     getState: _getState, saveState, escapeHtml, getEmployer, todayISO,
@@ -1503,48 +1509,40 @@ function renderAuditLog() {
 //     kein Migrations-Eintrag nötig).
 //   - Danach (und sobald mindestens einmal gesichert wurde) gilt ein fester
 //     Rhythmus von BACKUP_REMINDER_INTERVAL_DAYS Tagen seit dem letzten Backup.
-const BACKUP_REMINDER_FIRST_DELAY_DAYS = 1;
-const BACKUP_REMINDER_INTERVAL_DAYS = 7;
+// Seit v3.14.0 steckt die Entscheidung in modules/storage-status.js (computeBackupReminder):
+// zusätzlich zur 7-Tage-Regel nur, wenn es seit dem letzten Backup Änderungen gibt. Der Banner
+// erscheint in den Einstellungen und im Reiter Erfassen mit identischem Inhalt.
+const BACKUP_REMINDER_TARGETS = [
+  { bannerId: 'backup-reminder-banner', textId: 'backup-reminder-text' },
+  { bannerId: 'backup-reminder-banner-tracker', textId: 'backup-reminder-text-tracker' },
+];
 
 function updateBackupReminderBanner() {
-  const banner = document.getElementById('backup-reminder-banner');
-  const textEl = document.getElementById('backup-reminder-text');
-  if (!banner || !textEl) return;
   const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
   const now = Date.now();
-
-  if (settings.backupReminderSnoozeUntil && new Date(settings.backupReminderSnoozeUntil).getTime() > now) {
-    banner.classList.add('hidden');
-    return;
-  }
   const hasData = Array.isArray(state.entries) && state.entries.length > 0;
-  if (!hasData) {
-    banner.classList.add('hidden');
-    return;
+  // Referenzzeitpunkt für die Ein-Tag-Schonfrist einmalig festhalten.
+  if (hasData && !settings.lastBackupAt && !settings.backupReminderFirstSeenAt
+      && !(settings.backupReminderSnoozeUntil && new Date(settings.backupReminderSnoozeUntil).getTime() > now)) {
+    settings.backupReminderFirstSeenAt = new Date(now).toISOString();
+    saveState();
   }
-
-  let show = false;
-  let msg = '';
-  if (!settings.lastBackupAt) {
-    // Referenzzeitpunkt für die Ein-Tag-Schonfrist einmalig festhalten.
-    if (!settings.backupReminderFirstSeenAt) {
-      settings.backupReminderFirstSeenAt = new Date(now).toISOString();
-      saveState();
-    }
-    const sinceFirstSeen = Math.floor((now - new Date(settings.backupReminderFirstSeenAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (sinceFirstSeen >= BACKUP_REMINDER_FIRST_DELAY_DAYS) {
-      show = true;
-      msg = 'Du hast noch kein Backup erstellt. Sichere deine Daten regelmäßig, damit nichts verloren geht.';
-    }
-  } else {
-    const days = Math.floor((now - new Date(settings.lastBackupAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (days >= BACKUP_REMINDER_INTERVAL_DAYS) {
-      show = true;
-      msg = `Dein letztes Backup ist ${days} Tage her. Jetzt sichern?`;
-    }
+  const res = computeBackupReminder({
+    hasData,
+    lastBackupAt: settings.lastBackupAt,
+    firstSeenAt: settings.backupReminderFirstSeenAt,
+    changesSinceBackup: settings.changesSinceBackup,
+    snoozeUntil: settings.backupReminderSnoozeUntil,
+    now,
+  });
+  for (const t of BACKUP_REMINDER_TARGETS) {
+    const banner = document.getElementById(t.bannerId);
+    const textEl = document.getElementById(t.textId);
+    if (!banner || !textEl) continue;
+    banner.classList.toggle('hidden', !res.show);
+    if (res.show) textEl.textContent = res.text;
   }
-  banner.classList.toggle('hidden', !show);
-  if (show) textEl.textContent = msg;
+  try { maybeRequestPersist(_storageStatusCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
 }
 
 // Sollstunden-Warnung-Banner (Erfassen- und Übersicht-Ansicht, seit v3.9.78/v3.9.79): fasst alle
@@ -2124,6 +2122,7 @@ function renderSettings() {
   const arbzgCb = document.getElementById('setting-arbzg-hints');
   if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(state.settings);
   try { renderFieldServiceSettings(_fsCtx()); } catch (err) { console.error(err); }
+  try { renderStorageStatus(_storageStatusCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
   // Modus-Radios
   const mode = getAppMode();
   document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
@@ -2257,7 +2256,7 @@ async function exportBackup() {
   const folderHandle = await getUsableBackupFolderHandle();
   if (folderHandle) {
     try {
-      if (state.settings) state.settings.lastBackupAt = new Date().toISOString();
+      if (state.settings) { state.settings.lastBackupAt = new Date().toISOString(); state.settings.changesSinceBackup = 0; }
       saveState();
       const filename = `arbeitszeit-backup-${todayISO()}.json`;
       await writeBackupToFolder(folderHandle, filename, JSON.stringify(state, null, 2));
@@ -2422,6 +2421,7 @@ function toast(msg, opts) {
 // DOMContentLoaded-Wrapper bleibt hier, damit type=module (defer) das Event nicht verpasst.
 document.addEventListener('DOMContentLoaded', () => {
   wireFieldServiceUI(_fsCtx());
+  wireStorageStatusUI(_storageStatusCtx());
   const kmBtn = document.getElementById('btn-export-km-pdf');
   if (kmBtn) kmBtn.addEventListener('click', exportKmPdf);
   const arbzgCbFs = document.getElementById('setting-arbzg-hints');

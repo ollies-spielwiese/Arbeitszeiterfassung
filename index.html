@@ -115,7 +115,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.13.1</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.14.0</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -135,6 +135,13 @@
   <main id="app">
     <!-- Tracker View -->
     <section id="view-tracker" class="view active">
+      <div id="backup-reminder-banner-tracker" class="backup-reminder-banner hidden" data-testid="banner-backup-reminder-tracker">
+        <span id="backup-reminder-text-tracker"></span>
+        <div class="backup-reminder-actions">
+          <button type="button" id="btn-backup-reminder-export-tracker" class="btn-primary btn-small" data-testid="button-backup-reminder-export-tracker">Jetzt exportieren</button>
+          <button type="button" id="btn-backup-reminder-snooze-tracker" class="btn-secondary btn-small" data-testid="button-backup-reminder-snooze-tracker">Später erinnern</button>
+        </div>
+      </div>
       <div id="sollstunden-warning-banner" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning">
         <span class="sw-title">Sollstunden-Warnung</span>
         <ul id="sollstunden-warning-list" class="sw-list"></ul>
@@ -620,7 +627,8 @@
                   <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel. Ältere Backups werden automatisch auf den aktuellen Stand gebracht. Die App prüft die Datei vorher auf eine gültige Struktur; ungültige oder beschädigte Backups werden abgelehnt, und deine bisherigen Daten bleiben unverändert erhalten.</li>
                 </ul>
               </li>
-              <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup mehr als 7 Tage vergangen sind, mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+              <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup 7 Tage vergangen sind und sich seitdem etwas geändert hat, mit der Anzahl der Tage und Änderungen. Der Hinweis steht hier und im Reiter <strong>Erfassen</strong>. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis in beiden Reitern für 7 Tage zurückgestellt.</li>
+              <li><strong>Speicherstatus:</strong> Zeigt, ob der Browser die Daten dauerhaft speichert, wann das letzte Backup war, wie viele Änderungen es seitdem gibt und wie viel Speicher die Daten belegen. In Safari können Daten nach 7 Tagen ohne Nutzung gelöscht werden; als App auf dem Home-Bildschirm gilt das nicht.</li>
               <li><strong>Backup-Ordner:</strong> In Chrome/Edge lässt sich unter <strong>Backup-Ordner</strong> einmalig ein fester Ordner auswählen (📁 Ordner auswählen) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog. In Safari/iOS ist das aus Sicherheitsgründen nicht möglich; hier zeigt der Bereich stattdessen eine Anleitung, das Backup nach dem Export manuell über Mehr … bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abzulegen.</li>
               <li><strong>Speicherfehler:</strong> Kann die App nicht speichern (z. B. bei vollem Gerätespeicher), erscheint ein dauerhafter Hinweis. Darüber lässt sich ein <strong>Notfall-Backup</strong> mit allen, auch noch ungespeicherten Änderungen herunterladen und das Speichern erneut versuchen. Bereits gespeicherte Daten bleiben lesbar.</li>
               <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
@@ -883,6 +891,14 @@
         </div>
         <p class="hint">Textbausteine für Bemerkungen und Überstunden-Begründungen.</p>
         <div id="templates-list" class="templates-list"></div>
+      </div>
+
+      <div class="settings-block" id="storage-status-block" data-testid="block-storage-status">
+        <h3>Speicherstatus</h3>
+        <div id="storage-status-content" data-testid="storage-status-content"></div>
+        <div class="st-actions">
+          <button type="button" id="btn-storage-persist" class="btn-secondary btn-small hidden" data-testid="button-storage-persist">Dauerhaften Speicher anfordern</button>
+        </div>
       </div>
 
       <div class="settings-block">
@@ -1583,7 +1599,8 @@
               <li><strong>📥 Backup importieren:</strong> liest eine solche Datei wieder ein – nützlich beim Gerätewechsel.</li>
             </ul>
           </li>
-          <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup mehr als 7 Tage vergangen sind, mit der Anzahl der Tage seit dem letzten Backup. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis für 7 Tage zurückgestellt.</li>
+          <li><strong>Backup-Erinnerung:</strong> Wurde noch nie ein Backup exportiert, erscheint ab dem Folgetag oben auf diesem Reiter ein Hinweisbanner (danach alle 7 Tage erneut, solange kein Backup existiert). Wurde bereits einmal gesichert, erscheint der Hinweis erneut, sobald seit dem letzten Backup 7 Tage vergangen sind und sich seitdem etwas geändert hat, mit der Anzahl der Tage und Änderungen. Der Hinweis steht hier und im Reiter <strong>Erfassen</strong>. Über <strong>Jetzt exportieren</strong> lässt sich das Backup direkt aus dem Banner anlegen; über <strong>Später erinnern</strong> wird der Hinweis in beiden Reitern für 7 Tage zurückgestellt.</li>
+              <li><strong>Speicherstatus:</strong> Zeigt, ob der Browser die Daten dauerhaft speichert, wann das letzte Backup war, wie viele Änderungen es seitdem gibt und wie viel Speicher die Daten belegen. In Safari können Daten nach 7 Tagen ohne Nutzung gelöscht werden; als App auf dem Home-Bildschirm gilt das nicht.</li>
           <li><strong>Backup-Ordner:</strong> In Chrome/Edge lässt sich unter <strong>Backup-Ordner</strong> einmalig ein fester Ordner auswählen (📁 Ordner auswählen) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog. In Safari/iOS ist das aus Sicherheitsgründen nicht möglich; hier zeigt der Bereich stattdessen eine Anleitung, das Backup nach dem Export manuell über Mehr … bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abzulegen.</li>
           <li><strong>Änderungsprotokoll:</strong> Am Ende dieses Reiters listet ein Protokoll die letzten Änderungen an Einträgen — jede Erstellung, Änderung und Löschung mit Zeitstempel. Gespeichert werden die letzten 500 Vorgänge, sichtbar sind die 50 jüngsten. Das Protokoll bleibt lokal und wird ins Backup übernommen.</li>
         </ul>
