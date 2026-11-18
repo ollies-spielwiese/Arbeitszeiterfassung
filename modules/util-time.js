@@ -234,3 +234,28 @@ export function monthDates(ym) {
   }
   return list;
 }
+
+/**
+ * ISO-Kalenderwoche → 7 Datumsangaben (Montag bis Sonntag), lokale Zeit.
+ * Seit v3.15.2 hier (vorher in app.js). Der 4. Januar liegt immer in KW 1.
+ * @param {string} isoWeek z. B. '2026-W27'
+ * @returns {string[]} ['YYYY-MM-DD', …] (7 Einträge)
+ */
+export function isoWeekToDates(isoWeek) {
+  const [yStr, wStr] = isoWeek.split('-W');
+  const year = Number(yStr);
+  const week = Number(wStr);
+  const jan4 = new Date(year, 0, 4);
+  const jan4Dow = (jan4.getDay() + 6) % 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setDate(jan4.getDate() - jan4Dow);
+  const monday = new Date(week1Monday);
+  monday.setDate(week1Monday.getDate() + (week - 1) * 7);
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const dt = new Date(monday);
+    dt.setDate(monday.getDate() + i);
+    dates.push(`${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`);
+  }
+  return dates;
+}

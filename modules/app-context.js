@@ -53,6 +53,15 @@ export const LEGACY_MAP = Object.freeze({
   // seit v3.15.1 (Reiter-Module unter modules/tabs/)
   computeMonthTargetMinutes: 'compute.monthTargetMinutes',
   countWorkdaysInMonth: 'compute.workdaysInMonth',
+  // seit v3.15.2 (Woche, Gleitzeitkonto)
+  computeWeekTargetMinutes: 'compute.weekTargetMinutes',
+  computeDayTargetMinutes: 'compute.dayTargetMinutes',
+  isHoliday: 'compute.isHoliday',
+  getHolidaysInRange: 'compute.holidaysInRange',
+  computeGleitzeitkontoRowsForEmployer: 'compute.gleitzeitRows',
+  computeGleitzeitkontoAsOfTodayForEmployer: 'compute.gleitzeitAsOf',
+  computeGleitzeitkontoWindowForEmployer: 'compute.gleitzeitWindow',
+  computeBalanceWarningInfo: 'compute.balanceWarning',
   // Formate
   formatDate: 'format.date',
   formatMonthYear: 'format.monthYear',
@@ -74,6 +83,7 @@ export const LEGACY_MAP = Object.freeze({
   openHomeofficeModal: 'ui.openHomeofficeModal',
   getShowFormerEmployers: 'ui.showFormerEmployers',
   setShowFormerEmployers: 'ui.setShowFormerEmployers',
+  populateYearSelect: 'ui.populateYearSelect',
   // Neuzeichnen
   renderTracker: 'render.tracker',
   renderEntries: 'render.entries',
@@ -99,6 +109,7 @@ export const LEGACY_MAP = Object.freeze({
   getEmployer: 'data.employer',
   uid: 'data.uid',
   todayISO: 'data.todayISO',
+  ensureActiveEmployer: 'data.ensureActiveEmployer',
   dayOfWeekISO: 'data.dayOfWeekISO',
   isFreelance: 'data.isFreelance',
   getAppMode: 'data.appMode',

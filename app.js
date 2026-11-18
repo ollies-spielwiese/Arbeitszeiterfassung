@@ -64,9 +64,7 @@ import {
   pad,
   todayISO,
   currentYearMonth,
-  currentYearWeek,
   formatDate,
-  isoWeeksInYear,
   formatDateLong,
   formatMonthYear,
   minutesToHM,
@@ -142,7 +140,6 @@ import {
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
   computeEntryRows as _computeEntryRowsRaw,
   computeFormFields as _computeFormFieldsRaw,
-  buildBalanceTooltipText as _buildBalanceTooltipTextRaw,
 } from './modules/selectors.js';
 import {
   renderSummaryHTML as _renderSummaryHTMLRaw,
@@ -152,11 +149,15 @@ import {
 } from './modules/render/summary.js';
 import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
 import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
-import { buildWeekHTML as _buildWeekHTMLRaw } from './modules/render/week.js';
-import { computeArbzgHints, arbzgHintsForEmployerDay, buildArbzgWeekBadgesHTML, buildArbzgOverviewHTML, isArbzgHintEnabled } from './modules/arbzg-hints.js';
+import { computeArbzgHints, buildArbzgOverviewHTML, isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
 import { renderArchive as _renderArchiveTab, archiveCurrentMonth as _archiveCurrentMonthTab } from './modules/tabs/archive.js';
 import { renderEntries as _renderEntriesTab } from './modules/tabs/entries.js';
+import { renderWeek as _renderWeekTab, installWeekInputFallback as _installWeekInputFallbackTab } from './modules/tabs/week.js';
+import {
+  renderGleitzeitkonto as _renderGleitzeitkontoTab, getCurrentGleitzeitkonto as _getCurrentGleitzeitkontoTab,
+  exportGleitzeitkontoPdf as _exportGleitzeitkontoPdfTab,
+} from './modules/tabs/gleitzeit.js';
 import {
   buildTodaySummaryHTML as _buildTodaySummaryHTMLRaw,
   buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
@@ -174,7 +175,7 @@ import {
 } from './modules/ui/field-service-ui.js';
 import { renderStorageStatus, maybeRequestPersist, wireStorageStatusUI } from './modules/ui/storage-status-ui.js';
 import { computeBackupReminder } from './modules/storage-status.js';
-import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
+import { getFieldServiceSettings, formatKm, formatEuro } from './modules/field-service.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
 import { createAppContext, withExtras } from './modules/app-context.js';
@@ -260,7 +261,6 @@ import { validateEmailField } from './modules/ui/email-validation.js';
 import { APP_VERSION, LAST_SEEN_VERSION_KEY, CHANGELOG, LABELS } from './modules/constants.js';
 import { wireEvents } from './modules/bootstrap.js';
 
-
 /* Storage-Abstraktion, DEFAULT_STATE, STORAGE_KEY: siehe modules/state.js. */
 
 function getAppMode() {
@@ -334,7 +334,6 @@ function renderSummaryPlaintext(fields) {
   return _renderSummaryPlaintextRaw(fields);
 }
 
-
 /**
  * v3.5-Migration-Adapter: reicht normalizeSegments und uid an das reine
  * Modul-Migrations-Layer weiter. Bleibt hier für Regression-Selectors, die
@@ -401,80 +400,8 @@ function uid() {
    Reine Zeit-/Format-Utilities leben in modules/util-time.js und modules/util-format.js.
    Hier bleiben nur DOM-abhängige und state-abhängige Helfer. */
 
-/* Prüft, ob der Browser <input type="week"> nativ unterstützt.
-   iOS Safari (und damit alle iPhone/iPad-Browser) fallen auf 'text' zurück. */
-function supportsWeekInput() {
-  const test = document.createElement('input');
-  try { test.type = 'week'; } catch (e) { return false; }
-  return test.type === 'week';
-}
-
-/* Ersetzt das native Woche-Input durch zwei Selects (Jahr + KW), falls der Browser
-   type="week" nicht nativ rendert – vor allem iOS Safari, iPad Safari/Edge/Chrome. */
-function installWeekInputFallback() {
-  if (supportsWeekInput()) return;
-
-  const original = document.getElementById('week-input');
-  if (!original || original.dataset.fallback === 'true') return;
-
-  const wrap = document.createElement('span');
-  wrap.className = 'week-fallback';
-  wrap.style.cssText = 'display:grid;grid-template-columns:6.5rem 1fr;gap:0.4rem;align-items:center;min-width:0;';
-
-  const yearSel = document.createElement('select');
-  const weekSel = document.createElement('select');
-  yearSel.setAttribute('aria-label', 'Jahr');
-  weekSel.setAttribute('aria-label', 'Kalenderwoche');
-  yearSel.style.minWidth = '0';
-  weekSel.style.minWidth = '0';
-
-  // Initiale Werte aus currentYearWeek
-  const initial = original.value || currentYearWeek();
-  const [initYearStr, initWeekStr] = initial.split('-W');
-  const initYear = parseInt(initYearStr, 10);
-  const initWeek = parseInt(initWeekStr, 10);
-
-  const thisYear = new Date().getFullYear();
-  for (let y = thisYear - 3; y <= thisYear + 1; y++) {
-    const opt = document.createElement('option');
-    opt.value = String(y);
-    opt.textContent = String(y);
-    if (y === initYear) opt.selected = true;
-    yearSel.appendChild(opt);
-  }
-
-  function rebuildWeeks(selectedWeek) {
-    weekSel.innerHTML = '';
-    const total = isoWeeksInYear(parseInt(yearSel.value, 10));
-    for (let w = 1; w <= total; w++) {
-      const opt = document.createElement('option');
-      opt.value = pad(w);
-      opt.textContent = 'KW ' + pad(w);
-      if (w === selectedWeek) opt.selected = true;
-      weekSel.appendChild(opt);
-    }
-  }
-  rebuildWeeks(initWeek);
-
-  // Verstecktes Original beibehalten für renderWeek-Kompatibilität
-  original.type = 'hidden';
-  original.dataset.fallback = 'true';
-  original.value = `${yearSel.value}-W${weekSel.value}`;
-
-  function pushValue() {
-    original.value = `${yearSel.value}-W${weekSel.value}`;
-    original.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  yearSel.addEventListener('change', () => {
-    rebuildWeeks(parseInt(weekSel.value, 10) || 1);
-    pushValue();
-  });
-  weekSel.addEventListener('change', pushValue);
-
-  wrap.appendChild(yearSel);
-  wrap.appendChild(weekSel);
-  original.parentNode.insertBefore(wrap, original.nextSibling);
-}
+/** Ersatzauswahl Jahr und KW (iPhone, iPad), siehe modules/tabs/week.js (seit v3.15.2). */
+function installWeekInputFallback() { return _installWeekInputFallbackTab(appCtx()); }
 
 /* formatDateLong, formatMonthYear, minutesToHM, hoursDecimal, timeToMinutes,
    isoDateAdd, dayOfWeekISO: siehe modules/util-time.js */
@@ -707,6 +634,11 @@ function appCtx() {
     openHomeofficeModal: (entry, opts) => openHomeofficeModal(entry, opts),
     getShowFormerEmployers: () => showFormerEmployers,
     setShowFormerEmployers: (v) => setShowFormerEmployers(v),
+    // seit v3.15.2 (Woche, Gleitzeitkonto)
+    computeWeekTargetMinutes, computeDayTargetMinutes, isHoliday, getHolidaysInRange,
+    computeGleitzeitkontoRowsForEmployer: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() }),
+    computeGleitzeitkontoAsOfTodayForEmployer, computeGleitzeitkontoWindowForEmployer, computeBalanceWarningInfo,
+    ensureActiveEmployer, populateYearSelect,
     getEmployer, uid, todayISO, dayOfWeekISO, isFreelance, getAppMode, DAY_KEYS, DAY_LABELS_LONG,
     // Feld-Definitionen des Erfassen-Dialogs (Phase 4.8, seit v3.14.3 im Kontext)
     computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
@@ -1042,139 +974,8 @@ function renderEntries() { return _renderEntriesTab(appCtx()); }
 
 /* ---------- Week View ---------- */
 
-function isoWeekToDates(isoWeek) {
-  // "2026-W27" → array of 7 date ISOs (Mon..Sun)
-  const [yStr, wStr] = isoWeek.split('-W');
-  const year = Number(yStr);
-  const week = Number(wStr);
-  // Jan 4 is always in week 1
-  const jan4 = new Date(year, 0, 4);
-  const jan4Dow = (jan4.getDay() + 6) % 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setDate(jan4.getDate() - jan4Dow);
-  const monday = new Date(week1Monday);
-  monday.setDate(week1Monday.getDate() + (week - 1) * 7);
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const dt = new Date(monday);
-    dt.setDate(monday.getDate() + i);
-    dates.push(`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`);
-  }
-  return dates;
-}
-
-function renderWeek() {
-  const sel = document.getElementById('week-employer');
-  const wkInput = document.getElementById('week-input');
-
-  const currentEmp = sel.value;
-  const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
-    showAll: showFormerEmployers,
-    includeIds: [currentEmp, _getState().activeEmployerId],
-  });
-  sel.innerHTML = _getState().employers.length
-    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
-    : '<option value="">— Kein Arbeitgeber —</option>';
-  sel.value = currentEmp || _getState().activeEmployerId || visibleEmployers[0]?.id || '';
-
-  if (!wkInput.value) wkInput.value = currentYearWeek();
-
-  const empId = sel.value;
-  const isoWeek = wkInput.value;
-  const container = document.getElementById('week-content');
-
-  if (!empId || !isoWeek) { container.innerHTML = '<div class="empty-state">Bitte Arbeitgeber und Woche wählen.</div>'; return; }
-
-  const emp = getEmployer(empId);
-  const dates = isoWeekToDates(isoWeek);
-  const stateCode = _getState().settings.state || 'HE';
-
-  // v3.12.0: Hinweise Arbeitszeitgesetz (alle Arbeitgeber zusammen) für die Tage dieser Woche.
-  const arbzgHints = isArbzgHintEnabled(_getState().settings)
-    ? computeArbzgHints(_getState().entries, _getState().employers, dates[0], dates[6]) : [];
-
-  let totalMin = 0;
-  const fsWeekActive = isFieldServiceActive(_getState().settings, empId);
-  const dayModels = dates.map((d) => {
-    const holiday = isHoliday(d, stateCode);
-    const dayEntries = _getState().entries.filter(e => e.employerId === empId && e.date === d);
-    const workMin = dayEntries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
-    totalMin += workMin;
-    const hasVacation = dayEntries.some(e => e.type === 'vacation');
-    const hasSick = dayEntries.some(e => e.type === 'sick');
-    const hasEducationLeave = dayEntries.some(e => e.type === 'education_leave');
-    const hasOvertimeReduction = dayEntries.some(e => e.type === 'overtime_reduction');
-    const hasHomeoffice = dayEntries.some(e => e.type === 'homeoffice');
-
-    const hoursDisplay = workMin ? minutesToHM(workMin) : '–';
-    let detail = '';
-    if (hasVacation) detail = 'Urlaub';
-    else if (hasSick) detail = 'Krank';
-    else if (hasEducationLeave) detail = 'Bildungsurlaub';
-    else if (hasOvertimeReduction) detail = 'Überstundenabbau';
-    else if (hasHomeoffice && !dayEntries.some(e => e.type === 'work')) {
-      // Reine Home-Office-Tage: Segmente bleiben privat, nur Label anzeigen
-      detail = 'Home-Office';
-    } else if (dayEntries.length) {
-      const parts = [];
-      for (const e of dayEntries.filter(e => e.type === 'work')) parts.push(`${e.start}–${e.end}`);
-      if (hasHomeoffice) parts.push('Home-Office');
-      detail = parts.join(', ');
-    }
-    // Außendienst-Nachweis (seit v3.13.0): Kilometer des Tages.
-    if (fsWeekActive) {
-      const dayKm = dayEntries.reduce((sum, e) => sum + (e.type === 'work' ? entryKm(e) : 0), 0);
-      if (dayKm > 0) detail += ` · ${formatKm(dayKm)} km`;
-    }
-
-    const arbzgHTML = buildArbzgWeekBadgesHTML(arbzgHintsForEmployerDay(arbzgHints, empId, d), escapeHtml);
-    return { workMin, hoursDisplay, detail, isToday: d === today, holiday, arbzgHTML };
-  });
-
-  const targetMin = computeWeekTargetMinutes(emp, dates);
-  const holidaysInWeek = getHolidaysInRange(dates[0], dates[6], stateCode);
-
-  // Same daily values as tracker/month; month-crossing weeks use each date's month.
-  const isCreditableAbsenceDay = date => computeDayTargetMinutes(emp, date) > 0;
-  const sumCreditedAbsenceMinWeek = (type) => _getState().entries
-    .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
-    .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0);
-  // Überstundenabbau (seit v3.9.46): NICHT gutgeschrieben — anders als Urlaub/Krank soll ein
-  // Gleittag den Saldo tatsächlich verringern (Ist=0 bleibt gegen das Tages-Soll ungedeckt).
-  const creditedAbsenceMinWeek = Math.round(sumCreditedAbsenceMinWeek('vacation')
-    + sumCreditedAbsenceMinWeek('sick')
-    + sumCreditedAbsenceMinWeek('education_leave'));
-  const balance = totalMin + creditedAbsenceMinWeek - targetMin;
-  // Tageszähler für den Saldo-Tooltip (nur Tage, die tatsächlich Gutschrift bringen —
-  // Urlaub/Krank am Wochenende oder Feiertag bringt 0 und wird hier nicht mitgezählt).
-  const countCreditedAbsenceDaysWeek = (type) => _getState().entries
-    .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
-    .length;
-  const vacationDaysWeek = countCreditedAbsenceDaysWeek('vacation');
-  const sickDaysWeek = countCreditedAbsenceDaysWeek('sick');
-  const educationLeaveDaysWeek = countCreditedAbsenceDaysWeek('education_leave');
-
-  const weekFields = getSummaryFields({
-    workedMin: totalMin,
-    targetMin,
-    balance,
-    hourlyRate: Number(emp.hourlyRate) || 0,
-    currency: emp.currency || 'EUR',
-    includeAbsences: false, // Woche zeigt keine Urlaub/Krank-Zähler
-    includeHolidays: true,
-    holidayCount: holidaysInWeek.length,
-    creditedAbsenceMin: creditedAbsenceMinWeek,
-    vacationDays: vacationDaysWeek,
-    sickDays: sickDaysWeek,
-    educationLeaveDays: educationLeaveDaysWeek,
-  });
-
-  container.innerHTML = _buildWeekHTMLRaw(
-    { emp, isoWeek, dates, dayModels, weekFields },
-    { escapeHtml, formatDate, renderSummaryHTML, DAY_LABELS_LONG },
-  );
-}
+/** Reiter Woche, siehe modules/tabs/week.js (seit v3.15.2). */
+function renderWeek() { return _renderWeekTab(appCtx()); }
 
 /* ---------- Monthly Report ---------- */
 
@@ -1637,60 +1438,10 @@ function renderVacationCalendarOnly() {
   wireVacationCalendarNav();
 }
 
-function renderGleitzeitkonto() {
-  const yearInput = document.getElementById('gleitzeitkonto-year');
-  const formerCb = document.getElementById('show-former-employers-gleitzeitkonto');
-  if (formerCb) formerCb.checked = showFormerEmployers;
-  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
-  populateYearSelect(yearInput, year);
-  const container = document.getElementById('gleitzeitkonto-content');
+/** Reiter Gleitzeitkonto, siehe modules/tabs/gleitzeit.js (seit v3.15.2). */
+function renderGleitzeitkonto() { return _renderGleitzeitkontoTab(appCtx()); }
 
-  ensureActiveEmployer();
-  const emp = getEmployer(_getState().activeEmployerId);
-  if (!emp) {
-    container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
-    return;
-  }
-
-  // Kalenderjahr-Ansicht (Jan-Dez), seit v3.9.48: der kumulierte Saldo läuft über
-  // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() });
-
-  // Seit v3.9.81 "kombiniertes Modell":
-  // - Kachel-ANZEIGE: voller Jahres-Saldo, aber nur bis heute (asOfToday) statt bis Dezember,
-  //   damit noch nicht begonnene Zukunftsmonate den Wert nicht kuenstlich ins Minus ziehen.
-  // - Kachel-WARNUNG (Rahmenfarbe): rollierendes 3-Monats-Fenster (dieselbe Basis wie das
-  //   Banner), damit Anzeige und Warnhinweis konsistent zueinander bleiben, aber die Warnung
-  //   selbst nicht von der langen Jahres-Historie verduennt wird.
-  const today = todayISO();
-  const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, today);
-  const windowResult = computeGleitzeitkontoWindowForEmployer(emp, today);
-  const balanceWarning = computeBalanceWarningInfo(windowResult.balance, windowResult.targetMin, 'gleitzeitkonto');
-
-  container.innerHTML = _buildGleitzeitkontoHTMLRaw(rows, emp, {
-    escapeHtml,
-    minutesToHM,
-    formatMonthYear,
-    renderSummaryHTML,
-    buildBalanceTooltipText: _buildBalanceTooltipTextRaw,
-    balanceWarning,
-    asOf,
-  }, { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout });
-}
-
-function getCurrentGleitzeitkonto() {
-  const yearInput = document.getElementById('gleitzeitkonto-year');
-  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
-  ensureActiveEmployer();
-  const emp = getEmployer(_getState().activeEmployerId);
-  if (!emp) {
-    toast(`Bitte zuerst einen ${L('employer')} anlegen`);
-    return null;
-  }
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() });
-  const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, todayISO());
-  return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, asOf, payout } };
-}
+function getCurrentGleitzeitkonto() { return _getCurrentGleitzeitkontoTab(appCtx()); }
 
 async function generateGleitzeitkontoPdfBlob(rows, emp, meta) {
   await ensurePdfLibs();
@@ -1698,24 +1449,7 @@ async function generateGleitzeitkontoPdfBlob(rows, emp, meta) {
   return _generateGleitzeitkontoPdfBlobRaw(rows, emp, meta, { jsPDF, minutesToHM, formatMonthYear });
 }
 
-function fileNameForGleitzeitkonto(emp, meta, ext) {
-  const empSlug = (emp.name || 'Arbeitgeber').replace(/[^\p{L}\p{N}]+/gu, '_');
-  return `Arbeitszeit_Gleitzeitkonto_${empSlug}_${meta.year}.${ext}`;
-}
-
-async function exportGleitzeitkontoPdf() {
-  const current = getCurrentGleitzeitkonto();
-  if (!current) return;
-  const { rows, emp, meta } = current;
-  try {
-    const blob = await generateGleitzeitkontoPdfBlob(rows, emp, meta);
-    downloadBlob(blob, fileNameForGleitzeitkonto(emp, meta, 'pdf'));
-    toast('Gleitzeitkonto als PDF heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('PDF-Export fehlgeschlagen: ' + err.message);
-  }
-}
+function exportGleitzeitkontoPdf() { return _exportGleitzeitkontoPdfTab(appCtx()); }
 
 async function generateOverviewPdfBlob(ov) {
   await ensurePdfLibs();
@@ -2258,7 +1992,6 @@ document.addEventListener('DOMContentLoaded', () => wireEvents({
   installWeekInputFallback,
   maybeShowWhatsNew, maybeShowKindMigrationNotice, initServiceWorkerUpdates,
 }));
-
 
 /* ---------- What's New ---------- */
 // Siehe modules/whatsnew.js (extrahiert in Phase 3.9a).
