@@ -11,13 +11,15 @@
  *   ctx.exports  PDF, Word, Download
  *   ctx.data     Arbeitgeber, IDs, Datum, Modus, Wochentage
  *
- *   ctx.extra    modulspezifische Zusätze (z. B. computeFormFields), siehe withExtras()
+ *   ctx.extra    Zusätze für einen einzelnen Aufruf (z. B. __saveAndNext), siehe withExtras()
  *
  * Seit v3.14.2 lesen die Dialog-Module unter modules/ui/ und modules/share.js
  * ihre Funktionen über toAppContext(ctx) aus den Bereichen. toAppContext
  * akzeptiert auch ein flaches Objekt (`{ getState, toast, ... }`), wie es
  * Tests und ältere Aufrufer übergeben, und ordnet es über LEGACY_MAP zu.
- * In v3.14.3 entfallen die Übergabe-Objekte in app.js.
+ * Seit v3.14.3 gibt es in app.js keine eigenen Übergabe-Objekte mehr: Alle
+ * Module (auch selectors.js und render/summary.js) bekommen appCtx(). Der
+ * Zustand liegt nur in modules/state.js; window.state liest über ctx.state.get().
  *
  * Das Modul ist reine Logik ohne DOM-Zugriff.
  */
@@ -44,6 +46,7 @@ export const LEGACY_MAP = Object.freeze({
   getOverviewSummaryFields: 'compute.overviewSummaryFields',
   getCurrentReport: 'compute.currentReport',
   getCurrentOverview: 'compute.currentOverview',
+  computeFormFields: 'compute.formFields',
   // Formate
   formatDate: 'format.date',
   formatMonthYear: 'format.monthYear',
@@ -61,6 +64,7 @@ export const LEGACY_MAP = Object.freeze({
   closeModals: 'ui.closeModals',
   openEntryModal: 'ui.openEntryModal',
   populateTemplatePicker: 'ui.populateTemplatePicker',
+  saveEntryAndNext: 'ui.saveEntryAndNext',
   // Neuzeichnen
   renderTracker: 'render.tracker',
   renderEntries: 'render.entries',

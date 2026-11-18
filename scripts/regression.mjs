@@ -1565,6 +1565,7 @@ async function runBackupImportMigrationUnits(page) {
   const bi1 = await page.evaluate(async () => {
     const { importBackup } = await import('/modules/backup.js');
     const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
+    const appState = getState(); // seit v3.14.3 einzige Zustandsquelle, danach zurücksetzen
 
     const legacyBackup = {
       employers: [{ id: 'e1', name: 'Import-Test AG' }],
@@ -1603,10 +1604,9 @@ async function runBackupImportMigrationUnits(page) {
       hiredSince: employer?.hiredSince,
       vacationCarryOver: employer?.vacationCarryOver,
     };
-    // WICHTIG: setState() im echten Modul-Singleton umgangen die App-Referenz (window.state).
-    // Ohne Resync würde ein späterer saveState()-Aufruf (z.B. in seedState()) versehentlich
-    // diese synthetischen Test-Daten statt der echten App-Daten persistieren.
-    setState(window.state);
+    // WICHTIG: setState() ersetzt den einzigen App-Zustand. Ohne Zurücksetzen würde ein
+    // späterer saveState()-Aufruf (z.B. in seedState()) die synthetischen Test-Daten persistieren.
+    setState(appState);
     return result;
   });
   assertEq('BI1: importierter Legacy-Backup wird auf aktuelle SCHEMA_VERSION gehoben', bi1.schemaVersion, 7);
@@ -1624,6 +1624,7 @@ async function runBackupImportMigrationUnits(page) {
   const bi2 = await page.evaluate(async () => {
     const { importBackup } = await import('/modules/backup.js');
     const { setState, getState, DEFAULT_STATE } = await import('/modules/state.js');
+    const appState = getState(); // seit v3.14.3 einzige Zustandsquelle, danach zurücksetzen
 
     const currentBackup = {
       schemaVersion: 7,
@@ -1653,7 +1654,7 @@ async function runBackupImportMigrationUnits(page) {
       employerVacationCarryOver: s.employers.find(e => e.id === 'e2')?.vacationCarryOver,
       entryCount: s.entries.length,
     };
-    setState(window.state); // Resync: siehe Kommentar in BI1.
+    setState(appState); // Zurücksetzen: siehe Kommentar in BI1.
     return result;
   });
   assertEq('BI2: bereits aktuelles Backup bleibt auf schemaVersion=7', bi2.schemaVersion, 7);
@@ -1671,7 +1672,8 @@ async function runStateCorruptionUnits(page) {
   console.log('\n=== 1l) State-Robustheit bei defektem localStorage (v3.9.49) ===');
 
   const cs = await page.evaluate(async () => {
-    const { loadState, wasLastLoadCorrupted, getCorruptedBackupKey, setState, STORAGE_KEY } = await import('/modules/state.js');
+    const { loadState, wasLastLoadCorrupted, getCorruptedBackupKey, setState, getState, STORAGE_KEY } = await import('/modules/state.js');
+    const appState = getState();
     const helpers = { uid: () => 'x', normalizeSegments: (s) => s, normalizeHolidayOverrides: window.normalizeHolidayOverrides };
 
     const savedRaw = localStorage.getItem(STORAGE_KEY);
@@ -1708,10 +1710,10 @@ async function runStateCorruptionUnits(page) {
     } finally {
       if (savedRaw === null) localStorage.removeItem(STORAGE_KEY);
       else localStorage.setItem(STORAGE_KEY, savedRaw);
-      // WICHTIG: loadState() hier ersetzt den Modul-Singleton durch einen von
-      // window.state losgelösten Test-State. Resync, damit ein späterer saveState()
+      // WICHTIG: loadState() ersetzt hier den einzigen App-Zustand durch einen
+      // Test-Zustand. Zurücksetzen, damit ein späterer saveState()
       // (z.B. in seedState()) wieder die echten App-Daten persistiert.
-      setState(window.state);
+      setState(appState);
     }
   });
 

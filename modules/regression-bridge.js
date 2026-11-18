@@ -10,7 +10,11 @@
  *
  * Verwendung in app.js:
  *   import { exportBridge } from './modules/regression-bridge.js';
- *   exportBridge(window, { state, saveState, loadState, ..., _runMigrationsModule });
+ *   exportBridge(window, { appCtx, getState, saveState, loadState, ..., _runMigrationsModule });
+ *
+ * Seit v3.14.3 liest window.state den Zustand über den zentralen Kontext
+ * (appCtx().state.get()) und liefert damit immer den aktuellen Zustand,
+ * auch nach einem Import.
  */
 
 import { emailFormatError, emailListError, splitEmailAddresses } from './ui/email-validation.js';
@@ -22,7 +26,7 @@ export function exportBridge(target, refs) {
 
   const {
     // State + Persistenz
-    state, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
+    getState, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
     // Migrations
     _runMigrationsModule, migrateHomeofficeEntries,
     // Selectors + Utilities
@@ -64,11 +68,14 @@ export function exportBridge(target, refs) {
     // Backup-Ordner (File System Access API, seit v3.9.69)
     exportBackup, renderBackupFolderSection,
     // Zentraler Kontext (seit v3.14.1)
-    appCtx, legacyCtxFactories,
+    appCtx,
   } = refs;
 
   // State + Persistenz
-  target.state = state;
+  const readState = typeof appCtx === 'function'
+    ? () => appCtx().state.get()
+    : (typeof getState === 'function' ? getState : () => undefined);
+  Object.defineProperty(target, 'state', { get: readState, configurable: true, enumerable: true });
   target.saveState = saveState;
   target.loadState = loadState;
   target.SCHEMA_VERSION = SCHEMA_VERSION;
@@ -198,5 +205,4 @@ export function exportBridge(target, refs) {
 
   // Zentraler Kontext (seit v3.14.1, für Regression-Unit-Tests)
   if (typeof appCtx === 'function') target.__appCtx = appCtx;
-  if (legacyCtxFactories && typeof legacyCtxFactories === 'object') target.__legacyCtx = legacyCtxFactories;
 }

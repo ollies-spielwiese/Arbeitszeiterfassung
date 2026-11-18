@@ -4,9 +4,11 @@
 //
 // Alle Funktionen sind pure ES-Exports und nehmen einen kleinen ctx.
 //   - renderSummaryHTML(fields)                  — kein ctx
-//   - renderSummaryPdfLines(fields, ctx)         — ctx: { formatMoney }
-//   - renderSummaryWordParagraphs(fields, docxCtx, ctx) — docxCtx: { Paragraph, TextRun }, ctx: { formatMoney }
+//   - renderSummaryPdfLines(fields, ctx)         — ctx: zentraler Kontext oder { formatMoney }
+//   - renderSummaryWordParagraphs(fields, docxCtx, ctx) — docxCtx: { Paragraph, TextRun }, ctx: zentraler Kontext oder { formatMoney }
 //   - renderSummaryPlaintext(fields)             — kein ctx
+
+import { toAppContext } from '../app-context.js';
 
 /**
  * HTML-Zeilen für die on-screen .summary-grid.
@@ -38,7 +40,7 @@ export function renderSummaryHTML(fields) {
  * @returns {string[]}
  */
 export function renderSummaryPdfLines(fields, ctx) {
-  const { formatMoney } = ctx;
+  const { format: { money: formatMoney } } = toAppContext(ctx);
   return fields.map((f) => {
     if (f.kind === 'time') {
       const label = f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label);
@@ -71,7 +73,7 @@ export function renderSummaryPdfLines(fields, ctx) {
  */
 export function renderSummaryWordParagraphs(fields, docxCtx, ctx) {
   const { Paragraph, TextRun } = docxCtx;
-  const { formatMoney } = ctx;
+  const { format: { money: formatMoney } } = toAppContext(ctx);
   return fields.map((f) => {
     if (f.kind === 'time') {
       const label = f.label === 'Ist' ? 'Ist-Stunden' : (f.label === 'Soll' ? 'Soll-Stunden' : f.label);

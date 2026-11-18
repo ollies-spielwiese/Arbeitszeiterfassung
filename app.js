@@ -174,7 +174,7 @@ import { computeBackupReminder } from './modules/storage-status.js';
 import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
-import { createAppContext, legacyView, withExtras } from './modules/app-context.js';
+import { createAppContext, withExtras } from './modules/app-context.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
@@ -261,7 +261,7 @@ import { wireEvents } from './modules/bootstrap.js';
 /* Storage-Abstraktion, DEFAULT_STATE, STORAGE_KEY: siehe modules/state.js. */
 
 function getAppMode() {
-  return (state && state.settings && state.settings.appMode === 'freelance') ? 'freelance' : 'employee';
+  return (_getState() && _getState().settings && _getState().settings.appMode === 'freelance') ? 'freelance' : 'employee';
 }
 function L(key) {
   const m = getAppMode();
@@ -277,13 +277,8 @@ function isFreelance() { return getAppMode() === 'freelance'; }
  * @returns {string}
  */
 function formatMoney(amount, currency) {
-  const cur = currency || (state && state.settings && state.settings.currency) || 'EUR';
+  const cur = currency || (_getState() && _getState().settings && _getState().settings.currency) || 'EUR';
   return _formatMoneyRaw(amount, cur);
-}
-
-/* ---------- Selectors ctx-Builder (siehe modules/selectors.js) ---------- */
-function _selectorsFmtCtx() {
-  return legacyView(appCtx(), ['isFreelance', 'minutesToHM', 'hoursDecimal', 'formatMoney']);
 }
 
 /* ========================================================================
@@ -311,7 +306,7 @@ function _selectorsFmtCtx() {
  * @returns {AZSummaryField[]} Felder in Anzeigereihenfolge
  */
 function getSummaryFields(input) {
-  return _getSummaryFieldsRaw(input, _selectorsFmtCtx());
+  return _getSummaryFieldsRaw(input, appCtx());
 }
 
 /**
@@ -319,20 +314,18 @@ function getSummaryFields(input) {
  * Nimmt totals-Objekt + Row-Array und liefert Felder für Übersicht-Summary-Grid.
  */
 function getOverviewSummaryFields(ov) {
-  return _getOverviewSummaryFieldsRaw(ov, _selectorsFmtCtx());
+  return _getOverviewSummaryFieldsRaw(ov, appCtx());
 }
 
 /* ---------- Summary-Renderer (Wrapper — siehe modules/render/summary.js) ---------- */
-function _renderSummaryCtx() { return legacyView(appCtx(), ['formatMoney']); }
-
 function renderSummaryHTML(fields) {
   return _renderSummaryHTMLRaw(fields);
 }
 function renderSummaryPdfLines(fields) {
-  return _renderSummaryPdfLinesRaw(fields, _renderSummaryCtx());
+  return _renderSummaryPdfLinesRaw(fields, appCtx());
 }
 function renderSummaryWordParagraphs(fields, docxCtx) {
-  return _renderSummaryWordParagraphsRaw(fields, docxCtx, _renderSummaryCtx());
+  return _renderSummaryWordParagraphsRaw(fields, docxCtx, appCtx());
 }
 function renderSummaryPlaintext(fields) {
   return _renderSummaryPlaintextRaw(fields);
@@ -374,10 +367,10 @@ function saveState() {
   }
 }
 
-// state wird via loadState() aus dem Modul geholt; window.state hält eine Referenz
-// für Regression-Skripte, die über page.evaluate darauf zugreifen.
-let state = loadState();
-if (typeof window !== 'undefined') window.state = state;
+// Seit v3.14.3 gibt es in app.js keine eigene Variable `state` mehr: Der Zustand
+// liegt nur in modules/state.js und wird über _getState() gelesen. window.state
+// liefert für Regression-Skripte immer den aktuellen Zustand (siehe regression-bridge.js).
+loadState();
 
 // Seit v3.9.55: gemeinsames, nicht-persistiertes Flag "Ehemalige Arbeitgeber anzeigen".
 // Steuert alle aktiven/Live-Dropdowns (active-employer, filter-employer, week-employer,
@@ -499,7 +492,7 @@ function computeSuggestedBreak(startHHMM, endHHMM, breakMode) { return _computeS
  */
 
 function _currentHolidayOverrides() {
-  return (state && state.settings && state.settings.holidayOverrides) || undefined;
+  return (_getState() && _getState().settings && _getState().settings.holidayOverrides) || undefined;
 }
 
 function normalizeHolidayOverrides(ov) {
@@ -546,12 +539,12 @@ function isHoliday(iso, stateCode) {
  */
 function _computeCtxHoliday(employerId) {
   const ctx = {
-    stateCode: (state && state.settings && state.settings.state) || 'HE',
+    stateCode: (_getState() && _getState().settings && _getState().settings.state) || 'HE',
     holidayOverrides: _currentHolidayOverrides(),
   };
   if (employerId) {
     ctx.offDayDates = new Set(
-      state.entries.filter(e => e.employerId === employerId && e.type === 'off_day').map(e => e.date)
+      _getState().entries.filter(e => e.employerId === employerId && e.type === 'off_day').map(e => e.date)
     );
   }
   return ctx;
@@ -577,12 +570,12 @@ function defaultSchedule(weeklyHours = 40) {
 
 /** @returns {AZEmployer|undefined} */
 function getEmployer(id) {
-  return _getEmployerRaw(id, { state });
+  return _getEmployerRaw(id, { state: _getState() });
 }
 
 function ensureActiveEmployer() {
-  if (state.activeEmployerId && getEmployer(state.activeEmployerId)) return;
-  state.activeEmployerId = state.employers[0]?.id || null;
+  if (_getState().activeEmployerId && getEmployer(_getState().activeEmployerId)) return;
+  _getState().activeEmployerId = _getState().employers[0]?.id || null;
 }
 
 /* ---------- Views ---------- */
@@ -624,25 +617,25 @@ function renderTracker() {
   const formerEmployersLabel = document.getElementById('former-employers-tracker-label');
   if (formerEmployersLabel) formerEmployersLabel.textContent = L('formerEmployers');
   const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
     showAll: showFormerEmployers,
-    includeIds: [state.activeEmployerId],
+    includeIds: [_getState().activeEmployerId],
   });
-  sel.innerHTML = state.employers.length
-    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}" ${e.id === state.activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
+  sel.innerHTML = _getState().employers.length
+    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}" ${e.id === _getState().activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : `<option value="">— Bitte ${L('employer')} anlegen —</option>`;
 
   const hint = document.getElementById('onboarding-hint');
   if (hint) {
-    hint.style.display = state.employers.length ? 'none' : '';
-    if (!state.employers.length) {
+    hint.style.display = _getState().employers.length ? 'none' : '';
+    if (!_getState().employers.length) {
       hint.innerHTML = `<strong>Willkommen 👋</strong><br>Bitte legen Sie zuerst unter <em>${L('employers')}</em> mindestens ${isFreelance() ? 'einen Kunden' : 'einen Arbeitgeber'} an. Danach können Sie hier Ihre Arbeitszeiten erfassen.`;
     }
   }
 
-  const running = state.runningTimer;
-  const hasEmployers = state.employers.length > 0;
-  const activeEmp = getEmployer(state.activeEmployerId);
+  const running = _getState().runningTimer;
+  const hasEmployers = _getState().employers.length > 0;
+  const activeEmp = getEmployer(_getState().activeEmployerId);
   const activeIsFormer = isFormerEmployer(activeEmp, today);
   document.getElementById('btn-start').disabled = !!running || !hasEmployers || activeIsFormer;
   document.getElementById('btn-end').disabled = !running;
@@ -701,25 +694,21 @@ function appCtx() {
     renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderEmployers, refreshAll,
     generatePdfBlob, generateWordBlob, generateOverviewPdfBlob, downloadBlob,
     getEmployer, uid, todayISO, dayOfWeekISO, isFreelance, getAppMode, DAY_KEYS, DAY_LABELS_LONG,
+    // Feld-Definitionen des Erfassen-Dialogs (Phase 4.8, seit v3.14.3 im Kontext)
+    computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
+      state: _getState(), todayISO, getEmployer, DAY_KEYS, DAY_LABELS_LONG, dayOfWeekISO,
+    }),
+    // „Speichern und nächster Tag“ aus dem Außendienst-Dialog (seit v3.14.3 im Kontext)
+    saveEntryAndNext: (e) => _saveEntryRaw(e, withExtras(appCtx(), { __saveAndNext: true })),
   });
   return _appCtxInstance;
-}
-
-function _storageStatusCtx() {
-  return appCtx();
-}
-
-function _fsCtx() {
-  return withExtras(appCtx(), {
-    saveEntryAndNext: (e) => _saveEntryRaw(e, withExtras(_entryCtx(), { __saveAndNext: true })),
-  });
 }
 
 function startLiveTimer() {
   stopLiveTimer();
   const update = () => {
-    if (!state.runningTimer) return;
-    const diff = Date.now() - new Date(state.runningTimer.startISO).getTime();
+    if (!_getState().runningTimer) return;
+    const diff = Date.now() - new Date(_getState().runningTimer.startISO).getTime();
     const s = Math.floor(diff / 1000);
     document.getElementById('live-duration').textContent =
       `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
@@ -733,7 +722,7 @@ function stopLiveTimer() {
 }
 
 function renderTodaySummary() {
-  const empId = state.activeEmployerId;
+  const empId = _getState().activeEmployerId;
   const container = document.getElementById('today-summary');
   if (!empId) {
     container.innerHTML = '';
@@ -782,17 +771,17 @@ function countWorkdaysInMonth(ym, employer) {
 /* ---------- Start / End ---------- */
 
 function startWork() {
-  if (!state.activeEmployerId) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return; }
-  if (state.runningTimer) return;
-  if (findEntryConflict(state.entries, { employerId: state.activeEmployerId, date: todayISO(), type: 'work' })) {
+  if (!_getState().activeEmployerId) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return; }
+  if (_getState().runningTimer) return;
+  if (findEntryConflict(_getState().entries, { employerId: _getState().activeEmployerId, date: todayISO(), type: 'work' })) {
     toast(ENTRY_CONFLICT_MESSAGE); return;
   }
-  state.runningTimer = {
-    employerId: state.activeEmployerId,
+  _getState().runningTimer = {
+    employerId: _getState().activeEmployerId,
     startISO: new Date().toISOString(),
     type: currentMode === 'homeoffice' ? 'homeoffice' : 'work',
     // Außendienst-Nachweis (seit v3.13.0): Tätigkeit und Einsatzort des ersten Blocks.
-    ...getTrackerStartFieldService(state, state.activeEmployerId, currentMode),
+    ...getTrackerStartFieldService(_getState(), _getState().activeEmployerId, currentMode),
   };
   resetTrackerPick();
   saveState();
@@ -801,27 +790,27 @@ function startWork() {
 }
 
 function endWork() {
-  const r = state.runningTimer;
+  const r = _getState().runningTimer;
   if (!r) return;
   const startDate = new Date(r.startISO);
   const endDate = new Date();
   const parts = splitAcrossMidnight(startDate, endDate);
   if (!parts.length) { toast('Bitte mindestens eine Minute erfassen.'); return; }
-  if (parts.some(p => findEntryConflict(state.entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
+  if (parts.some(p => findEntryConflict(_getState().entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
     toast(ENTRY_CONFLICT_MESSAGE + ' Der Timer bleibt erhalten.'); return;
   }
 
   if (r.type === 'homeoffice') {
     // Für jeden Kalendertag: Segment am bestehenden HO-Entry anhängen oder neuen anlegen
     for (const p of parts) {
-      const existing = state.entries.find(e =>
+      const existing = _getState().entries.find(e =>
         e.type === 'homeoffice' && e.employerId === r.employerId && e.date === p.date
       );
       if (existing) {
         const prev = Array.isArray(existing.segments) ? existing.segments : [];
         existing.segments = normalizeSegments([...prev, { start: p.start, end: p.end }]);
       } else {
-        state.entries.push({
+        _getState().entries.push({
           id: uid(),
           employerId: r.employerId,
           date: p.date,
@@ -832,7 +821,7 @@ function endWork() {
         });
       }
     }
-    state.runningTimer = null;
+    _getState().runningTimer = null;
     saveState();
     renderTracker();
     renderEntries();
@@ -866,53 +855,39 @@ function endWork() {
     breakMinutes: suggestedBreak || 0,
     overtimeReason: '',
     note: '',
-    ...fieldServiceFromTimer(state, r),
+    ...fieldServiceFromTimer(_getState(), r),
     createdAt: new Date().toISOString(),
   };
-  state.entries.push(entry);
-  state.runningTimer = null;
+  _getState().entries.push(entry);
+  _getState().runningTimer = null;
   saveState();
   renderTracker();
 
   openEntryModal(entry, { justEnded: true });
   // Außendienst (seit v3.13.0): bei „erst bei Arbeitsende“ fehlende Kilometer der Fahrten von heute abfragen.
-  const fsSettings = getFieldServiceSettings(state.settings);
+  const fsSettings = getFieldServiceSettings(_getState().settings);
   if (fsSettings.kmPrompt === 'end') {
-    const missing = tripsMissingKm(state, r.employerId, dateISO, entry.id);
-    if (missing.length) openKmModal(missing, _fsCtx());
+    const missing = tripsMissingKm(_getState(), r.employerId, dateISO, entry.id);
+    if (missing.length) openKmModal(missing, appCtx());
   }
 }
 
 /* ---------- Entry Modal ---------- */
 
-function _entryCtx() {
-  return withExtras(appCtx(), {
-    // Phase 4.8: Selector fuer Feld-Definitionen mit partiell gebundenem ctx
-    computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
-      state: _getState(),
-      todayISO,
-      getEmployer,
-      DAY_KEYS,
-      DAY_LABELS_LONG,
-      dayOfWeekISO,
-    }),
-  });
-}
-
 function openEntryModal(entry, opts = {}) {
-  return _openEntryModalRaw(entry, opts, _entryCtx());
+  return _openEntryModalRaw(entry, opts, appCtx());
 }
 
 function updateScheduleFillVisibility() {
-  return _updateScheduleFillVisibilityRaw(_entryCtx());
+  return _updateScheduleFillVisibilityRaw(appCtx());
 }
 
 function applyScheduleToEntry() {
-  return _applyScheduleToEntryRaw(_entryCtx());
+  return _applyScheduleToEntryRaw(appCtx());
 }
 
-function templateMatchesMode(tpl) { return _templateMatchesModeRaw(tpl, _tplCtx()); }
-function populateTemplatePicker(selectId) { return _populateTemplatePickerRaw(selectId, _tplCtx()); }
+function templateMatchesMode(tpl) { return _templateMatchesModeRaw(tpl, appCtx()); }
+function populateTemplatePicker(selectId) { return _populateTemplatePickerRaw(selectId, appCtx()); }
 
 function closeModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
@@ -934,36 +909,32 @@ function updateEntryTypeFields() {
 }
 
 function updateBreakHint() {
-  return _updateBreakHintRaw(_entryCtx());
+  return _updateBreakHintRaw(appCtx());
 }
 
 function updateEntryArbzgHint() {
-  return _updateEntryArbzgHintRaw(_entryCtx());
+  return _updateEntryArbzgHintRaw(appCtx());
 }
 
 function saveEntry(e) {
-  return _saveEntryRaw(e, _entryCtx());
+  return _saveEntryRaw(e, appCtx());
 }
 
 function deleteEntry() {
-  return _deleteEntryRaw(_entryCtx());
+  return _deleteEntryRaw(appCtx());
 }
 
 /* ---------- Range-Entry Modal (Zeitraum erfassen, Option B) ---------- */
-function _rangeEntryCtx() {
-  return appCtx();
-}
-
 function openRangeEntryModal() {
-  return _openRangeEntryModalRaw(_rangeEntryCtx());
+  return _openRangeEntryModalRaw(appCtx());
 }
 
 function saveRangeEntry(e) {
-  return _saveRangeEntryRaw(e, _rangeEntryCtx());
+  return _saveRangeEntryRaw(e, appCtx());
 }
 
 function updateRangeVacationStats() {
-  return _updateRangeVacationStatsRaw(_rangeEntryCtx());
+  return _updateRangeVacationStatsRaw(appCtx());
 }
 
 /* ---------- Home-Office Mode & Modal ---------- */
@@ -980,19 +951,15 @@ function setMode(mode) {
   btnH.classList.toggle('active', isHO);
   btnP.setAttribute('aria-checked', String(!isHO));
   btnH.setAttribute('aria-checked', String(isHO));
-  try { renderTrackerFieldService(_fsCtx(), currentMode); } catch (err) { console.error(err); }
-}
-
-function _hoCtx() {
-  return appCtx();
+  try { renderTrackerFieldService(appCtx(), currentMode); } catch (err) { console.error(err); }
 }
 
 function openHomeofficeModal(entry, opts) {
-  return _openHomeofficeModalRaw(entry, opts, _hoCtx());
+  return _openHomeofficeModalRaw(entry, opts, appCtx());
 }
 
 function updateHomeofficeContext() {
-  return _updateHomeofficeContextRaw(_hoCtx());
+  return _updateHomeofficeContextRaw(appCtx());
 }
 
 function readHomeofficeSegmentsFromDom() {
@@ -1004,19 +971,19 @@ function persistHomeofficeSegmentsToState() {
 }
 
 function renderHomeofficeSegments() {
-  return _renderHomeofficeSegmentsRaw(_hoCtx());
+  return _renderHomeofficeSegmentsRaw(appCtx());
 }
 
 function addHomeofficeSegment() {
-  return _addHomeofficeSegmentRaw(_hoCtx());
+  return _addHomeofficeSegmentRaw(appCtx());
 }
 
 function removeHomeofficeSegment(idx) {
-  return _removeHomeofficeSegmentRaw(idx, _hoCtx());
+  return _removeHomeofficeSegmentRaw(idx, appCtx());
 }
 
 function updateHomeofficeLiveTotal() {
-  return _updateHomeofficeLiveTotalRaw(_hoCtx());
+  return _updateHomeofficeLiveTotalRaw(appCtx());
 }
 /**
  * Normalisiert Segmente: sortiert nach Startzeit, mergt überlappende oder
@@ -1042,11 +1009,11 @@ function normalizeSegments(segments) {
 }
 
 function saveHomeoffice(e) {
-  return _saveHomeofficeRaw(e, _hoCtx());
+  return _saveHomeofficeRaw(e, appCtx());
 }
 
 function deleteHomeoffice() {
-  return _deleteHomeofficeRaw(_hoCtx());
+  return _deleteHomeofficeRaw(appCtx());
 }
 function hhmmToMinutes(hhmm) {
   if (!hhmm) return 0;
@@ -1064,7 +1031,7 @@ function renderEntries() {
 
   const currentEmpFilter = filterSel.value;
   const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
     showAll: showFormerEmployers,
     includeIds: [currentEmpFilter],
   });
@@ -1078,7 +1045,7 @@ function renderEntries() {
   const empFilter = filterSel.value;
   const monthFilter = monthInput.value;
 
-  let list = [...state.entries];
+  let list = [..._getState().entries];
   if (empFilter) list = list.filter(e => e.employerId === empFilter);
   else if (!showFormerEmployers) list = list.filter(e => !isFormerEmployer(getEmployer(e.employerId), today));
   if (monthFilter) list = list.filter(e => e.date.startsWith(monthFilter));
@@ -1106,7 +1073,7 @@ function renderEntries() {
 
   container.querySelectorAll('.entry-card').forEach(card => {
     card.addEventListener('click', () => {
-      const entry = state.entries.find(e => e.id === card.dataset.id);
+      const entry = _getState().entries.find(e => e.id === card.dataset.id);
       if (!entry) return;
       if (entry.type === 'homeoffice') openHomeofficeModal(entry);
       else openEntryModal(entry);
@@ -1143,14 +1110,14 @@ function renderWeek() {
 
   const currentEmp = sel.value;
   const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
     showAll: showFormerEmployers,
-    includeIds: [currentEmp, state.activeEmployerId],
+    includeIds: [currentEmp, _getState().activeEmployerId],
   });
-  sel.innerHTML = state.employers.length
+  sel.innerHTML = _getState().employers.length
     ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
-  sel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
+  sel.value = currentEmp || _getState().activeEmployerId || visibleEmployers[0]?.id || '';
 
   if (!wkInput.value) wkInput.value = currentYearWeek();
 
@@ -1162,17 +1129,17 @@ function renderWeek() {
 
   const emp = getEmployer(empId);
   const dates = isoWeekToDates(isoWeek);
-  const stateCode = state.settings.state || 'HE';
+  const stateCode = _getState().settings.state || 'HE';
 
   // v3.12.0: Hinweise Arbeitszeitgesetz (alle Arbeitgeber zusammen) für die Tage dieser Woche.
-  const arbzgHints = isArbzgHintEnabled(state.settings)
-    ? computeArbzgHints(state.entries, state.employers, dates[0], dates[6]) : [];
+  const arbzgHints = isArbzgHintEnabled(_getState().settings)
+    ? computeArbzgHints(_getState().entries, _getState().employers, dates[0], dates[6]) : [];
 
   let totalMin = 0;
-  const fsWeekActive = isFieldServiceActive(state.settings, empId);
+  const fsWeekActive = isFieldServiceActive(_getState().settings, empId);
   const dayModels = dates.map((d) => {
     const holiday = isHoliday(d, stateCode);
-    const dayEntries = state.entries.filter(e => e.employerId === empId && e.date === d);
+    const dayEntries = _getState().entries.filter(e => e.employerId === empId && e.date === d);
     const workMin = dayEntries.filter(isWorkedEntry).reduce((s, e) => s + computeWorkMinutes(e), 0);
     totalMin += workMin;
     const hasVacation = dayEntries.some(e => e.type === 'vacation');
@@ -1211,7 +1178,7 @@ function renderWeek() {
 
   // Same daily values as tracker/month; month-crossing weeks use each date's month.
   const isCreditableAbsenceDay = date => computeDayTargetMinutes(emp, date) > 0;
-  const sumCreditedAbsenceMinWeek = (type) => state.entries
+  const sumCreditedAbsenceMinWeek = (type) => _getState().entries
     .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
     .reduce((sum, e) => sum + computeDayTargetMinutes(emp, e.date), 0);
   // Überstundenabbau (seit v3.9.46): NICHT gutgeschrieben — anders als Urlaub/Krank soll ein
@@ -1222,7 +1189,7 @@ function renderWeek() {
   const balance = totalMin + creditedAbsenceMinWeek - targetMin;
   // Tageszähler für den Saldo-Tooltip (nur Tage, die tatsächlich Gutschrift bringen —
   // Urlaub/Krank am Wochenende oder Feiertag bringt 0 und wird hier nicht mitgezählt).
-  const countCreditedAbsenceDaysWeek = (type) => state.entries
+  const countCreditedAbsenceDaysWeek = (type) => _getState().entries
     .filter(e => e.employerId === empId && e.type === type && dates.includes(e.date) && isCreditableAbsenceDay(e.date))
     .length;
   const vacationDaysWeek = countCreditedAbsenceDaysWeek('vacation');
@@ -1260,7 +1227,7 @@ function renderWeek() {
  * @returns {AZMonthReport|null}
  */
 function computeMonthReport(employerId, ym) {
-  return _computeMonthReportRaw(employerId, ym, { state });
+  return _computeMonthReportRaw(employerId, ym, { state: _getState() });
 }
 
 // Sollstunden-Warnung (seit v3.9.80): liefert den Monats-Fortschritt (vergangene Arbeitstage,
@@ -1268,10 +1235,10 @@ function computeMonthReport(employerId, ym) {
 // inneren ctx (stateCode/holidayOverrides/offDayDates) wie computeMonthReport weiter oben, damit
 // das anteilige Soll exakt zum vollen Monats-Soll aus computeMonthReport passt.
 function computeElapsedMonthProgressForEmployer(emp, ym, today) {
-  const stateCode = state.settings?.state || 'HE';
-  const holidayOverrides = state.settings?.holidayOverrides;
+  const stateCode = _getState().settings?.state || 'HE';
+  const holidayOverrides = _getState().settings?.holidayOverrides;
   const offDayDates = new Set(
-    state.entries
+    _getState().entries
       .filter((e) => e.employerId === emp.id && e.date && e.date.startsWith(ym) && e.type === 'off_day')
       .map((e) => e.date)
   );
@@ -1282,14 +1249,14 @@ function computeElapsedMonthProgressForEmployer(emp, ym, today) {
 // (asOfToday) statt bis Dezember, damit noch nicht begonnene Zukunftsmonate den Wert nicht
 // kuenstlich ins Minus ziehen. Siehe modules/compute.js#computeGleitzeitkontoAsOfToday.
 function computeGleitzeitkontoAsOfTodayForEmployer(emp, year, today) {
-  return _computeGleitzeitkontoAsOfTodayRaw(emp, year, today, { state });
+  return _computeGleitzeitkontoAsOfTodayRaw(emp, year, today, { state: _getState() });
 }
 
 // Gleitzeitkonto-Warnung (seit v3.9.81) - rollierendes 3-Monats-Fenster als Grundlage fuer die
 // WARNUNG (Banner + Kachel-Rahmen), entkoppelt von der Kachel-ANZEIGE oben. Siehe
 // modules/compute.js#computeGleitzeitkontoRollingWindow.
 function computeGleitzeitkontoWindowForEmployer(emp, today) {
-  return _computeGleitzeitkontoRollingWindowRaw(emp, today, { state });
+  return _computeGleitzeitkontoRollingWindowRaw(emp, today, { state: _getState() });
 }
 
 // Sollstunden-Warnung (seit v3.9.78): liefert die Kachel-Warnung fuer EINEN Saldo/Soll-Wert,
@@ -1297,7 +1264,7 @@ function computeGleitzeitkontoWindowForEmployer(emp, today) {
 // modules/soll-warning.js fuer die reine Berechnung.
 function computeBalanceWarningInfo(balance, targetMin, basis) {
   if (isFreelance()) return null;
-  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const settings = /** @type {import('./types.js').AZSettings} */ (_getState().settings || {});
   const enabled = basis === 'month' ? settings.sollWarningMonthEnabled : settings.sollWarningGleitzeitEnabled;
   if (!enabled) return null;
   const thresholdPct = basis === 'month' ? settings.sollWarningMonthThresholdPct : settings.sollWarningGleitzeitThresholdPct;
@@ -1310,14 +1277,14 @@ function renderReport() {
 
   const currentEmp = empSel.value;
   const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(state.employers, today, {
+  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
     showAll: showFormerEmployers,
-    includeIds: [currentEmp, state.activeEmployerId],
+    includeIds: [currentEmp, _getState().activeEmployerId],
   });
-  empSel.innerHTML = state.employers.length
+  empSel.innerHTML = _getState().employers.length
     ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
     : '<option value="">— Kein Arbeitgeber —</option>';
-  empSel.value = currentEmp || state.activeEmployerId || visibleEmployers[0]?.id || '';
+  empSel.value = currentEmp || _getState().activeEmployerId || visibleEmployers[0]?.id || '';
 
   if (!monthInput.value) monthInput.value = currentYearMonth();
 
@@ -1354,7 +1321,7 @@ function renderReport() {
 async function generateKmPdfBlob(report) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
-  return _generateKmPdfBlobRaw(report, { jsPDF, state, formatDateLong, formatMonthYear });
+  return _generateKmPdfBlobRaw(report, { jsPDF, state: _getState(), formatDateLong, formatMonthYear });
 }
 
 async function exportKmPdf() {
@@ -1376,7 +1343,7 @@ async function exportKmPdf() {
 async function generateWordBlob(report) {
   await ensureDocxLib();
   return _generateWordBlobRaw(report, {
-    docx, state,
+    docx, state: _getState(),
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryWordParagraphs,
@@ -1390,7 +1357,7 @@ async function generatePdfBlob(report) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
   return _generatePdfBlobRaw(report, {
-    jsPDF, state,
+    jsPDF, state: _getState(),
     formatDate, formatDateLong, formatMonthYear, minutesToHM,
     computeWorkMinutes, computeHomeofficeMinutes,
     getSummaryFields, renderSummaryPdfLines, isFreelance, formatEmploymentModelSummary,
@@ -1411,8 +1378,8 @@ async function generatePdfBlob(report) {
 function computeMonthOverview(ym, employers) {
   // Ohne explizite Liste: aktuellen Stand des "Ehemalige anzeigen"-Flags anwenden, damit
   // auch der PDF-Export (getCurrentOverview → selectors.js) die Bildschirmansicht widerspiegelt.
-  const emp = employers || filterVisibleEmployers(state.employers, todayISO(), { showAll: showFormerEmployers });
-  return _computeMonthOverviewRaw(ym, { state, employers: emp });
+  const emp = employers || filterVisibleEmployers(_getState().employers, todayISO(), { showAll: showFormerEmployers });
+  return _computeMonthOverviewRaw(ym, { state: _getState(), employers: emp });
 }
 
 /**
@@ -1440,7 +1407,7 @@ function renderOverview() {
   const ym = monthInput.value;
   const container = document.getElementById('overview-content');
 
-  if (!state.employers.length) {
+  if (!_getState().employers.length) {
     container.innerHTML = '<div class="empty-state">Bitte zuerst einen Arbeitgeber anlegen.</div>';
     return;
   }
@@ -1462,9 +1429,9 @@ function renderOverview() {
     renderSummaryHTML,
   });
   // v3.12.0: Hinweise Arbeitszeitgesetz des Monats (alle Arbeitgeber zusammen).
-  if (isArbzgHintEnabled(state.settings)) {
+  if (isArbzgHintEnabled(_getState().settings)) {
     const lastDay = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate();
-    const hints = computeArbzgHints(state.entries, state.employers, `${ym}-01`, `${ym}-${String(lastDay).padStart(2, '0')}`);
+    const hints = computeArbzgHints(_getState().entries, _getState().employers, `${ym}-01`, `${ym}-${String(lastDay).padStart(2, '0')}`);
     container.insertAdjacentHTML('beforeend', buildArbzgOverviewHTML(hints, formatMonthYear(ym), escapeHtml));
   }
 }
@@ -1472,7 +1439,7 @@ function renderOverview() {
 function renderAuditLog() {
   const container = document.getElementById('audit-log-list');
   if (!container) return;
-  container.innerHTML = _buildAuditLogHTMLRaw(state.auditLog, {
+  container.innerHTML = _buildAuditLogHTMLRaw(_getState().auditLog, {
     escapeHtml,
     getEmployer,
     formatDateLong,
@@ -1497,9 +1464,9 @@ const BACKUP_REMINDER_TARGETS = [
 ];
 
 function updateBackupReminderBanner() {
-  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const settings = /** @type {import('./types.js').AZSettings} */ (_getState().settings || {});
   const now = Date.now();
-  const hasData = Array.isArray(state.entries) && state.entries.length > 0;
+  const hasData = Array.isArray(_getState().entries) && _getState().entries.length > 0;
   // Referenzzeitpunkt für die Ein-Tag-Schonfrist einmalig festhalten.
   if (hasData && !settings.lastBackupAt && !settings.backupReminderFirstSeenAt
       && !(settings.backupReminderSnoozeUntil && new Date(settings.backupReminderSnoozeUntil).getTime() > now)) {
@@ -1521,7 +1488,7 @@ function updateBackupReminderBanner() {
     banner.classList.toggle('hidden', !res.show);
     if (res.show) textEl.textContent = res.text;
   }
-  try { maybeRequestPersist(_storageStatusCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
+  try { maybeRequestPersist(appCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
 }
 
 // Sollstunden-Warnung-Banner (Erfassen- und Übersicht-Ansicht, seit v3.9.78/v3.9.79): fasst alle
@@ -1542,7 +1509,7 @@ function updateSollWarningBanner(overridePeriod) {
     .map(({ bannerId, listId }) => ({ banner: document.getElementById(bannerId), listEl: document.getElementById(listId) }))
     .filter(({ banner, listEl }) => banner && listEl);
   if (!targets.length) return;
-  const settings = /** @type {import('./types.js').AZSettings} */ (state.settings || {});
+  const settings = /** @type {import('./types.js').AZSettings} */ (_getState().settings || {});
   const now = Date.now();
 
   if (settings.sollWarningSnoozeUntil && new Date(settings.sollWarningSnoozeUntil).getTime() > now) {
@@ -1552,9 +1519,9 @@ function updateSollWarningBanner(overridePeriod) {
 
   const warnings = _computeActiveSollWarningsRaw(
     {
-      state,
+      state: _getState(),
       computeMonthReport,
-      computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state }),
+      computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() }),
       computeGleitzeitkontoWindow: computeGleitzeitkontoWindowForEmployer,
       computeElapsedMonthProgress: computeElapsedMonthProgressForEmployer,
       isFormerEmployer,
@@ -1579,11 +1546,11 @@ function updateSollWarningBanner(overridePeriod) {
 function computeSelectableYears() {
   const now = new Date().getFullYear();
   const years = new Set([now, now + 1]);
-  (state.employers || []).forEach((e) => {
+  (_getState().employers || []).forEach((e) => {
     if (e.hiredSince) years.add(parseInt(String(e.hiredSince).slice(0, 4), 10));
     if (e.employmentEndDate) years.add(parseInt(String(e.employmentEndDate).slice(0, 4), 10));
   });
-  (state.entries || []).forEach((e) => {
+  (_getState().entries || []).forEach((e) => {
     if (e.date) years.add(parseInt(String(e.date).slice(0, 4), 10));
   });
   return [...years]
@@ -1609,14 +1576,14 @@ function renderVacationPlanning() {
   const container = document.getElementById('vacation-planning-content');
 
   ensureActiveEmployer();
-  const emp = getEmployer(state.activeEmployerId);
+  const emp = getEmployer(_getState().activeEmployerId);
   if (!emp) {
     container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
     return;
   }
 
-  const vp = computeYearlyVacationPlanning(emp, year, state.entries, todayISO());
-  const vr = computeVacationRemaining(emp, `${year}-12`, state.entries);
+  const vp = computeYearlyVacationPlanning(emp, year, _getState().entries, todayISO());
+  const vr = computeVacationRemaining(emp, `${year}-12`, _getState().entries);
 
   // Angezeigten Kalendermonat bestimmen: falls noch keiner gesetzt ist oder das gewaehlte
   // Jahr nicht mehr zum zuletzt angezeigten Monat passt (z.B. nach Jahreswechsel per
@@ -1628,9 +1595,9 @@ function renderVacationPlanning() {
     vacationCalendarYm = String(year) === todayYear ? todayYm : `${year}-01`;
   }
 
-  const stateCode = state.settings?.state || 'HE';
-  const holidayOverrides = state.settings?.holidayOverrides;
-  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, state.entries, todayISO(), stateCode, holidayOverrides);
+  const stateCode = _getState().settings?.state || 'HE';
+  const holidayOverrides = _getState().settings?.holidayOverrides;
+  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, _getState().entries, todayISO(), stateCode, holidayOverrides);
   const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
   const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
   const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
@@ -1640,7 +1607,7 @@ function renderVacationPlanning() {
     renderSummaryHTML,
     monthLabels: MONTH_LABELS_LONG,
     calendarHTML,
-    educationLeave: computeEducationLeaveYear(emp, year, state.entries, todayISO(), stateCode),
+    educationLeave: computeEducationLeaveYear(emp, year, _getState().entries, todayISO(), stateCode),
   });
 
   wireVacationCalendarNav();
@@ -1651,16 +1618,16 @@ function renderVacationPlanning() {
 /* ---------- Urlaubsbescheinigung (§ 6 Abs. 2 BUrlG, seit v3.9.99) ---------- */
 
 async function generateVacationCertificatePdfBlob(emp) {
-  const cert = computeVacationCertificate(emp, state.entries);
+  const cert = computeVacationCertificate(emp, _getState().entries);
   if (!cert) throw new Error('Kein Beschäftigungsende hinterlegt');
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
-  return _generateVacationCertificatePdfBlobRaw(cert, emp, { employeeName: state.settings?.employeeName || '' }, { jsPDF, formatDate, todayISO });
+  return _generateVacationCertificatePdfBlobRaw(cert, emp, { employeeName: _getState().settings?.employeeName || '' }, { jsPDF, formatDate, todayISO });
 }
 
 async function exportVacationCertificatePdf() {
   ensureActiveEmployer();
-  const emp = getEmployer(state.activeEmployerId);
+  const emp = getEmployer(_getState().activeEmployerId);
   if (!emp) return;
   try {
     const blob = await generateVacationCertificatePdfBlob(emp);
@@ -1696,13 +1663,13 @@ function wireVacationCalendarNav() {
 // die Monatstabelle der Jahresuebersicht neu aufzubauen — vermeidet unnoetigen Re-Render
 // bei jedem ‹/›-Klick.
 function renderVacationCalendarOnly() {
-  const emp = getEmployer(state.activeEmployerId);
+  const emp = getEmployer(_getState().activeEmployerId);
   const calendarContainer = document.querySelector('#vacation-planning-content .vacation-calendar');
   if (!emp || !calendarContainer) { renderVacationPlanning(); return; }
 
-  const stateCode = state.settings?.state || 'HE';
-  const holidayOverrides = state.settings?.holidayOverrides;
-  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, state.entries, todayISO(), stateCode, holidayOverrides);
+  const stateCode = _getState().settings?.state || 'HE';
+  const holidayOverrides = _getState().settings?.holidayOverrides;
+  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, _getState().entries, todayISO(), stateCode, holidayOverrides);
   const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
   const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
   const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
@@ -1720,7 +1687,7 @@ function renderGleitzeitkonto() {
   const container = document.getElementById('gleitzeitkonto-content');
 
   ensureActiveEmployer();
-  const emp = getEmployer(state.activeEmployerId);
+  const emp = getEmployer(_getState().activeEmployerId);
   if (!emp) {
     container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
     return;
@@ -1728,7 +1695,7 @@ function renderGleitzeitkonto() {
 
   // Kalenderjahr-Ansicht (Jan-Dez), seit v3.9.48: der kumulierte Saldo läuft über
   // Jahresgrenzen durch, startet aber nie vor "Angestellt seit" (siehe computeGleitzeitkontoRows).
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() });
 
   // Seit v3.9.81 "kombiniertes Modell":
   // - Kachel-ANZEIGE: voller Jahres-Saldo, aber nur bis heute (asOfToday) statt bis Dezember,
@@ -1756,12 +1723,12 @@ function getCurrentGleitzeitkonto() {
   const yearInput = document.getElementById('gleitzeitkonto-year');
   const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
   ensureActiveEmployer();
-  const emp = getEmployer(state.activeEmployerId);
+  const emp = getEmployer(_getState().activeEmployerId);
   if (!emp) {
     toast(`Bitte zuerst einen ${L('employer')} anlegen`);
     return null;
   }
-  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state });
+  const { rows, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, payout } = _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() });
   const asOf = computeGleitzeitkontoAsOfTodayForEmployer(emp, year, todayISO());
   return { rows, emp, meta: { year, effectiveStartYm, effectiveEndYm, hiredAfterYear, endedBeforeYear, asOf, payout } };
 }
@@ -1795,7 +1762,7 @@ async function generateOverviewPdfBlob(ov) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
   return _generateOverviewPdfBlobRaw(ov, {
-    jsPDF, state,
+    jsPDF, state: _getState(),
     formatMonthYear, minutesToHM, formatMoney, isFreelance, formatEmploymentModelSummary,
   });
 }
@@ -1806,7 +1773,7 @@ function fileNameForOverview(ov, ext) {
 
 function getCurrentOverview() {
   return _getCurrentOverviewRaw({
-    state,
+    state: _getState(),
     computeMonthOverview,
     toast,
     getYm: () => document.getElementById('overview-month').value,
@@ -1826,16 +1793,12 @@ async function exportOverviewPdf() {
   }
 }
 
-function _overviewShareCtx() {
-  return appCtx();
-}
-
 async function shareOverviewPdf() {
-  return _shareOverviewPdfRaw(_overviewShareCtx());
+  return _shareOverviewPdfRaw(appCtx());
 }
 
 function openOverviewShareModal() {
-  return _openOverviewShareModalRaw(_overviewShareCtx());
+  return _openOverviewShareModalRaw(appCtx());
 }
 
 /* ---------- Export UI ---------- */
@@ -1873,7 +1836,7 @@ async function exportPdf() {
 function generateCsvBlob(report) {
   return _generateCsvBlobRaw(report, {
     formatDate, minutesToHM, computeWorkMinutes, computeHomeofficeMinutes,
-    employeeName: (state.settings.employeeName || '').trim(),
+    employeeName: (_getState().settings.employeeName || '').trim(),
     isFreelance, formatEmploymentModelSummary,
   });
 }
@@ -1893,7 +1856,7 @@ async function exportCsv() {
 
 function getCurrentReport() {
   return _getCurrentReportRaw({
-    state,
+    state: _getState(),
     computeMonthReport,
     toast,
     getEmployerId: () => document.getElementById('report-employer').value,
@@ -1903,12 +1866,8 @@ function getCurrentReport() {
 
 /* ---------- Share (Web Share API + Fallback) ---------- */
 
-function _shareCtx() {
-  return appCtx();
-}
-
 function openShareModal() {
-  return _openShareModalRaw(_shareCtx());
+  return _openShareModalRaw(appCtx());
 }
 
 function showMailtoStage2(mailto, count, filename) {
@@ -1916,7 +1875,7 @@ function showMailtoStage2(mailto, count, filename) {
 }
 
 async function shareReport(format, recipientEmails) {
-  return _shareReportRaw(format, recipientEmails, _shareCtx());
+  return _shareReportRaw(format, recipientEmails, appCtx());
 }
 
 // downloadBlob wurde nach modules/export/download.js verschoben (Phase 3.7).
@@ -1929,7 +1888,7 @@ function archiveCurrentMonth() {
   const empId = r.employer.id;
   const ym = r.ym;
 
-  const exists = state.archives.find(a => a.employerId === empId && a.yearMonth === ym);
+  const exists = _getState().archives.find(a => a.employerId === empId && a.yearMonth === ym);
   if (exists && !confirm('Für diesen Monat existiert bereits ein Archiv. Überschreiben?')) return;
 
   const snapshot = {
@@ -1946,7 +1905,7 @@ function archiveCurrentMonth() {
   if (exists) {
     exists.snapshot = snapshot; exists.generatedAt = new Date().toISOString();
   } else {
-    state.archives.push({ id: uid(), employerId: empId, yearMonth: ym, generatedAt: new Date().toISOString(), snapshot });
+    _getState().archives.push({ id: uid(), employerId: empId, yearMonth: ym, generatedAt: new Date().toISOString(), snapshot });
   }
   saveState();
   renderArchive();
@@ -1955,11 +1914,11 @@ function archiveCurrentMonth() {
 
 function renderArchive() {
   const container = document.getElementById('archive-list');
-  if (!state.archives.length) {
+  if (!_getState().archives.length) {
     container.innerHTML = '<div class="empty-state">Noch keine archivierten Monate.<br><br>Sie können abgeschlossene Monate in der Monatsauswertung archivieren.</div>';
     return;
   }
-  container.innerHTML = _buildArchiveHTMLRaw(state.archives, {
+  container.innerHTML = _buildArchiveHTMLRaw(_getState().archives, {
     escapeHtml,
     formatMonthYear,
     minutesToHM,
@@ -1967,12 +1926,12 @@ function renderArchive() {
 
   container.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const archive = state.archives.find(a => a.id === btn.dataset.id);
+      const archive = _getState().archives.find(a => a.id === btn.dataset.id);
       if (!archive) return;
       const action = btn.dataset.action;
       if (action === 'delete') {
         if (!confirm('Archiv löschen?')) return;
-        state.archives = state.archives.filter(a => a.id !== archive.id);
+        _getState().archives = _getState().archives.filter(a => a.id !== archive.id);
         saveState(); renderArchive(); toast('Archiv gelöscht');
       } else if (action === 'word' || action === 'pdf') {
         const report = restoreArchiveReport(archive);
@@ -2006,7 +1965,7 @@ function renderEmployers() {
   // eine Person kann parallel angestellt UND freiberuflich taetig sein, ohne dass sich die beiden
   // Listen im jeweils falschen Reiter mischen.
   const wantedKind = isFreelance() ? 'client' : 'employer';
-  const relevantEmployers = state.employers.filter(e => (e.kind === 'employer' || e.kind === 'client') ? e.kind === wantedKind : true);
+  const relevantEmployers = _getState().employers.filter(e => (e.kind === 'employer' || e.kind === 'client') ? e.kind === wantedKind : true);
   if (!relevantEmployers.length) {
     container.innerHTML = `<div class="empty-state">Noch kein ${escapeHtml(L('employer'))} angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>`;
     return;
@@ -2038,16 +1997,12 @@ function breakModeLabel(mode) {
 
 /* ---------- Employer-Modal via modules/ui/employer-modal.js (Phase 3.9f) ---------- */
 
-function _emCtx() {
-  return appCtx();
-}
-
 function buildScheduleGrid(schedule) { return _buildScheduleGridRaw(schedule); }
 function readScheduleFromGrid() { return _readScheduleFromGridRaw(); }
 function updateHoursModeVisibility() { return _updateHoursModeVisibilityRaw(); }
-function openEmployerModal(emp) { return _openEmployerModalRaw(emp, _emCtx()); }
-function saveEmployer(ev) { return _saveEmployerRaw(ev, _emCtx()); }
-function deleteEmployer() { return _deleteEmployerRaw(_emCtx()); }
+function openEmployerModal(emp) { return _openEmployerModalRaw(emp, appCtx()); }
+function saveEmployer(ev) { return _saveEmployerRaw(ev, appCtx()); }
+function deleteEmployer() { return _deleteEmployerRaw(appCtx()); }
 function handleEmploymentScopeChange() { return _handleEmploymentScopeChangeRaw(); }
 function handlePartTimePercentInput() { return _handlePartTimePercentInputRaw(); }
 function handleFullTimeReferenceInput() { return _handleFullTimeReferenceInputRaw(); }
@@ -2057,14 +2012,14 @@ function handleWorkTimeModelChange() { return _handleWorkTimeModelChangeRaw(); }
 /* ---------- Templates (Notizvorlagen) ---------- */
 
 function renderSettings() {
-  document.getElementById('setting-employee-name').value = state.settings.employeeName || '';
-  document.getElementById('setting-own-email').value = state.settings.ownEmail || '';
+  document.getElementById('setting-employee-name').value = _getState().settings.employeeName || '';
+  document.getElementById('setting-own-email').value = _getState().settings.ownEmail || '';
   validateEmailField(document.getElementById('setting-own-email'));
-  document.getElementById('setting-state').value = state.settings.state || 'HE';
+  document.getElementById('setting-state').value = _getState().settings.state || 'HE';
   const arbzgCb = document.getElementById('setting-arbzg-hints');
-  if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(state.settings);
-  try { renderFieldServiceSettings(_fsCtx()); } catch (err) { console.error(err); }
-  try { renderStorageStatus(_storageStatusCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
+  if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(_getState().settings);
+  try { renderFieldServiceSettings(appCtx()); } catch (err) { console.error(err); }
+  try { renderStorageStatus(appCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
   // Modus-Radios
   const mode = getAppMode();
   document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
@@ -2090,8 +2045,8 @@ function syncSollWarningSettingsUI() {
     const enabledKey = basis === 'month' ? 'sollWarningMonthEnabled' : 'sollWarningGleitzeitEnabled';
     const thresholdKey = basis === 'month' ? 'sollWarningMonthThresholdPct' : 'sollWarningGleitzeitThresholdPct';
     const enabledCb = document.getElementById(`setting-sw-${basis}-enabled`);
-    if (enabledCb) enabledCb.checked = !!state.settings[enabledKey];
-    const current = Number(state.settings[thresholdKey]) || 0;
+    if (enabledCb) enabledCb.checked = !!_getState().settings[enabledKey];
+    const current = Number(_getState().settings[thresholdKey]) || 0;
     document.querySelectorAll(`.sw-chip[data-target="${basis}"]`).forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.value) === current);
     });
@@ -2139,27 +2094,19 @@ function updateModeVisibility() {
 
 /* ---------- Holiday-Overrides via modules/ui/holiday-overrides.js (Phase 3.9g) ---------- */
 
-function _holCtx() {
-  return appCtx();
-}
-
-function ensureHolidayOverrides() { return _ensureHolidayOverridesRaw(_holCtx()); }
+function ensureHolidayOverrides() { return _ensureHolidayOverridesRaw(appCtx()); }
 function getBaseHolidays(year, stateCode) { return _getBaseHolidaysRaw(year, stateCode); }
-function renderHolidayList() { return _renderHolidayListRaw(_holCtx()); }
-function handleHolidayAction(action, date) { return _handleHolidayActionRaw(action, date, _holCtx()); }
-function openHolidayModal(existing) { return _openHolidayModalRaw(existing, _holCtx()); }
-function saveHoliday(ev) { return _saveHolidayRaw(ev, _holCtx()); }
+function renderHolidayList() { return _renderHolidayListRaw(appCtx()); }
+function handleHolidayAction(action, date) { return _handleHolidayActionRaw(action, date, appCtx()); }
+function openHolidayModal(existing) { return _openHolidayModalRaw(existing, appCtx()); }
+function saveHoliday(ev) { return _saveHolidayRaw(ev, appCtx()); }
 
 /* ---------- Templates via modules/ui/templates.js (Phase 3.9h) ---------- */
 
-function _tplCtx() {
-  return appCtx();
-}
-
-function renderTemplates() { return _renderTemplatesRaw(_tplCtx()); }
-function openTemplateModal(tpl) { return _openTemplateModalRaw(tpl, _tplCtx()); }
-function saveTemplate(ev) { return _saveTemplateRaw(ev, _tplCtx()); }
-function deleteTemplate() { return _deleteTemplateRaw(_tplCtx()); }
+function renderTemplates() { return _renderTemplatesRaw(appCtx()); }
+function openTemplateModal(tpl) { return _openTemplateModalRaw(tpl, appCtx()); }
+function saveTemplate(ev) { return _saveTemplateRaw(ev, appCtx()); }
+function deleteTemplate() { return _deleteTemplateRaw(appCtx()); }
 
 /* ---------- Backup ---------- */
 
@@ -2181,10 +2128,10 @@ async function exportBackup() {
   const folderHandle = await getUsableBackupFolderHandle();
   if (folderHandle) {
     try {
-      if (state.settings) { state.settings.lastBackupAt = new Date().toISOString(); state.settings.changesSinceBackup = 0; }
+      if (_getState().settings) { _getState().settings.lastBackupAt = new Date().toISOString(); _getState().settings.changesSinceBackup = 0; }
       saveState();
       const filename = `arbeitszeit-backup-${todayISO()}.json`;
-      await writeBackupToFolder(folderHandle, filename, JSON.stringify(state, null, 2));
+      await writeBackupToFolder(folderHandle, filename, JSON.stringify(_getState(), null, 2));
       toast(`Backup gespeichert in „${folderHandle.name}“`);
       updateBackupReminderBanner();
       return;
@@ -2294,9 +2241,7 @@ function importBackup(file) {
     runMigrations: _runMigrationsModule,
     uid,
     normalizeSegments,
-    onImport: (imported) => {
-      state = imported;
-      if (typeof window !== 'undefined') window.state = state;
+    onImport: () => {
       updateModeVisibility();
       renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
     },
@@ -2345,12 +2290,12 @@ function toast(msg, opts) {
 // Siehe modules/bootstrap.js (extrahiert in Phase 3.10b).
 // DOMContentLoaded-Wrapper bleibt hier, damit type=module (defer) das Event nicht verpasst.
 document.addEventListener('DOMContentLoaded', () => {
-  wireFieldServiceUI(_fsCtx());
-  wireStorageStatusUI(_storageStatusCtx());
+  wireFieldServiceUI(appCtx());
+  wireStorageStatusUI(appCtx());
   const kmBtn = document.getElementById('btn-export-km-pdf');
   if (kmBtn) kmBtn.addEventListener('click', exportKmPdf);
   const arbzgCbFs = document.getElementById('setting-arbzg-hints');
-  if (arbzgCbFs) arbzgCbFs.addEventListener('change', () => { try { renderFieldServiceSettings(_fsCtx()); renderTracker(); } catch (err) {} });
+  if (arbzgCbFs) arbzgCbFs.addEventListener('change', () => { try { renderFieldServiceSettings(appCtx()); renderTracker(); } catch (err) {} });
 });
 document.addEventListener('DOMContentLoaded', () => wireEvents({
   getState: _getState, saveState, storage,
@@ -2400,7 +2345,7 @@ function maybeShowWhatsNew() {
 }
 
 function maybeShowKindMigrationNotice() {
-  return _maybeShowKindMigrationNoticeRaw({ state, saveState, escapeHtml });
+  return _maybeShowKindMigrationNoticeRaw({ state: _getState(), saveState, escapeHtml });
 }
 
 /* ---------- Service Worker with Update Prompt ---------- */
@@ -2411,11 +2356,7 @@ function maybeShowKindMigrationNotice() {
 if (typeof window !== 'undefined') {
   exportBridge(window, {
     appCtx,
-    legacyCtxFactories: {
-      _selectorsFmtCtx, _renderSummaryCtx, _storageStatusCtx, _fsCtx, _entryCtx, _rangeEntryCtx,
-      _hoCtx, _overviewShareCtx, _shareCtx, _emCtx, _holCtx, _tplCtx,
-    },
-    state, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
+    getState: _getState, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
     _runMigrationsModule, migrateHomeofficeEntries,
     wasLastLoadCorrupted, getCorruptedBackupKey,
     getSummaryFields, getOverviewSummaryFields,

@@ -34,7 +34,7 @@ import { toAppContext } from '../app-context.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
-  const { format: { escapeHtml }, ui: { populateTemplatePicker }, extra: { computeFormFields } } = toAppContext(ctx);
+  const { format: { escapeHtml }, ui: { populateTemplatePicker }, compute: { formFields: computeFormFields } } = toAppContext(ctx);
   const modal = document.getElementById('modal-entry');
   const form = document.getElementById('form-entry');
 

@@ -439,7 +439,7 @@ export function wireFieldServiceUI(ctx) {
   on('entry-employer', 'change', () => refreshEntryFieldService(ctx));
   on('btn-save-next-entry', 'click', () => {
     const form = $('form-entry');
-    if (typeof cx.extra.saveEntryAndNext === 'function') cx.extra.saveEntryAndNext({ preventDefault() {}, target: form });
+    if (typeof cx.ui.saveEntryAndNext === 'function') cx.ui.saveEntryAndNext({ preventDefault() {}, target: form });
   });
 
   // Reiter „Erfassen“

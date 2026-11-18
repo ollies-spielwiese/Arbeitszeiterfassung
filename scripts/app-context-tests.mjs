@@ -1,8 +1,8 @@
-// v3.14.1/v3.14.2: Zentraler Kontext (modules/app-context.js).
-// Prüft: Aufbau und Schutz des Kontexts, die 12 Übergabe-Objekte in app.js
-// (seit v3.14.2 liefern 10 davon den gebauten Kontext, 2 für die reinen
-// Selektoren weiter flache Namen), gleiche Funktionen wie im Kontext,
-// toAppContext/withExtras und ein einziger Zustand für alle.
+// v3.14.1–v3.14.3: Zentraler Kontext (modules/app-context.js).
+// Prüft: Aufbau und Schutz des Kontexts, toAppContext/withExtras, dass die
+// 12 früheren Übergabe-Objekte und die Variable state aus app.js entfernt sind,
+// dass alle früher übergebenen Namen im Kontext erreichbar sind und dass es
+// nur einen Zustand gibt (auch window.state).
 
 import fs from 'fs';
 import path from 'path';
@@ -32,12 +32,9 @@ const EXPECTED_KEYS = {
   _tplCtx: ['getState', 'saveState', 'getAppMode', 'isFreelance', 'escapeHtml', 'uid', 'closeModals', 'toast'],
 };
 
-// Seit v3.14.2: diese Übergabe-Objekte liefern den gebauten Kontext, mit diesen Zusätzen unter ctx.extra.
-const STRUCTURED_EXTRAS = {
-  _storageStatusCtx: [], _fsCtx: ['saveEntryAndNext'], _entryCtx: ['computeFormFields'], _rangeEntryCtx: [],
-  _hoCtx: [], _overviewShareCtx: [], _shareCtx: [], _emCtx: [], _holCtx: [], _tplCtx: [],
-};
-const FLAT_FACTORIES = ['_selectorsFmtCtx', '_renderSummaryCtx'];
+// Seit v3.14.3 gibt es diese Übergabe-Objekte nicht mehr. Die Liste bleibt als
+// Nachweis: Jeder Name, den sie in v3.14.0 lieferten, muss im Kontext erreichbar sein.
+const REMOVED_FACTORIES = Object.keys(EXPECTED_KEYS);
 
 // Seit v3.14.2 lesen diese Module nur noch über toAppContext(ctx).
 const MIGRATED_MODULES = [
@@ -47,6 +44,31 @@ const MIGRATED_MODULES = [
 ];
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function readSource(rel) {
+  return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+}
+
+// v3.14.3: app.js ohne Übergabe-Objekte und ohne eigene Variable state.
+function runAppJsSourceChecks(check) {
+  const app = readSource('app.js').replace(/^\s*(\/\/|\*).*$/gm, '');
+  const defined = REMOVED_FACTORIES.filter((n) => new RegExp('function ' + n + '\\s*\\(').test(app));
+  check('app.js ohne alte Übergabe-Objekte', defined, []);
+  const called = REMOVED_FACTORIES.filter((n) => app.includes(n));
+  check('app.js ruft keine alten Übergabe-Objekte auf', called, []);
+  check('app.js ohne eigene Variable state', /\b(let|var|const)\s+state\b/.test(app), false);
+  check('app.js ohne Zuweisung an state', /(^|[^\w.$])state\s*=(?!=)/m.test(app), false);
+  check('app.js ohne legacyView', app.includes('legacyView'), false);
+  const bridge = readSource('modules/regression-bridge.js');
+  check('Testbrücke ohne alte Übergabe-Objekte', /legacyCtx/.test(bridge), false);
+  check('Testbrücke liest window.state über den Kontext', bridge.includes('appCtx().state.get()'), true);
+  const sel = readSource('modules/selectors.js');
+  const sum = readSource('modules/render/summary.js');
+  check('selectors.js nutzt toAppContext', /import \{ toAppContext \} from '\.\/app-context\.js';/.test(sel), true);
+  check('selectors.js ohne flache Formatierer', /\{ isFreelance, minutesToHM, hoursDecimal, formatMoney \} = ctx/.test(sel), false);
+  check('render/summary.js nutzt toAppContext', /import \{ toAppContext \} from '\.\.\/app-context\.js';/.test(sum), true);
+  check('render/summary.js ohne flaches formatMoney', /\{ formatMoney \} = ctx/.test(sum), false);
+}
 
 function runMigratedModuleSourceChecks(check) {
   for (const rel of MIGRATED_MODULES) {
@@ -61,13 +83,14 @@ export async function runAppContextTests(browser, baseURL, { assertEq }) {
   console.log('\n=== v3.14.1: Zentraler Kontext ===');
   const check = (name, value, expected) => assertEq(`Kontext ${name}`, JSON.stringify(value), JSON.stringify(expected));
   runMigratedModuleSourceChecks(check);
+  runAppJsSourceChecks(check);
   const context = await browser.newContext({ timezoneId: 'Europe/Berlin', serviceWorkers: 'block' });
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
   page.on('pageerror', (e) => check(`Browserfehler: ${e.message}`, true, false));
   try {
     await page.goto(baseURL);
-    await page.waitForFunction(() => typeof window.__appCtx === 'function' && !!window.__legacyCtx);
+    await page.waitForFunction(() => typeof window.__appCtx === 'function');
 
     // ---------- Reine Logik des Moduls ----------
     const pure = await page.evaluate(async () => {
@@ -137,61 +160,51 @@ export async function runAppContextTests(browser, baseURL, { assertEq }) {
     });
     for (const [n, v, e] of pure) check(n, v, e);
 
-    // ---------- Verdrahtung in app.js ----------
+    // ---------- Verdrahtung in app.js (seit v3.14.3 ohne Übergabe-Objekte) ----------
     const wired = await page.evaluate(async () => {
       const M = await import('/modules/app-context.js');
       const ctx = window.__appCtx();
-      const factories = window.__legacyCtx;
-      const out = { keys: {}, same: {}, errors: [] };
-      out.structured = {}; out.extras = {};
-      for (const [name, fn] of Object.entries(factories)) {
-        const obj = fn();
-        out.structured[name] = M.isAppContext(obj);
-        if (M.isAppContext(obj)) {
-          out.extras[name] = Object.keys(obj.extra).sort();
-          // Alle Bereiche müssen dieselben Funktionen wie der App-Kontext enthalten.
-          out.same[name] = M.CONTEXT_AREAS.every((a) => Object.keys(ctx[a]).every((k) => obj[a][k] === ctx[a][k])
-            && Object.keys(obj[a]).length === Object.keys(ctx[a]).length);
-        } else {
-          out.keys[name] = Object.keys(obj).sort();
-          out.same[name] = Object.keys(obj).every((k) => !(k in M.LEGACY_MAP) || obj[k] === M.resolvePath(ctx, M.LEGACY_MAP[k]));
-        }
-      }
       const st = ctx.state.get();
-      const stateOf = (o) => (M.isAppContext(o) ? o.state.get : o.getState);
+      const flatMoney = (n, c) => `${n} ${c}`;
+      const fields = [{ kind: 'money', label: 'Netto', value: '12,50 €', rawAmount: { hoursDec: '1,00', rate: 12.5, currency: 'EUR' } }];
+      const R = await import('/modules/render/summary.js');
       return {
-        ...out,
+        legacyGone: typeof window.__legacyCtx === 'undefined',
         singleton: window.__appCtx() === ctx,
         stateSame: st === window.state,
-        allStateSame: Object.values(factories).every((f) => { const g = stateOf(f()); return !g || g() === st; }),
+        stateDescriptor: typeof Object.getOwnPropertyDescriptor(window, 'state')?.get,
+        formFields: typeof ctx.compute.formFields,
+        saveEntryAndNext: typeof ctx.ui.saveEntryAndNext,
         holidayXmas: ctx.compute.holidayOf('2026-12-25') ? true : false,
         holidayWork: ctx.compute.holidayOf('2026-11-18') ? true : false,
         areas: Object.keys(ctx),
         legacyNames: Object.keys(M.LEGACY_MAP),
+        resolved: Object.fromEntries(Object.entries(M.LEGACY_MAP).map(([n, p]) => [n, M.resolvePath(ctx, p) != null])),
+        // Gleiches Ergebnis mit flachem Objekt (Tests) und mit dem zentralen Kontext.
+        pdfFlat: JSON.stringify(R.renderSummaryPdfLines(fields, { formatMoney: flatMoney })),
+        pdfCtx: JSON.stringify(R.renderSummaryPdfLines(fields, M.toAppContext({ formatMoney: flatMoney }))),
+        pdfApp: JSON.stringify(window.renderSummaryPdfLines(fields)),
+        pdfAppDirect: JSON.stringify(R.renderSummaryPdfLines(fields, ctx)),
       };
     });
-    check('Anzahl Übergabe-Objekte', Object.keys(wired.structured).length, 12);
-    for (const name of FLAT_FACTORIES) {
-      check(`${name} bleibt flach`, wired.structured[name], false);
-      check(`${name} Namen wie v3.14.0`, wired.keys[name], [...EXPECTED_KEYS[name]].sort());
-      check(`${name} Funktionen aus dem Kontext`, wired.same[name], true);
+    check('Testbrücke ohne alte Übergabe-Objekte (window.__legacyCtx)', wired.legacyGone, true);
+    for (const name of REMOVED_FACTORIES) {
+      const missing = EXPECTED_KEYS[name].filter((k) => !wired.legacyNames.includes(k) || !wired.resolved[k]);
+      check(`${name}: alle Namen aus v3.14.0 im Kontext`, missing, []);
     }
-    for (const [name, extras] of Object.entries(STRUCTURED_EXTRAS)) {
-      check(`${name} liefert den gebauten Kontext`, wired.structured[name], true);
-      check(`${name} Zusätze`, wired.extras[name], [...extras].sort());
-      check(`${name} Bereiche wie App-Kontext`, wired.same[name], true);
-      // Jeder in v3.14.0 genutzte Name ist im Kontext oder als Zusatz erreichbar.
-      const reachable = EXPECTED_KEYS[name].every((k) => wired.legacyNames.includes(k) || extras.includes(k));
-      check(`${name} alle Namen aus v3.14.0 erreichbar`, reachable, true);
-    }
+    check('compute.formFields im Kontext', wired.formFields, 'function');
+    check('ui.saveEntryAndNext im Kontext', wired.saveEntryAndNext, 'function');
     check('Kontext nur einmal gebaut', wired.singleton, true);
     check('ctx.state.get() ist der App-Zustand', wired.stateSame, true);
-    check('alle Übergabe-Objekte lesen denselben Zustand', wired.allStateSame, true);
+    check('window.state liest über den Kontext', wired.stateDescriptor, 'function');
     check('holidayOf 25.12.2026', wired.holidayXmas, true);
     check('holidayOf 18.11.2026 (Hessen)', wired.holidayWork, false);
     check('Bereiche im App-Kontext', wired.areas, ['state', 'compute', 'format', 'ui', 'render', 'exports', 'data', 'extra']);
+    check('Summary-PDF flach = Kontext', wired.pdfCtx, wired.pdfFlat);
+    check('Summary-PDF nutzt formatMoney', wired.pdfFlat.includes('12.5 EUR/h'), true);
+    check('Summary-PDF App-Wrapper = Kontext direkt', wired.pdfApp, wired.pdfAppDirect);
 
-    // Zustand nach Austausch (wie beim Import): Kontext liefert den neuen Zustand.
+    // Zustand nach Austausch (wie beim Import): Kontext und window.state liefern den neuen Zustand.
     const swapped = await page.evaluate(async () => {
       const S = await import('/modules/state.js');
       const ctx = window.__appCtx();
@@ -199,11 +212,11 @@ export async function runAppContextTests(browser, baseURL, { assertEq }) {
       const copy = JSON.parse(JSON.stringify(before));
       copy.settings = { ...(copy.settings || {}), employeeName: 'Kontext Test' };
       S.replaceStateAtomically(copy, () => {});
-      const ok = ctx.state.get() === copy && window.__legacyCtx._tplCtx().state.get() === copy;
+      const ok = ctx.state.get() === copy && window.state === copy && window.state.settings.employeeName === 'Kontext Test';
       S.replaceStateAtomically(before, () => {});
-      return ok && ctx.state.get() === before;
+      return ok && ctx.state.get() === before && window.state === before;
     });
-    check('neuer Zustand nach Austausch sichtbar', swapped, true);
+    check('neuer Zustand nach Austausch sichtbar (Kontext und window.state)', swapped, true);
   } finally {
     await context.close();
   }

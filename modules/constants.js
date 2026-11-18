@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.14.2';
+export const APP_VERSION = '3.14.3';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.14.3', items: [
+    'Interner Umbau ohne sichtbare Änderung: Die alten Übergabe-Objekte sind entfernt, die App hält ihre Daten nur noch an einer Stelle.',
+  ] },
   { version: '3.14.2', items: [
     'Interner Umbau ohne sichtbare Änderung: Die Dialoge lesen ihre Funktionen jetzt direkt aus dem zentralen Modul.',
   ] },

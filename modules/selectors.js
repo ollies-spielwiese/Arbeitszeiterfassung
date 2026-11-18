@@ -13,6 +13,7 @@
 //   - computeFormFields(entry, opts, ctx) — Feld-Definitionen für Entry-Modal
 
 import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
+import { toAppContext } from './app-context.js';
 
 /**
  * Baut den Erklärungstext für den Saldo-Tooltip (Urlaubs-/Krankheitsgutschrift), der als
@@ -95,7 +96,8 @@ export function getCurrentOverview(ctx) {
  * @returns {import('../types.js').AZSummaryField[]}
  */
 export function getSummaryFields(input, ctx) {
-  const { isFreelance, minutesToHM, hoursDecimal, formatMoney } = ctx;
+  // Seit v3.14.3: zentraler Kontext oder flaches Objekt (Tests), siehe toAppContext.
+  const { data: { isFreelance }, format: { minutesToHM, hoursDecimal, money: formatMoney } } = toAppContext(ctx);
   const mode = input.mode || (isFreelance() ? 'freelance' : 'employee');
   const freelance = (mode === 'freelance');
   const includeAbsences = input.includeAbsences !== false; // default true
@@ -254,7 +256,8 @@ export function getSummaryFields(input, ctx) {
  * @returns {import('../types.js').AZSummaryField[]}
  */
 export function getOverviewSummaryFields(ov, ctx) {
-  const { isFreelance, minutesToHM, hoursDecimal, formatMoney } = ctx;
+  // Seit v3.14.3: zentraler Kontext oder flaches Objekt (Tests), siehe toAppContext.
+  const { data: { isFreelance }, format: { minutesToHM, hoursDecimal, money: formatMoney } } = toAppContext(ctx);
   // Neue Regel: Employee-Layout zeigen, wenn mindestens ein Employer im Report Vertragsstunden hat.
   // Fällt zurück auf globales isFreelance() nur wenn keine Rows/Employers vorhanden.
   const anyEmpHasTarget = Array.isArray(ov.rows) && ov.rows.some(r => {
