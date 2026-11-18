@@ -22,6 +22,7 @@ import { escapeHtml } from '../util-format.js';
 import { timeToMinutes } from '../util-time.js';
 import { normalizeLegalName, normalizeAddressField } from '../employer-address.js';
 import { getEducationLeaveRule } from '../education-leave-rules.js';
+import { toAppContext } from '../app-context.js';
 
 /**
  * Feld "Abweichender Bildungsurlaub-Anspruch" (seit v3.11.0): leer oder ungueltig → null
@@ -247,7 +248,8 @@ export function handleWorkTimeModelChange() {
 }
 
 export function openEmployerModal(emp, ctx) {
-  const { getState, defaultSchedule, L, isFreelance } = ctx;
+  const cx = toAppContext(ctx);
+  const { state: { get: getState }, compute: { defaultSchedule }, format: { label: L }, data: { isFreelance } } = cx;
   const state = getState();
   const modal = document.getElementById('modal-employer');
   const isNew = !emp;
@@ -336,8 +338,8 @@ export function openEmployerModal(emp, ctx) {
   const eduEl = /** @type {HTMLInputElement|null} */ (document.getElementById('employer-education-leave-days'));
   if (eduEl) eduEl.value = typeof e.educationLeaveDays === 'number' && e.educationLeaveDays >= 0 ? String(e.educationLeaveDays) : '';
   const eduHint = document.getElementById('employer-education-leave-hint');
-  if (eduHint && typeof ctx.getState === 'function') {
-    const st = ctx.getState();
+  if (eduHint && typeof cx.state.get === 'function') {
+    const st = cx.state.get();
     const year = new Date().getFullYear();
     const rule = getEducationLeaveRule(st?.settings?.state, year);
     const lead = rule
@@ -400,7 +402,7 @@ export function saveEmployer(ev, ctx) {
   const invalidEmail = emailFields.filter(field => !validateEmailField(field));
   if (invalidEmail.length) { invalidEmail[0].focus(); return; }
   emailFields.forEach(field => { field.value = field.value.trim(); });
-  const { getState, saveState, uid, closeModals, renderEmployers, renderTracker, toast } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { employers: renderEmployers, tracker: renderTracker }, data: { uid } } = toAppContext(ctx);
   const state = getState();
   const id = document.getElementById('employer-id').value;
   const kindVal = document.getElementById('employer-kind')?.value;
@@ -506,7 +508,7 @@ export function saveEmployer(ev, ctx) {
 }
 
 export function deleteEmployer(ctx) {
-  const { getState, saveState, getEmployer, closeModals, renderEmployers, renderTracker, toast } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { employers: renderEmployers, tracker: renderTracker }, data: { employer: getEmployer } } = toAppContext(ctx);
   const state = getState();
   const id = document.getElementById('employer-id').value;
   if (!id) return;

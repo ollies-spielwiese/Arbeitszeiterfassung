@@ -21,9 +21,10 @@ import { buildRangeEntries, formatRangeEntrySummary, removeEntriesByIds } from '
 import { computeVacationRemaining, computeEducationLeaveYear, filterVisibleEmployers } from '../compute.js';
 import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
+import { toAppContext } from '../app-context.js';
 
 export function openRangeEntryModal(ctx) {
-  const { getState, escapeHtml, todayISO } = ctx;
+  const { state: { get: getState }, format: { escapeHtml }, data: { todayISO } } = toAppContext(ctx);
   const state = getState();
   const modal = document.getElementById('modal-range-entry');
   const form = document.getElementById('form-range-entry');
@@ -59,7 +60,7 @@ export function openRangeEntryModal(ctx) {
  * Urlaubstage im selben Jahr mitgezählt werden (nicht nur Tage bis heute).
  */
 export function updateRangeVacationStats(ctx) {
-  const { escapeHtml } = ctx;
+  const { format: { escapeHtml } } = toAppContext(ctx);
   const box = document.getElementById('range-vacation-stats');
   if (!box) return;
   const empSel = document.getElementById('range-employer');
@@ -79,7 +80,7 @@ export function updateRangeVacationStats(ctx) {
     return;
   }
 
-  const state = ctx.getState();
+  const state = toAppContext(ctx).state.get();
   const emp = (state.employers || []).find((e) => e.id === employerId);
   if (!emp) {
     box.hidden = true;
@@ -111,12 +112,13 @@ export function updateRangeVacationStats(ctx) {
  * @param {string} startVal
  */
 function renderEducationLeaveStats(box, ctx, employerId, startVal) {
-  const { escapeHtml } = ctx;
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const { format: { escapeHtml } } = cx;
+  const state = cx.state.get();
   const emp = (state.employers || []).find((x) => x.id === employerId);
   if (!emp) { box.hidden = true; box.innerHTML = ''; return; }
   const year = (startVal && startVal.length >= 4) ? startVal.slice(0, 4) : String(new Date().getFullYear());
-  const el = computeEducationLeaveYear(emp, year, state.entries || [], typeof ctx.todayISO === 'function' ? ctx.todayISO() : todayISOLocal(), state.settings?.state);
+  const el = computeEducationLeaveYear(emp, year, state.entries || [], typeof cx.data.todayISO === 'function' ? cx.data.todayISO() : todayISOLocal(), state.settings?.state);
   const endEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-end'));
   const skipEl = /** @type {HTMLInputElement|null} */ (document.getElementById('range-skip-weekends-holidays'));
   const endVal = endEl ? endEl.value : '';
@@ -152,7 +154,8 @@ function todayISOLocal() {
 }
 
 export function saveRangeEntry(e, ctx) {
-  const { getState, saveState, closeModals, renderTracker, renderEntries, toast, uid } = ctx;
+  const cx = toAppContext(ctx);
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { tracker: renderTracker, entries: renderEntries }, data: { uid } } = cx;
   e.preventDefault();
   const state = getState();
 
@@ -187,7 +190,7 @@ export function saveRangeEntry(e, ctx) {
     closeModals();
     renderTracker();
     renderEntries();
-    if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+    if (typeof cx.render.all === 'function') cx.render.all();
 
     // Undo (Option B, Phase 4.9b): entfernt genau die soeben angelegten Entries wieder,
     // ohne dass der Nutzer jeden Tag einzeln löschen muss. Reine Logik in removeEntriesByIds().
@@ -201,7 +204,7 @@ export function saveRangeEntry(e, ctx) {
         saveState();
         renderTracker();
         renderEntries();
-        if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+        if (typeof cx.render.all === 'function') cx.render.all();
         toast('Rückgängig gemacht');
       },
     });
@@ -211,6 +214,6 @@ export function saveRangeEntry(e, ctx) {
   closeModals();
   renderTracker();
   renderEntries();
-  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+  if (typeof cx.render.all === 'function') cx.render.all();
   toast(summary);
 }

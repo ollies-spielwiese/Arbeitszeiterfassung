@@ -42,6 +42,7 @@
 
 import { emailFormatError, splitEmailAddresses, setEmailError, validateEmailField, wireEmailField } from './ui/email-validation.js';
 import { reportMode } from './report-mode.js';
+import { toAppContext } from './app-context.js';
 
 function isIOSPlatform() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -50,7 +51,7 @@ function isIOSPlatform() {
 }
 
 function buildMailBody(report, ctx) {
-  const { formatMonthYear, renderSummaryPlaintext, getSummaryFields } = ctx;
+  const { compute: { summaryFields: getSummaryFields }, format: { monthYear: formatMonthYear, summaryPlaintext: renderSummaryPlaintext } } = toAppContext(ctx);
   const summaryLines = renderSummaryPlaintext(getSummaryFields({
     mode: reportMode(report.employer),
     workedMin: report.workedMin,
@@ -75,7 +76,7 @@ Mit freundlichen Grüßen`;
 }
 
 function buildOverviewMailBody(ov, ctx) {
-  const { formatMonthYear, renderSummaryPlaintext, getOverviewSummaryFields } = ctx;
+  const { compute: { overviewSummaryFields: getOverviewSummaryFields }, format: { monthYear: formatMonthYear, summaryPlaintext: renderSummaryPlaintext } } = toAppContext(ctx);
   const summaryLines = renderSummaryPlaintext(getOverviewSummaryFields(ov));
   return `Sehr geehrte Damen und Herren,
 
@@ -192,13 +193,7 @@ function readRecipientSelection(recipientList) {
 }
 
 export function openShareModal(ctx) {
-  const {
-    getCurrentReport, getState, escapeHtml,
-    fileNameForReport, formatMonthYear,
-    renderSummaryPlaintext, getSummaryFields,
-    generateWordBlob, generatePdfBlob,
-    downloadBlob, toast, closeModals,
-  } = ctx;
+  const { state: { get: getState }, compute: { currentReport: getCurrentReport, summaryFields: getSummaryFields }, format: { escapeHtml, fileNameForReport, monthYear: formatMonthYear, summaryPlaintext: renderSummaryPlaintext }, ui: { toast, closeModals }, exports: { word: generateWordBlob, pdf: generatePdfBlob, download: downloadBlob } } = toAppContext(ctx);
 
   const r = getCurrentReport();
   if (!r) return;
@@ -292,12 +287,7 @@ export function openShareModal(ctx) {
 // (mit Firmenname in Klammern zur Unterscheidung), da die Uebersicht mehrere Arbeitgeber
 // zusammenfasst statt wie im Monat-Dialog genau einen.
 export function openOverviewShareModal(ctx) {
-  const {
-    getCurrentOverview, getState, escapeHtml,
-    fileNameForOverview, formatMonthYear,
-    generateOverviewPdfBlob,
-    downloadBlob, toast, closeModals,
-  } = ctx;
+  const { state: { get: getState }, compute: { currentOverview: getCurrentOverview }, format: { escapeHtml, fileNameForOverview, monthYear: formatMonthYear }, ui: { toast, closeModals }, exports: { overviewPdf: generateOverviewPdfBlob, download: downloadBlob } } = toAppContext(ctx);
 
   const ov = getCurrentOverview();
   if (!ov) return;
@@ -452,7 +442,7 @@ function resetShareModalContent(content, closeModals, html = SHARE_MODAL_DEFAULT
 }
 
 export function showMailtoStage2(mailto, count, filename, ctx) {
-  const { closeModals, restoreHtml } = ctx;
+  const { ui: { closeModals }, extra: { restoreHtml } } = toAppContext(ctx);
   const modal = document.getElementById('modal-share');
   const content = modal.querySelector('.modal-content');
   if (!content) return;
@@ -489,10 +479,7 @@ export function showMailtoStage2(mailto, count, filename, ctx) {
 }
 
 export async function shareReport(format, recipientEmails, ctx) {
-  const {
-    getCurrentReport, fileNameForReport, formatMonthYear,
-    generateWordBlob, generatePdfBlob, downloadBlob, toast,
-  } = ctx;
+  const { compute: { currentReport: getCurrentReport }, format: { fileNameForReport, monthYear: formatMonthYear }, ui: { toast }, exports: { word: generateWordBlob, pdf: generatePdfBlob, download: downloadBlob } } = toAppContext(ctx);
 
   const r = getCurrentReport();
   if (!r) return;
@@ -561,10 +548,7 @@ export async function shareReport(format, recipientEmails, ctx) {
 }
 
 export async function shareOverviewPdf(ctx) {
-  const {
-    getCurrentOverview, generateOverviewPdfBlob, fileNameForOverview,
-    formatMonthYear, downloadBlob, toast,
-  } = ctx;
+  const { compute: { currentOverview: getCurrentOverview }, format: { fileNameForOverview, monthYear: formatMonthYear }, ui: { toast }, exports: { overviewPdf: generateOverviewPdfBlob, download: downloadBlob } } = toAppContext(ctx);
 
   const ov = getCurrentOverview();
   if (!ov) return;

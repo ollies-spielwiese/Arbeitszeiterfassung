@@ -30,10 +30,11 @@ import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from '../entry-conflicts.js
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 import { autoGrowTextarea } from './autogrow.js';
 import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
+import { toAppContext } from '../app-context.js';
 
 export function openHomeofficeModal(entry, opts, ctx) {
   opts = opts || {};
-  const { getState, escapeHtml, todayISO, populateTemplatePicker } = ctx;
+  const { state: { get: getState }, format: { escapeHtml }, ui: { populateTemplatePicker }, data: { todayISO } } = toAppContext(ctx);
   const state = getState();
   const modal = document.getElementById('modal-homeoffice');
   const title = document.getElementById('modal-homeoffice-title');
@@ -99,7 +100,7 @@ export function openHomeofficeModal(entry, opts, ctx) {
 }
 
 export function updateHomeofficeContext(ctx) {
-  const { getState, getEmployer, escapeHtml, formatDate } = ctx;
+  const { state: { get: getState }, format: { escapeHtml, date: formatDate }, data: { employer: getEmployer } } = toAppContext(ctx);
   const el = document.getElementById('ho-context');
   if (!el) return;
   const empId = document.getElementById('ho-employer').value;
@@ -147,7 +148,7 @@ export function persistHomeofficeSegmentsToState() {
 }
 
 export function renderHomeofficeSegments(ctx) {
-  const { buildHomeofficeSegmentsHTML } = ctx;
+  const { format: { homeofficeSegmentsHTML: buildHomeofficeSegmentsHTML } } = toAppContext(ctx);
   const modal = document.getElementById('modal-homeoffice');
   const container = document.getElementById('ho-segments');
   let segs;
@@ -182,7 +183,7 @@ export function removeHomeofficeSegment(idx, ctx) {
 }
 
 export function updateHomeofficeLiveTotal(ctx) {
-  const { computeHomeofficeMinutes, minutesToHM } = ctx;
+  const { compute: { homeofficeMinutes: computeHomeofficeMinutes }, format: { minutesToHM } } = toAppContext(ctx);
   const el = document.getElementById('ho-live-total');
   if (!el) return;
   const segs = readHomeofficeSegmentsFromDom();
@@ -193,9 +194,10 @@ export function updateHomeofficeLiveTotal(ctx) {
 
 // v3.12.0: Hinweis Arbeitszeitgesetz im Home-Office-Dialog (nur Hinweis, keine Sperre).
 export function updateHomeofficeArbzgHint(ctx, segs) {
+  const cx = toAppContext(ctx);
   const el = document.getElementById('ho-arbzg-hint');
   if (!el) return;
-  const state = ctx.getState();
+  const state = cx.state.get();
   const hide = () => { el.innerHTML = ''; el.classList.add('hidden'); };
   if (!isArbzgHintEnabled(state.settings)) return hide();
   const candidate = {
@@ -207,16 +209,12 @@ export function updateHomeofficeArbzgHint(ctx, segs) {
   };
   const hints = computeArbzgHintsForCandidate(state.entries, state.employers, candidate);
   if (!hints.length) return hide();
-  el.innerHTML = buildArbzgDialogHTML(hints, ctx.escapeHtml);
+  el.innerHTML = buildArbzgDialogHTML(hints, cx.format.escapeHtml);
   el.classList.remove('hidden');
 }
 
 export function saveHomeoffice(e, ctx) {
-  const {
-    getState, saveState, hhmmToMinutes, normalizeSegments,
-    renderTracker, renderEntries, renderWeek, renderReport, renderOverview, refreshAll,
-    closeModals, toast, uid,
-  } = ctx;
+  const { state: { get: getState, save: saveState }, compute: { hhmmToMinutes, normalizeSegments }, ui: { closeModals, toast }, render: { tracker: renderTracker, entries: renderEntries, week: renderWeek, report: renderReport, overview: renderOverview, all: refreshAll }, data: { uid } } = toAppContext(ctx);
   if (e && e.preventDefault) e.preventDefault();
   const state = getState();
   const id = document.getElementById('ho-id').value;
@@ -297,17 +295,14 @@ export function saveHomeoffice(e, ctx) {
 }
 
 export function deleteHomeoffice(ctx) {
-  const {
-    getState, saveState, renderTracker, renderEntries, renderWeek, renderReport, renderOverview, refreshAll,
-    closeModals, toast,
-  } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { tracker: renderTracker, entries: renderEntries, week: renderWeek, report: renderReport, overview: renderOverview, all: refreshAll } } = toAppContext(ctx);
   const state = getState();
   const id = document.getElementById('ho-id').value;
   if (!id) return;
   if (!confirm('Diesen Home-Office-Tag wirklich löschen?')) return;
   const deleted = state.entries.find(e => e.id === id);
   state.entries = state.entries.filter(e => e.id !== id);
-  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: ctx.uid });
+  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: toAppContext(ctx).data.uid });
   saveState();
   closeModals();
   if (typeof refreshAll === 'function') {

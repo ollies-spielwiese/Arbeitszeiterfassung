@@ -30,10 +30,11 @@ import { findEntryConflict } from '../entry-conflicts.js';
 import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
 import { computeSundayHintsForCandidate, buildSundayHintParagraphs, isSundayHintEnabled } from '../sunday-hints.js';
 import { syncEntryFieldService, readEntryFieldService } from './field-service-ui.js';
+import { toAppContext } from '../app-context.js';
 
 export function openEntryModal(entry, opts, ctx) {
   opts = opts || {};
-  const { escapeHtml, populateTemplatePicker, computeFormFields } = ctx;
+  const { format: { escapeHtml }, ui: { populateTemplatePicker }, extra: { computeFormFields } } = toAppContext(ctx);
   const modal = document.getElementById('modal-entry');
   const form = document.getElementById('form-entry');
 
@@ -73,7 +74,7 @@ export function openEntryModal(entry, opts, ctx) {
 }
 
 export function updateScheduleFillVisibility(ctx) {
-  const { getEmployer, DAY_KEYS, DAY_LABELS_LONG, dayOfWeekISO } = ctx;
+  const { data: { employer: getEmployer, dayKeys: DAY_KEYS, dayLabelsLong: DAY_LABELS_LONG, dayOfWeekISO } } = toAppContext(ctx);
   const empId = document.getElementById('entry-employer').value;
   const emp = getEmployer(empId);
   const dateVal = document.getElementById('entry-date').value;
@@ -93,7 +94,7 @@ export function updateScheduleFillVisibility(ctx) {
 }
 
 export function applyScheduleToEntry(ctx) {
-  const { getEmployer, DAY_KEYS, dayOfWeekISO, toast } = ctx;
+  const { ui: { toast }, data: { employer: getEmployer, dayKeys: DAY_KEYS, dayOfWeekISO } } = toAppContext(ctx);
   const empId = document.getElementById('entry-employer').value;
   const emp = getEmployer(empId);
   const dateVal = document.getElementById('entry-date').value;
@@ -124,9 +125,10 @@ export function updateEntryTypeFields() {
 
 // v3.12.0: Hinweis Arbeitszeitgesetz im Eintragsdialog (nur Hinweis, keine Sperre).
 export function updateEntryArbzgHint(ctx) {
+  const cx = toAppContext(ctx);
   const el = document.getElementById('entry-arbzg-hint');
   if (!el) return;
-  const state = ctx.getState();
+  const state = cx.state.get();
   const hide = () => { el.innerHTML = ''; el.classList.add('hidden'); };
   if (!isArbzgHintEnabled(state.settings)) return hide();
   const id = document.getElementById('entry-id').value;
@@ -148,17 +150,17 @@ export function updateEntryArbzgHint(ctx) {
   const hints = computeArbzgHintsForCandidate(state.entries, state.employers, candidate);
   // v3.13.0: Sonn- und Feiertagsarbeit (§§ 9–11 ArbZG).
   const sundayHints = isSundayHintEnabled(state.settings)
-    ? computeSundayHintsForCandidate(state.entries, state.employers, candidate, ctx.holidayOf)
+    ? computeSundayHintsForCandidate(state.entries, state.employers, candidate, cx.compute.holidayOf)
     : [];
   if (!hints.length && !sundayHints.length) return hide();
-  const arbzgHTML = hints.length ? buildArbzgDialogHTML(hints, ctx.escapeHtml).replace(/<p class="arbzg-hint-text arbzg-hint-foot">[^<]*<\/p>$/, '') : '';
-  el.innerHTML = arbzgHTML + buildSundayHintParagraphs(sundayHints, ctx.escapeHtml)
+  const arbzgHTML = hints.length ? buildArbzgDialogHTML(hints, cx.format.escapeHtml).replace(/<p class="arbzg-hint-text arbzg-hint-foot">[^<]*<\/p>$/, '') : '';
+  el.innerHTML = arbzgHTML + buildSundayHintParagraphs(sundayHints, cx.format.escapeHtml)
     + '<p class="arbzg-hint-text arbzg-hint-foot">Du kannst trotzdem speichern.</p>';
   el.classList.remove('hidden');
 }
 
 export function updateBreakHint(ctx) {
-  const { getEmployer, computeSuggestedBreak } = ctx;
+  const { compute: { suggestedBreak: computeSuggestedBreak }, data: { employer: getEmployer } } = toAppContext(ctx);
   const empId = document.getElementById('entry-employer').value;
   const emp = getEmployer(empId);
   const start = document.getElementById('entry-start').value;
@@ -178,7 +180,8 @@ export function updateBreakHint(ctx) {
 }
 
 export function saveEntry(e, ctx) {
-  const { getState, saveState, closeModals, renderTracker, renderEntries, toast, uid } = ctx;
+  const cx = toAppContext(ctx);
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { tracker: renderTracker, entries: renderEntries }, data: { uid } } = cx;
   e.preventDefault();
   const state = getState();
   const id = document.getElementById('entry-id').value;
@@ -263,27 +266,28 @@ export function saveEntry(e, ctx) {
   closeModals();
   renderTracker();
   renderEntries();
-  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+  if (typeof cx.render.all === 'function') cx.render.all();
   toast('Gespeichert');
   // v3.13.0: „Speichern und nächsten Block anlegen“ — neuer Block beginnt am Ende des gespeicherten.
-  if (ctx.__saveAndNext && type === 'work' && typeof ctx.openEntryModal === 'function') {
-    ctx.openEntryModal(null, { presetType: 'work', nextBlock: { employerId, date, start: endVal } });
+  if (cx.extra.__saveAndNext && type === 'work' && typeof cx.ui.openEntryModal === 'function') {
+    cx.ui.openEntryModal(null, { presetType: 'work', nextBlock: { employerId, date, start: endVal } });
   }
 }
 
 export function deleteEntry(ctx) {
-  const { getState, saveState, closeModals, renderTracker, renderEntries, toast } = ctx;
+  const cx = toAppContext(ctx);
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, render: { tracker: renderTracker, entries: renderEntries } } = cx;
   const state = getState();
   const id = document.getElementById('entry-id').value;
   if (!id) return;
   if (!confirm('Diesen Eintrag wirklich löschen?')) return;
   const deleted = state.entries.find(e => e.id === id);
   state.entries = state.entries.filter(e => e.id !== id);
-  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: ctx.uid });
+  if (deleted) pushAuditLog(state, { action: 'delete', entry: deleted, uid: cx.data.uid });
   saveState();
   closeModals();
   renderTracker();
   renderEntries();
-  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
+  if (typeof cx.render.all === 'function') cx.render.all();
   toast('Gelöscht');
 }

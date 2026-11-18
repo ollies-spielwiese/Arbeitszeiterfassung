@@ -11,10 +11,13 @@
  *   ctx.exports  PDF, Word, Download
  *   ctx.data     Arbeitgeber, IDs, Datum, Modus, Wochentage
  *
- * Übergang: Die bisherigen `_xyzCtx()`-Funktionen in app.js liefern weiterhin
- * die gewohnten flachen Namen (`getState`, `toast`, ...). Sie holen die Werte
- * über `legacyView()` aus `ctx`. Ab v3.14.2 lesen die Module direkt
- * `ctx.bereich.funktion`, in v3.14.3 entfallen die Übergabe-Objekte.
+ *   ctx.extra    modulspezifische Zusätze (z. B. computeFormFields), siehe withExtras()
+ *
+ * Seit v3.14.2 lesen die Dialog-Module unter modules/ui/ und modules/share.js
+ * ihre Funktionen über toAppContext(ctx) aus den Bereichen. toAppContext
+ * akzeptiert auch ein flaches Objekt (`{ getState, toast, ... }`), wie es
+ * Tests und ältere Aufrufer übergeben, und ordnet es über LEGACY_MAP zu.
+ * In v3.14.3 entfallen die Übergabe-Objekte in app.js.
  *
  * Das Modul ist reine Logik ohne DOM-Zugriff.
  */
@@ -85,6 +88,31 @@ export const LEGACY_MAP = Object.freeze({
 /** Bereiche des Kontexts in fester Reihenfolge. */
 export const CONTEXT_AREAS = Object.freeze(['state', 'compute', 'format', 'ui', 'render', 'exports', 'data']);
 
+/** Kennzeichen eines gebauten Kontexts (nicht aufzählbar). */
+const APP_CONTEXT = Symbol.for('az.appContext');
+
+/**
+ * @param {Record<string, Record<string, any>>} areas
+ * @param {Record<string, any>} extra
+ * @returns {any}
+ */
+function freezeContext(areas, extra) {
+  /** @type {Record<string, any>} */
+  const ctx = {};
+  for (const a of CONTEXT_AREAS) ctx[a] = Object.freeze({ ...(areas[a] || {}) });
+  ctx.extra = Object.freeze({ ...(extra || {}) });
+  Object.defineProperty(ctx, APP_CONTEXT, { value: true });
+  return Object.freeze(ctx);
+}
+
+/**
+ * @param {any} ctx
+ * @returns {boolean} true, wenn ctx mit createAppContext/withExtras/toAppContext gebaut wurde
+ */
+export function isAppContext(ctx) {
+  return !!(ctx && ctx[APP_CONTEXT] === true);
+}
+
 /** Einträge, die keine Funktion sind (Konstanten). */
 const NON_FUNCTION_NAMES = new Set(['DAY_KEYS', 'DAY_LABELS_LONG']);
 
@@ -110,10 +138,51 @@ export function createAppContext(deps) {
     areas[area][key] = value;
   }
   if (missing.length) throw new TypeError('createAppContext: fehlende Abhängigkeiten: ' + missing.join(', '));
+  return freezeContext(areas, {});
+}
+
+/**
+ * Neuer Kontext mit zusätzlichen modulspezifischen Einträgen unter ctx.extra.
+ * Der Ausgangskontext bleibt unverändert.
+ * @param {any} ctx gebauter Kontext
+ * @param {Record<string, any>} extras
+ * @returns {any}
+ */
+export function withExtras(ctx, extras) {
+  const base = toAppContext(ctx);
+  /** @type {Record<string, Record<string, any>>} */
+  const areas = {};
+  for (const a of CONTEXT_AREAS) areas[a] = base[a];
+  return freezeContext(areas, { ...base.extra, ...(extras || {}) });
+}
+
+/**
+ * Liefert immer einen gebauten Kontext. Ein bereits gebauter Kontext wird
+ * unverändert zurückgegeben. Ein flaches Objekt wird über LEGACY_MAP auf die
+ * Bereiche verteilt; unbekannte Namen landen unter ctx.extra. Fehlende
+ * Einträge bleiben undefined (wie bisher beim flachen Objekt).
+ * @param {any} ctx
+ * @returns {any}
+ */
+export function toAppContext(ctx) {
+  if (isAppContext(ctx)) return ctx;
+  /** @type {Record<string, Record<string, any>>} */
+  const areas = {};
+  for (const a of CONTEXT_AREAS) areas[a] = {};
   /** @type {Record<string, any>} */
-  const ctx = {};
-  for (const a of CONTEXT_AREAS) ctx[a] = Object.freeze(areas[a]);
-  return Object.freeze(ctx);
+  const extra = {};
+  if (ctx && typeof ctx === 'object') {
+    for (const [name, value] of Object.entries(ctx)) {
+      const path = LEGACY_MAP[name];
+      if (path) {
+        const [area, key] = path.split('.');
+        areas[area][key] = value;
+      } else {
+        extra[name] = value;
+      }
+    }
+  }
+  return freezeContext(areas, extra);
 }
 
 /**

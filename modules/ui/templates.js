@@ -13,6 +13,9 @@
 //   closeModals,
 //   toast,
 // }
+// Seit v3.14.2 über toAppContext(ctx) aus den Bereichen gelesen (modules/app-context.js).
+
+import { toAppContext } from '../app-context.js';
 
 /**
  * Filtert Templates nach aktivem App-Modus.
@@ -22,11 +25,11 @@
 export function templateMatchesMode(tpl, ctx) {
   const s = tpl && tpl.scope;
   if (!s || s === 'both') return true;
-  return s === ctx.getAppMode();
+  return s === toAppContext(ctx).data.appMode();
 }
 
 export function populateTemplatePicker(selectId, ctx) {
-  const { getState, escapeHtml } = ctx;
+  const { state: { get: getState }, format: { escapeHtml } } = toAppContext(ctx);
   const state = getState();
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -37,7 +40,7 @@ export function populateTemplatePicker(selectId, ctx) {
 }
 
 export function renderTemplates(ctx) {
-  const { getState, saveState, escapeHtml, toast } = ctx;
+  const { state: { get: getState, save: saveState }, format: { escapeHtml }, ui: { toast } } = toAppContext(ctx);
   const state = getState();
   const container = document.getElementById('templates-list');
   if (!container) return;
@@ -78,7 +81,7 @@ export function renderTemplates(ctx) {
 }
 
 export function openTemplateModal(tpl, ctx) {
-  const { isFreelance } = ctx;
+  const { data: { isFreelance } } = toAppContext(ctx);
   const modal = document.getElementById('modal-template');
   const isNew = !tpl;
   document.getElementById('modal-template-title').textContent = isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten';
@@ -102,7 +105,7 @@ export function openTemplateModal(tpl, ctx) {
 
 export function saveTemplate(ev, ctx) {
   ev.preventDefault();
-  const { getState, saveState, uid, closeModals, toast } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast }, data: { uid } } = toAppContext(ctx);
   const state = getState();
   const id = document.getElementById('template-id').value;
   const scopeVal = document.getElementById('template-scope')?.value;
@@ -126,7 +129,7 @@ export function saveTemplate(ev, ctx) {
 }
 
 export function deleteTemplate(ctx) {
-  const { getState, saveState, closeModals, toast } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { closeModals, toast } } = toAppContext(ctx);
   const state = getState();
   const id = document.getElementById('template-id').value;
   if (!id) return;

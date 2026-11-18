@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.14.1';
+export const APP_VERSION = '3.14.2';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.14.2', items: [
+    'Interner Umbau ohne sichtbare Änderung: Die Dialoge lesen ihre Funktionen jetzt direkt aus dem zentralen Modul.',
+  ] },
   { version: '3.14.1', items: [
     'Interner Umbau ohne sichtbare Änderung: Die App gibt ihre Funktionen jetzt über ein zentrales Modul an die einzelnen Bereiche weiter. Das macht künftige Erweiterungen sicherer.',
     'Neue automatische Prüfung: Berichte, CSV, Übersicht und Gleitzeitkonto werden bei jedem Umbau mit festen Testdaten verglichen.',

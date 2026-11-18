@@ -174,7 +174,7 @@ import { computeBackupReminder } from './modules/storage-status.js';
 import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
-import { createAppContext, legacyView } from './modules/app-context.js';
+import { createAppContext, legacyView, withExtras } from './modules/app-context.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
@@ -706,18 +706,13 @@ function appCtx() {
 }
 
 function _storageStatusCtx() {
-  return legacyView(appCtx(), ['getState', 'saveState', 'toast', 'escapeHtml']);
+  return appCtx();
 }
 
 function _fsCtx() {
-  return {
-    ...legacyView(appCtx(), [
-      'getState', 'saveState', 'escapeHtml', 'getEmployer', 'todayISO', 'holidayOf',
-      'computeSuggestedBreak', 'openEntryModal', 'renderTracker', 'refreshAll', 'toast', 'uid',
-      'minutesToHM', 'computeWorkMinutes',
-    ]),
-    saveEntryAndNext: (e) => _saveEntryRaw(e, { ..._entryCtx(), __saveAndNext: true }),
-  };
+  return withExtras(appCtx(), {
+    saveEntryAndNext: (e) => _saveEntryRaw(e, withExtras(_entryCtx(), { __saveAndNext: true })),
+  });
 }
 
 function startLiveTimer() {
@@ -891,12 +886,7 @@ function endWork() {
 /* ---------- Entry Modal ---------- */
 
 function _entryCtx() {
-  return {
-    ...legacyView(appCtx(), [
-      'holidayOf', 'openEntryModal', 'getState', 'saveState', 'getEmployer', 'todayISO',
-      'dayOfWeekISO', 'DAY_KEYS', 'DAY_LABELS_LONG', 'escapeHtml', 'populateTemplatePicker',
-      'computeSuggestedBreak', 'renderTracker', 'renderEntries', 'refreshAll', 'toast', 'closeModals', 'uid',
-    ]),
+  return withExtras(appCtx(), {
     // Phase 4.8: Selector fuer Feld-Definitionen mit partiell gebundenem ctx
     computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
       state: _getState(),
@@ -906,7 +896,7 @@ function _entryCtx() {
       DAY_LABELS_LONG,
       dayOfWeekISO,
     }),
-  };
+  });
 }
 
 function openEntryModal(entry, opts = {}) {
@@ -961,10 +951,7 @@ function deleteEntry() {
 
 /* ---------- Range-Entry Modal (Zeitraum erfassen, Option B) ---------- */
 function _rangeEntryCtx() {
-  return legacyView(appCtx(), [
-    'getState', 'saveState', 'escapeHtml', 'todayISO', 'renderTracker', 'renderEntries',
-    'refreshAll', 'toast', 'closeModals', 'uid',
-  ]);
+  return appCtx();
 }
 
 function openRangeEntryModal() {
@@ -997,12 +984,7 @@ function setMode(mode) {
 }
 
 function _hoCtx() {
-  return legacyView(appCtx(), [
-    'getState', 'saveState', 'getEmployer', 'escapeHtml', 'todayISO', 'formatDate',
-    'populateTemplatePicker', 'buildHomeofficeSegmentsHTML', 'computeHomeofficeMinutes',
-    'minutesToHM', 'hhmmToMinutes', 'normalizeSegments', 'renderTracker', 'renderEntries',
-    'renderWeek', 'renderReport', 'renderOverview', 'refreshAll', 'closeModals', 'toast', 'uid',
-  ]);
+  return appCtx();
 }
 
 function openHomeofficeModal(entry, opts) {
@@ -1845,11 +1827,7 @@ async function exportOverviewPdf() {
 }
 
 function _overviewShareCtx() {
-  return legacyView(appCtx(), [
-    'getCurrentOverview', 'getState', 'escapeHtml', 'fileNameForOverview', 'formatMonthYear',
-    'renderSummaryPlaintext', 'getOverviewSummaryFields', 'generateOverviewPdfBlob',
-    'downloadBlob', 'toast', 'closeModals',
-  ]);
+  return appCtx();
 }
 
 async function shareOverviewPdf() {
@@ -1926,11 +1904,7 @@ function getCurrentReport() {
 /* ---------- Share (Web Share API + Fallback) ---------- */
 
 function _shareCtx() {
-  return legacyView(appCtx(), [
-    'getCurrentReport', 'getState', 'escapeHtml', 'fileNameForReport', 'formatMonthYear',
-    'renderSummaryPlaintext', 'getSummaryFields', 'generateWordBlob', 'generatePdfBlob',
-    'downloadBlob', 'toast', 'closeModals',
-  ]);
+  return appCtx();
 }
 
 function openShareModal() {
@@ -2065,10 +2039,7 @@ function breakModeLabel(mode) {
 /* ---------- Employer-Modal via modules/ui/employer-modal.js (Phase 3.9f) ---------- */
 
 function _emCtx() {
-  return legacyView(appCtx(), [
-    'getState', 'saveState', 'getEmployer', 'defaultSchedule', 'L', 'isFreelance', 'uid',
-    'closeModals', 'renderEmployers', 'renderTracker', 'toast',
-  ]);
+  return appCtx();
 }
 
 function buildScheduleGrid(schedule) { return _buildScheduleGridRaw(schedule); }
@@ -2169,9 +2140,7 @@ function updateModeVisibility() {
 /* ---------- Holiday-Overrides via modules/ui/holiday-overrides.js (Phase 3.9g) ---------- */
 
 function _holCtx() {
-  return legacyView(appCtx(), [
-    'getState', 'saveState', 'normalizeHolidayOverrides', 'escapeHtml', 'formatDate', 'closeModals', 'toast',
-  ]);
+  return appCtx();
 }
 
 function ensureHolidayOverrides() { return _ensureHolidayOverridesRaw(_holCtx()); }
@@ -2184,9 +2153,7 @@ function saveHoliday(ev) { return _saveHolidayRaw(ev, _holCtx()); }
 /* ---------- Templates via modules/ui/templates.js (Phase 3.9h) ---------- */
 
 function _tplCtx() {
-  return legacyView(appCtx(), [
-    'getState', 'saveState', 'getAppMode', 'isFreelance', 'escapeHtml', 'uid', 'closeModals', 'toast',
-  ]);
+  return appCtx();
 }
 
 function renderTemplates() { return _renderTemplatesRaw(_tplCtx()); }

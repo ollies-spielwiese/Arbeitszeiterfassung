@@ -16,6 +16,7 @@ import {
 import { computeSundayHintsForCandidate, buildSundayHintParagraphs, isSundayHintEnabled } from '../sunday-hints.js';
 import { pushAuditLog } from '../audit-log.js';
 import { splitAcrossMidnight, pad } from '../util-time.js';
+import { toAppContext } from '../app-context.js';
 
 const $ = (id) => /** @type {any} */ (document.getElementById(id));
 
@@ -51,7 +52,7 @@ let entryMoreOpen = false;
 
 export function syncEntryFieldService(entry, opts, ctx) {
   opts = opts || {};
-  const state = ctx.getState();
+  const state = toAppContext(ctx).state.get();
   const fs = getFieldServiceSettings(state.settings);
   const nb = opts.nextBlock || null;
   const act = $('entry-fs-activity');
@@ -71,7 +72,8 @@ export function syncEntryFieldService(entry, opts, ctx) {
 }
 
 export function refreshEntryFieldService(ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const form = $('form-entry');
   const block = $('entry-fs-block');
   if (!form || !block) return;
@@ -90,7 +92,7 @@ export function refreshEntryFieldService(ctx) {
   if (!active) return;
   const fs = getFieldServiceSettings(state.settings);
   const act = $('entry-fs-activity');
-  $('entry-fs-chips').innerHTML = chipsHTML(fs, act.value, act.dataset.label, ctx.escapeHtml, 'chip-entry-activity');
+  $('entry-fs-chips').innerHTML = chipsHTML(fs, act.value, act.dataset.label, cx.format.escapeHtml, 'chip-entry-activity');
   const a = findActivity(fs, act.value);
   const showKm = !!(a && a.isTrip && fs.kmEnabled);
   $('entry-fs-km-row').classList.toggle('hidden', !showKm);
@@ -116,7 +118,8 @@ export function readEntryFieldService(state, employerId) {
 let trackerPick = '';
 
 export function renderTrackerFieldService(ctx, mode) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const wrap = $('tracker-fs');
   if (!wrap) return;
   const r = state.runningTimer;
@@ -132,10 +135,10 @@ export function renderTrackerFieldService(ctx, mode) {
     $('tracker-fs-switch').classList.toggle('hidden', !r);
     if (!r) {
       if (trackerPick && !visibleActivities(fs).some(a => a.id === trackerPick)) trackerPick = '';
-      $('tracker-fs-chips').innerHTML = chipsHTML(fs, trackerPick, '', ctx.escapeHtml, 'chip-tracker-activity');
+      $('tracker-fs-chips').innerHTML = chipsHTML(fs, trackerPick, '', cx.format.escapeHtml, 'chip-tracker-activity');
     } else {
       const sw = $('tracker-fs-switch-chips');
-      sw.innerHTML = chipsHTML(fs, r.activity || '', r.activityLabel || '', ctx.escapeHtml, 'chip-switch-activity');
+      sw.innerHTML = chipsHTML(fs, r.activity || '', r.activityLabel || '', cx.format.escapeHtml, 'chip-switch-activity');
       sw.querySelectorAll('.fs-chip.active').forEach((b) => { b.disabled = true; });
       const label = activityLabelOf(r, fs);
       if (liveLabel && label) liveLabel.textContent = `${label} läuft seit`;
@@ -149,36 +152,38 @@ export function renderTrackerFieldService(ctx, mode) {
 }
 
 function renderTrackerSundayHint(ctx, empId, isHO) {
+  const cx = toAppContext(ctx);
   const el = $('tracker-sunday-hint');
   if (!el) return;
-  const state = ctx.getState();
+  const state = cx.state.get();
   const hide = () => { el.innerHTML = ''; el.classList.add('hidden'); };
   if (!empId || !isSundayHintEnabled(state.settings)) return hide();
-  const today = ctx.todayISO();
+  const today = cx.data.todayISO();
   const r = state.runningTimer;
   const candidate = { id: '__tracker__', employerId: empId, date: today, type: isHO ? 'homeoffice' : 'work', start: '00:00', end: '00:01', segments: [{ start: '00:00', end: '00:01' }] };
-  const hints = computeSundayHintsForCandidate(state.entries, state.employers, candidate, ctx.holidayOf);
+  const hints = computeSundayHintsForCandidate(state.entries, state.employers, candidate, cx.compute.holidayOf);
   if (!hints.length) return hide();
-  el.innerHTML = buildSundayHintParagraphs(hints, ctx.escapeHtml).replace(/Mit diesem Eintrag an/g, 'Einschließlich heute an');
+  el.innerHTML = buildSundayHintParagraphs(hints, cx.format.escapeHtml).replace(/Mit diesem Eintrag an/g, 'Einschließlich heute an');
   el.classList.remove('hidden');
 }
 
 function renderTrackerToday(ctx, active, fs, empId) {
+  const cx = toAppContext(ctx);
   const el = $('tracker-fs-today');
   if (!el) return;
-  const state = ctx.getState();
+  const state = cx.state.get();
   if (!active || !fs.showTodayList) { el.innerHTML = ''; el.classList.add('hidden'); return; }
-  const today = ctx.todayISO();
+  const today = cx.data.todayISO();
   const blocks = state.entries
     .filter(e => e.type === 'work' && e.employerId === empId && e.date === today)
     .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
   const r = state.runningTimer;
   if (!blocks.length && !r) { el.innerHTML = ''; el.classList.add('hidden'); return; }
-  const esc = ctx.escapeHtml;
+  const esc = cx.format.escapeHtml;
   const rows = blocks.map((e) => {
     const desc = fieldServicePrefix(e, fs) || 'Arbeit';
     const missingKm = isTripEntry(e, fs) && fs.kmEnabled && !(entryKm(e) > 0);
-    return `<li class="fs-today-row" data-entry-id="${esc(e.id)}"><span class="fs-today-time">${esc(e.start)}–${esc(e.end)}</span><span class="fs-today-desc">${esc(desc)}${missingKm ? ' <button type="button" class="fs-link" data-fs-km-for="' + esc(e.id) + '">km eintragen</button>' : ''}</span><span class="fs-today-dur">${ctx.minutesToHM(ctx.computeWorkMinutes(e))}</span></li>`;
+    return `<li class="fs-today-row" data-entry-id="${esc(e.id)}"><span class="fs-today-time">${esc(e.start)}–${esc(e.end)}</span><span class="fs-today-desc">${esc(desc)}${missingKm ? ' <button type="button" class="fs-link" data-fs-km-for="' + esc(e.id) + '">km eintragen</button>' : ''}</span><span class="fs-today-dur">${cx.format.minutesToHM(cx.compute.workMinutes(e))}</span></li>`;
   });
   if (r && r.type !== 'homeoffice' && r.employerId === empId) {
     const d = new Date(r.startISO);
@@ -224,7 +229,8 @@ export function fieldServiceFromTimer(state, r) {
  * @returns {any|null} gespeicherter Block
  */
 export function switchActivity(newId, ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const r = state.runningTimer;
   if (!r || r.type === 'homeoffice') return null;
   const fs = getFieldServiceSettings(state.settings);
@@ -239,16 +245,16 @@ export function switchActivity(newId, ctx) {
   if (parts.length && (now.getTime() - start.getTime()) >= 60000) {
     const startHHMM = parts[0].start;
     const endHHMM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const emp = ctx.getEmployer(r.employerId);
-    const suggested = ctx.computeSuggestedBreak(startHHMM, endHHMM, emp && emp.breakMode);
+    const emp = cx.data.employer(r.employerId);
+    const suggested = cx.compute.suggestedBreak(startHHMM, endHHMM, emp && emp.breakMode);
     saved = {
-      id: ctx.uid(), employerId: r.employerId, date: parts[0].date, type: 'work',
+      id: cx.data.uid(), employerId: r.employerId, date: parts[0].date, type: 'work',
       start: startHHMM, end: endHHMM, breakMinutes: suggested || 0, overtimeReason: '', note: '',
       ...fieldServiceFromTimer(state, r),
       createdAt: now.toISOString(),
     };
     state.entries.push(saved);
-    pushAuditLog(state, { action: 'create', entry: saved, uid: ctx.uid });
+    pushAuditLog(state, { action: 'create', entry: saved, uid: cx.data.uid });
   }
   state.runningTimer = {
     employerId: r.employerId,
@@ -257,10 +263,10 @@ export function switchActivity(newId, ctx) {
     ...(nextLoc ? { location: nextLoc } : {}),
   };
   if (nextLocEl) nextLocEl.value = '';
-  ctx.saveState();
-  ctx.renderTracker();
-  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
-  ctx.toast(`${a.label} gestartet`);
+  cx.state.save();
+  cx.render.tracker();
+  if (typeof cx.render.all === 'function') cx.render.all();
+  cx.ui.toast(`${a.label} gestartet`);
   if (saved && isTripEntry(saved, fs) && fs.kmEnabled && fs.kmPrompt === 'switch') openKmModal([saved], ctx);
   return saved;
 }
@@ -277,11 +283,12 @@ export function tripsMissingKm(state, employerId, date, exceptId) {
 let kmModalIds = [];
 
 export function openKmModal(entries, ctx) {
+  const cx = toAppContext(ctx);
   const modal = $('modal-fs-km');
   if (!modal || !entries || !entries.length) return;
-  const state = ctx.getState();
+  const state = cx.state.get();
   const fs = getFieldServiceSettings(state.settings);
-  const esc = ctx.escapeHtml;
+  const esc = cx.format.escapeHtml;
   kmModalIds = entries.map(e => e.id);
   $('fs-km-rows').innerHTML = entries.map((e, i) => `
     <div class="form-row fs-km-row" data-km-id="${esc(e.id)}">
@@ -300,7 +307,8 @@ function closeKmModal() {
 }
 
 function saveKmModal(ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const fs = getFieldServiceSettings(state.settings);
   document.querySelectorAll('#fs-km-rows [data-km-id]').forEach((row) => {
     const id = /** @type {any} */ (row).dataset.kmId;
@@ -310,23 +318,24 @@ function saveKmModal(ctx) {
     const data = buildEntryFieldServiceData(fs, { activity: e.activity, activityLabel: e.activityLabel, location: e.location, km: input.value, vehicle: e.vehicle });
     e.km = data.km;
     e.vehicle = data.vehicle || e.vehicle || fs.defaultVehicle;
-    pushAuditLog(state, { action: 'update', entry: e, summary: 'Kilometer', uid: ctx.uid });
+    pushAuditLog(state, { action: 'update', entry: e, summary: 'Kilometer', uid: cx.data.uid });
   });
-  ctx.saveState();
+  cx.state.save();
   closeKmModal();
-  ctx.renderTracker();
-  if (typeof ctx.refreshAll === 'function') ctx.refreshAll();
-  ctx.toast('Kilometer gespeichert');
+  cx.render.tracker();
+  if (typeof cx.render.all === 'function') cx.render.all();
+  cx.ui.toast('Kilometer gespeichert');
 }
 
 /* ---------------- Einstellungen ---------------- */
 
 export function renderFieldServiceSettings(ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const block = $('settings-block-fieldservice');
   if (!block) return;
   const fs = getFieldServiceSettings(state.settings);
-  const esc = ctx.escapeHtml;
+  const esc = cx.format.escapeHtml;
   $('setting-sunday-hint').checked = isSundayHintEnabled(state.settings);
   $('setting-sunday-hint').disabled = state.settings.arbzgHintsEnabled === false;
   $('setting-fs-enabled').checked = fs.enabled;
@@ -352,7 +361,7 @@ export function renderFieldServiceSettings(ctx) {
 }
 
 function openActivityModal(id, ctx) {
-  const state = ctx.getState();
+  const state = toAppContext(ctx).state.get();
   const fs = getFieldServiceSettings(state.settings);
   const a = id ? findActivity(fs, id) : null;
   $('fs-activity-id').value = a ? a.id : '';
@@ -370,44 +379,47 @@ function openActivityModal(id, ctx) {
 }
 
 function saveActivity(ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const fs = getFieldServiceSettings(state.settings);
   const id = $('fs-activity-id').value;
   const label = String($('fs-activity-label').value || '').replace(/\s+/g, ' ').trim().slice(0, FS_LABEL_MAX);
-  if (!label) { ctx.toast('Bitte eine Bezeichnung eingeben'); return; }
+  if (!label) { cx.ui.toast('Bitte eine Bezeichnung eingeben'); return; }
   const clash = fs.activities.find(a => a.id !== id && a.label.toLowerCase() === label.toLowerCase());
-  if (clash) { ctx.toast('Diese Tätigkeit gibt es schon'); return; }
+  if (clash) { cx.ui.toast('Diese Tätigkeit gibt es schon'); return; }
   const isTrip = !!$('fs-activity-trip').checked;
   const hidden = !!$('fs-activity-hidden').checked;
   let activities = fs.activities;
   if (id) activities = activities.map(a => a.id === id ? { ...a, label, isTrip, hidden } : a);
   else activities = [...activities, { id: newActivityId(activities), label, builtin: false, hidden: false, isTrip }];
   writeFs(state, { activities });
-  ctx.saveState();
+  cx.state.save();
   $('modal-fs-activity').classList.add('hidden');
   renderFieldServiceSettings(ctx);
-  ctx.toast('Tätigkeit gespeichert');
+  cx.ui.toast('Tätigkeit gespeichert');
 }
 
 function deleteActivity(ctx) {
-  const state = ctx.getState();
+  const cx = toAppContext(ctx);
+  const state = cx.state.get();
   const fs = getFieldServiceSettings(state.settings);
   const id = $('fs-activity-id').value;
   const a = findActivity(fs, id);
   if (!a || a.builtin) return;
   if (!confirm(`Tätigkeit „${a.label}“ löschen? Alte Einträge behalten den Namen.`)) return;
   writeFs(state, { activities: fs.activities.filter(x => x.id !== id) });
-  ctx.saveState();
+  cx.state.save();
   $('modal-fs-activity').classList.add('hidden');
   renderFieldServiceSettings(ctx);
-  ctx.toast('Tätigkeit gelöscht');
+  cx.ui.toast('Tätigkeit gelöscht');
 }
 
 /* ---------------- Verdrahtung ---------------- */
 
 export function wireFieldServiceUI(ctx) {
+  const cx = toAppContext(ctx);
   const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
-  const afterSettings = () => { ctx.saveState(); renderFieldServiceSettings(ctx); try { ctx.renderTracker(); } catch (_) {} };
+  const afterSettings = () => { cx.state.save(); renderFieldServiceSettings(ctx); try { cx.render.tracker(); } catch (_) {} };
 
   // Eintragsdialog
   on('entry-fs-chips', 'click', (e) => {
@@ -427,7 +439,7 @@ export function wireFieldServiceUI(ctx) {
   on('entry-employer', 'change', () => refreshEntryFieldService(ctx));
   on('btn-save-next-entry', 'click', () => {
     const form = $('form-entry');
-    if (typeof ctx.saveEntryAndNext === 'function') ctx.saveEntryAndNext({ preventDefault() {}, target: form });
+    if (typeof cx.extra.saveEntryAndNext === 'function') cx.extra.saveEntryAndNext({ preventDefault() {}, target: form });
   });
 
   // Reiter „Erfassen“
@@ -435,7 +447,7 @@ export function wireFieldServiceUI(ctx) {
     const btn = e.target.closest('[data-activity]');
     if (!btn) return;
     trackerPick = trackerPick === btn.dataset.activity ? '' : btn.dataset.activity;
-    ctx.renderTracker();
+    cx.render.tracker();
   });
   on('tracker-fs-switch-chips', 'click', (e) => {
     const btn = e.target.closest('[data-activity]');
@@ -445,14 +457,14 @@ export function wireFieldServiceUI(ctx) {
   on('tracker-fs-today', 'click', (e) => {
     const km = e.target.closest('[data-fs-km-for]');
     if (km) {
-      const ent = ctx.getState().entries.find(x => x.id === km.dataset.fsKmFor);
+      const ent = cx.state.get().entries.find(x => x.id === km.dataset.fsKmFor);
       if (ent) openKmModal([ent], ctx);
       return;
     }
     const row = e.target.closest('[data-entry-id]');
     if (row) {
-      const ent = ctx.getState().entries.find(x => x.id === row.dataset.entryId);
-      if (ent) ctx.openEntryModal(ent);
+      const ent = cx.state.get().entries.find(x => x.id === row.dataset.entryId);
+      if (ent) cx.ui.openEntryModal(ent);
     }
   });
   document.querySelectorAll('[data-fs-km-close]').forEach(el => el.addEventListener('click', closeKmModal));
@@ -460,14 +472,14 @@ export function wireFieldServiceUI(ctx) {
 
   // Einstellungen
   on('setting-sunday-hint', 'change', (e) => {
-    ctx.getState().settings.sundayHintEnabled = !!e.target.checked;
+    cx.state.get().settings.sundayHintEnabled = !!e.target.checked;
     afterSettings();
   });
-  on('setting-fs-enabled', 'change', (e) => { const state = ctx.getState(); writeFs(state, { enabled: !!e.target.checked }); afterSettings(); });
+  on('setting-fs-enabled', 'change', (e) => { const state = cx.state.get(); writeFs(state, { enabled: !!e.target.checked }); afterSettings(); });
   on('setting-fs-employers', 'change', (e) => {
     const cb = e.target.closest('[data-fs-emp]');
     if (!cb) return;
-    const state = ctx.getState();
+    const state = cx.state.get();
     const fs = getFieldServiceSettings(state.settings);
     const set = new Set(fs.employerIds);
     if (cb.checked) set.add(cb.dataset.fsEmp); else set.delete(cb.dataset.fsEmp);
@@ -475,14 +487,14 @@ export function wireFieldServiceUI(ctx) {
     afterSettings();
   });
   on('setting-fs-activities', 'click', (e) => {
-    const state = ctx.getState();
+    const state = cx.state.get();
     const b = e.target.closest('[data-fs-builtin]');
     if (b) {
       const fs = getFieldServiceSettings(state.settings);
       const id = b.dataset.fsBuiltin;
       const vis = fs.activities.filter(a => !a.hidden);
       const target = fs.activities.find(a => a.id === id);
-      if (target && !target.hidden && vis.length <= 1) { ctx.toast('Mindestens eine Tätigkeit muss sichtbar bleiben'); return; }
+      if (target && !target.hidden && vis.length <= 1) { cx.ui.toast('Mindestens eine Tätigkeit muss sichtbar bleiben'); return; }
       writeFs(state, { activities: fs.activities.map(a => a.id === id ? { ...a, hidden: !a.hidden } : a) });
       afterSettings();
       return;
@@ -493,18 +505,18 @@ export function wireFieldServiceUI(ctx) {
   });
   on('form-fs-activity', 'submit', (e) => { e.preventDefault(); saveActivity(ctx); });
   on('btn-fs-activity-delete', 'click', () => deleteActivity(ctx));
-  on('setting-fs-km', 'change', (e) => { writeFs(ctx.getState(), { kmEnabled: !!e.target.checked }); afterSettings(); });
+  on('setting-fs-km', 'change', (e) => { writeFs(cx.state.get(), { kmEnabled: !!e.target.checked }); afterSettings(); });
   on('setting-fs-rate', 'change', (e) => {
     const n = Number(String(e.target.value || '').replace(/[^\d,.]/g, '').replace(',', '.'));
-    if (!Number.isFinite(n) || n < 0 || n > 10) { ctx.toast('Bitte einen Kilometersatz zwischen 0 und 10 € eingeben'); renderFieldServiceSettings(ctx); return; }
-    writeFs(ctx.getState(), { kmRate: Math.round(n * 100) / 100 });
+    if (!Number.isFinite(n) || n < 0 || n > 10) { cx.ui.toast('Bitte einen Kilometersatz zwischen 0 und 10 € eingeben'); renderFieldServiceSettings(ctx); return; }
+    writeFs(cx.state.get(), { kmRate: Math.round(n * 100) / 100 });
     afterSettings();
   });
-  on('setting-fs-vehicle', 'change', (e) => { writeFs(ctx.getState(), { defaultVehicle: e.target.value === 'company' ? 'company' : 'private' }); afterSettings(); });
+  on('setting-fs-vehicle', 'change', (e) => { writeFs(cx.state.get(), { defaultVehicle: e.target.value === 'company' ? 'company' : 'private' }); afterSettings(); });
   document.querySelectorAll('[data-fs-prompt]').forEach(b => b.addEventListener('click', () => {
-    writeFs(ctx.getState(), { kmPrompt: /** @type {any} */ (b).dataset.fsPrompt === 'end' ? 'end' : 'switch' });
+    writeFs(cx.state.get(), { kmPrompt: /** @type {any} */ (b).dataset.fsPrompt === 'end' ? 'end' : 'switch' });
     afterSettings();
   }));
-  on('setting-fs-today', 'change', (e) => { writeFs(ctx.getState(), { showTodayList: !!e.target.checked }); afterSettings(); });
+  on('setting-fs-today', 'change', (e) => { writeFs(cx.state.get(), { showTodayList: !!e.target.checked }); afterSettings(); });
 }
 

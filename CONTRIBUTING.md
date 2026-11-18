@@ -85,7 +85,7 @@ Wenn Regression rot ist, ist der Change nicht fertig. Kein Bump, kein Commit auf
 - Neue Zusammenfassungs-Felder gehen durch `getSummaryFields`. Nicht direkt in Renderer.
 - Neue Berechnungen in `compute`-Funktionen. Renderer rufen nur auf.
 - Neue Exporte konsumieren `AZMonthReport` oder `AZMonthOverview`. Nie direkt `state`.
-- Funktionen, die Module von `app.js` brauchen, kommen in den zentralen Kontext `modules/app-context.js` (Bereiche `state`, `compute`, `format`, `ui`, `render`, `exports`, `data`; Eintrag in `LEGACY_MAP` und in `appCtx()` in `app.js`). Kein neues `_xyzCtx()`-Objekt anlegen. Den Zustand nur über `getState()` bzw. `ctx.state.get()` lesen.
+- Funktionen, die Module von `app.js` brauchen, kommen in den zentralen Kontext `modules/app-context.js` (Bereiche `state`, `compute`, `format`, `ui`, `render`, `exports`, `data`; Eintrag in `LEGACY_MAP` und in `appCtx()` in `app.js`). Kein neues `_xyzCtx()`-Objekt anlegen. Den Zustand nur über `getState()` bzw. `ctx.state.get()` lesen. Module lesen den Kontext seit v3.14.2 über `const cx = toAppContext(ctx)` mit verschachteltem Zugriff (z. B. `cx.ui.toast`). Zusätzliche, nur für einen Dialog nötige Werte kommen mit `withExtras(appCtx(), { … })` in den Bereich `extra`, nicht als neue flache Namen.
 - JSDoc-Signaturen für neue Public-Funktionen setzen — `types.js`-Typen wo passend referenzieren.
 - Kein Feature-Creep: wenn du bei einem Fix ein zweites Ding entdeckst, das dich stört — separater Commit oder Ticket. Nicht einfach mitnehmen.
 

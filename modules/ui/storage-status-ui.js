@@ -13,6 +13,7 @@ import {
   storageStatusInfo, shouldRequestPersist, isAppleWebKit, lastBackupText, sizeText,
   normalizeChangesSinceBackup,
 } from '../storage-status.js';
+import { toAppContext } from '../app-context.js';
 
 let _requestedThisSession = false;
 let _renderSeq = 0;
@@ -22,8 +23,9 @@ export function _resetStorageStatusSession() { _requestedThisSession = false; }
 
 /** @param {any} ctx */
 function env(ctx) {
-  const nav = ctx.nav || (typeof navigator !== 'undefined' ? navigator : /** @type {any} */ ({}));
-  const win = ctx.win || (typeof window !== 'undefined' ? window : /** @type {any} */ ({}));
+  const cx = toAppContext(ctx);
+  const nav = cx.extra.nav || (typeof navigator !== 'undefined' ? navigator : /** @type {any} */ ({}));
+  const win = cx.extra.win || (typeof window !== 'undefined' ? window : /** @type {any} */ ({}));
   const storage = nav && nav.storage;
   const apiAvailable = !!(storage && typeof storage.persisted === 'function' && typeof storage.persist === 'function');
   let standalone = false;
@@ -53,9 +55,10 @@ export function dataSizeBytes(state) {
  * @returns {Promise<boolean|null>} Ergebnis der Anfrage oder null, wenn nicht angefragt
  */
 export async function maybeRequestPersist(ctx) {
+  const cx = toAppContext(ctx);
   const e = env(ctx);
   if (!e.apiAvailable || _requestedThisSession) return null;
-  const state = ctx.getState();
+  const state = cx.state.get();
   const settings = (state && state.settings) || {};
   const persisted = await readPersisted(e.storage);
   const hasEntries = Array.isArray(state && state.entries) && state.entries.length > 0;
@@ -68,7 +71,7 @@ export async function maybeRequestPersist(ctx) {
   try { granted = !!(await e.storage.persist()); } catch (_) { granted = false; }
   if (state && state.settings) {
     state.settings.persistRequestedAt = new Date().toISOString();
-    ctx.saveState();
+    cx.state.save();
   }
   return granted;
 }
@@ -78,6 +81,7 @@ export async function maybeRequestPersist(ctx) {
  * @param {any} ctx
  */
 export async function renderStorageStatus(ctx) {
+  const cx = toAppContext(ctx);
   const box = document.getElementById('storage-status-content');
   const btn = document.getElementById('btn-storage-persist');
   if (!box) return;
@@ -85,10 +89,10 @@ export async function renderStorageStatus(ctx) {
   const e = env(ctx);
   const persisted = e.apiAvailable ? await readPersisted(e.storage) : null;
   if (seq !== _renderSeq) return; // neuere Darstellung läuft bereits
-  const state = ctx.getState() || {};
+  const state = cx.state.get() || {};
   const settings = state.settings || {};
   const info = storageStatusInfo({ apiAvailable: e.apiAvailable, persisted, appleWebKit: e.appleWebKit, standalone: e.standalone });
-  const esc = ctx.escapeHtml || ((/** @type {string} */ s) => s);
+  const esc = cx.format.escapeHtml || ((/** @type {string} */ s) => s);
   const row = (/** @type {string} */ label, /** @type {string} */ value, /** @type {string} */ testid) =>
     `<div class="st-row"><span>${esc(label)}</span><span data-testid="${testid}">${value}</span></div>`;
   box.dataset.state = info.key;
@@ -106,17 +110,18 @@ export async function renderStorageStatus(ctx) {
  * @param {any} ctx
  */
 export function wireStorageStatusUI(ctx) {
+  const cx = toAppContext(ctx);
   const btn = document.getElementById('btn-storage-persist');
   if (!btn) return;
   btn.addEventListener('click', async () => {
     const e = env(ctx);
-    if (!e.apiAvailable) { ctx.toast('Dieser Browser unterstützt die Anfrage nicht'); return; }
+    if (!e.apiAvailable) { cx.ui.toast('Dieser Browser unterstützt die Anfrage nicht'); return; }
     let granted = false;
     try { granted = !!(await e.storage.persist()); } catch (_) { granted = false; }
     _requestedThisSession = true;
-    const state = ctx.getState();
-    if (state && state.settings) { state.settings.persistRequestedAt = new Date().toISOString(); ctx.saveState(); }
-    ctx.toast(granted ? 'Dauerhafter Speicher ist aktiv' : 'Der Browser hat den dauerhaften Speicher nicht gewährt');
+    const state = cx.state.get();
+    if (state && state.settings) { state.settings.persistRequestedAt = new Date().toISOString(); cx.state.save(); }
+    cx.ui.toast(granted ? 'Dauerhafter Speicher ist aktiv' : 'Der Browser hat den dauerhaften Speicher nicht gewährt');
     await renderStorageStatus(ctx);
   });
 }

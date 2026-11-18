@@ -17,9 +17,10 @@
 
 import { easterSunday } from '../holidays.js';
 import { dateISO, addDays } from '../util-time.js';
+import { toAppContext } from '../app-context.js';
 
 export function ensureHolidayOverrides(ctx) {
-  const { getState, normalizeHolidayOverrides } = ctx;
+  const { state: { get: getState }, compute: { normalizeHolidayOverrides } } = toAppContext(ctx);
   const state = getState();
   state.settings.holidayOverrides = normalizeHolidayOverrides(state.settings.holidayOverrides);
   return state.settings.holidayOverrides;
@@ -61,7 +62,7 @@ export function getBaseHolidays(year, stateCode) {
 }
 
 export function renderHolidayList(ctx) {
-  const { getState, escapeHtml, formatDate } = ctx;
+  const { state: { get: getState }, format: { escapeHtml, date: formatDate } } = toAppContext(ctx);
   const state = getState();
   const container = document.getElementById('holiday-list');
   if (!container) return;
@@ -140,7 +141,7 @@ export function renderHolidayList(ctx) {
 }
 
 export function handleHolidayAction(action, date, ctx) {
-  const { getState, saveState, toast } = ctx;
+  const { state: { get: getState, save: saveState }, ui: { toast } } = toAppContext(ctx);
   const state = getState();
   const ov = ensureHolidayOverrides(ctx);
   if (action === 'disable') {
@@ -187,7 +188,7 @@ export function openHolidayModal(existing, ctx) {
 
 export function saveHoliday(ev, ctx) {
   ev.preventDefault();
-  const { saveState, closeModals, toast } = ctx;
+  const { state: { save: saveState }, ui: { closeModals, toast } } = toAppContext(ctx);
   const originalDate = document.getElementById('holiday-original-date').value;
   const date = document.getElementById('holiday-date').value;
   const name = document.getElementById('holiday-name').value.trim();

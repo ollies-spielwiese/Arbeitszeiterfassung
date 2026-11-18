@@ -4682,7 +4682,9 @@ function runRangeVacationStatsEscapingSourceCheck() {
 
   assertTrue(
     'SEC2: updateRangeVacationStats() bezieht escapeHtml aus ctx',
-    /const\s*\{\s*escapeHtml\s*\}\s*=\s*ctx/.test(src),
+    // seit v3.14.2 über den zentralen Kontext: const { format: { escapeHtml } } = toAppContext(ctx)
+    /const\s*\{\s*escapeHtml\s*\}\s*=\s*ctx/.test(src) ||
+      /const\s*\{\s*format:\s*\{\s*escapeHtml\s*\}\s*\}\s*=\s*toAppContext\(ctx\)/.test(src),
     modPath
   );
 
