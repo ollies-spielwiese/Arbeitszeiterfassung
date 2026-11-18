@@ -20,6 +20,7 @@
  * Exit-Code: 0 = alles grün, 1 = mindestens ein Fehler.
  */
 
+import { runServiceWorkerPrecacheTests } from './sw-precache-tests.mjs';
 import { chromium, webkit } from 'playwright';
 import { createRequire } from 'module';
 import fs from 'fs';
@@ -4770,6 +4771,7 @@ function runServiceWorkerCacheBustCheck() {
   runRangeVacationStatsEscapingSourceCheck();
   runServiceWorkerHostnameCheckSourceCheck();
   runServiceWorkerCacheBustCheck();
+  await runServiceWorkerPrecacheTests({ assertEq, repoRoot: REPO_ROOT });
   const { browser, page } = await boot();
   try {
     await runSelectorUnits(page);

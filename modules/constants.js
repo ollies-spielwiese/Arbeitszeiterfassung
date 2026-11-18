@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.14.3';
+export const APP_VERSION = '3.14.4';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.14.4', items: [
+    'Fehler behoben: Nach dem Update auf v3.14.3 konnten Monat-PDF und Wochenübersicht ausfallen, weil kurz nach der Veröffentlichung alte und neue Dateien gemischt geladen wurden. Updates werden jetzt nur noch vollständig in einer Version übernommen.',
+    'Intern: Testwerkzeug Playwright auf Version 1.65.1 aktualisiert, die automatischen Prüfungen laufen wieder auf dem aktuellen Ubuntu.',
+  ] },
   { version: '3.14.3', items: [
     'Interner Umbau ohne sichtbare Änderung: Die alten Übergabe-Objekte sind entfernt, die App hält ihre Daten nur noch an einer Stelle.',
   ] },

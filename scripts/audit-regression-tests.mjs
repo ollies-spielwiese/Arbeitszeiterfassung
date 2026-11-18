@@ -207,13 +207,17 @@ export async function runAuditRegressionTests(browser, baseURL, { assertEq }) {
   // Run the real service worker in isolated fault-injection environments.
   const sw=await readFile(new URL('../sw.js',import.meta.url),'utf8');
   const currentCache=sw.match(/const CACHE_NAME = '([^']+)'/)[1];
+  const currentVersion=currentCache.replace(/^arbeitszeit-v/,'').replace(/-/g,'.');
   async function worker(fail) {
-    const handlers={}, deleted=[], cached=[];
+    const handlers={}, deleted=[], cached=[], store=new Map();
     const sandbox={URL,Response,console:{warn(){}},self:{location:{origin:'https://example.test'},
       addEventListener:(n,f)=>handlers[n]=f,clients:{claim(){}},skipWaiting(){}},
-      caches:{open:async()=>({put:async u=>cached.push(u)}),keys:async()=>[currentCache,'arbeitszeit-old','fremde-app'],
+      caches:{open:async()=>({put:async(u,r)=>{cached.push(u);store.set(u,r);},match:async u=>store.get(u)}),
+        keys:async()=>[currentCache,'arbeitszeit-old','fremde-app'],
         delete:async k=>{deleted.push(k);return true;}},
-      fetch:async u=>{if(fail(u))throw Error('controlled network failure');return new Response('ok');}};
+      // Seit v3.14.4 holt sw.js eigene Dateien mit ?v=CACHE_NAME und prüft die Version in constants.js.
+      fetch:async u=>{const plain=u.replace(/[?&]v=[^&]+$/,'');if(fail(plain))throw Error('controlled network failure');
+        return new Response(plain.endsWith('modules/constants.js')?`export const APP_VERSION = '${currentVersion}';`:'ok');}};
     vm.runInNewContext(sw,sandbox);
     let wait;handlers.install({waitUntil:p=>wait=p});
     let installed=true;try{await wait;}catch{installed=false;}
@@ -223,7 +227,8 @@ export async function runAuditRegressionTests(browser, baseURL, { assertEq }) {
   for (const asset of ['./','./app.js','./modules/compute.js','./styles.css','./manifest.json']) {
     const r=await worker(u=>u===asset);
     check(`F20 Kernfehler ${asset} verhindert Installation`,r.installed,false);
-    check(`F20 Kernfehler ${asset} erhält alten Cache`,r.deleted,[]);
+    // Seit v3.14.4 wird nur der halbfertige neue Cache verworfen; alte Caches bleiben.
+    check(`F20 Kernfehler ${asset} erhält alten Cache`,r.deleted.filter(k=>k!==currentCache),[]);
   }
   check('F20 komplett offline keine erfolgreiche Installation',(await worker(()=>true)).installed,false);
   const optional=await worker(u=>u.startsWith('https:')||u.endsWith('.png'));

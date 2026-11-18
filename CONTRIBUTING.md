@@ -133,7 +133,7 @@ Wenn CI rot ist, wird der Push zurückgezogen oder ein Fix-Commit auf denselben 
 
 Drei Workflows in `.github/workflows/` (alle mit `permissions: contents: read`, sofern nicht mehr nötig ist):
 
-- `regression.yml` — läuft bei jedem Push und PR auf `main` (Playwright-Jobs fest auf `ubuntu-24.04`, weil Playwright 1.59 Ubuntu 26.04 nicht unterstützt; ein Wechsel nur zusammen mit Playwright-Update und neuen Bild-Vergleichsbasen). Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
+- `regression.yml` — läuft bei jedem Push und PR auf `main` (Playwright-Jobs auf `ubuntu-latest`; seit v3.14.4 mit Playwright 1.65.1, Ubuntu 26.04 wird ab Playwright 1.61 unterstützt. `scripts/ci-runner-tests.mjs` prüft, dass Playwright-Version und Abbild zusammenpassen). Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
 - `lighthouse.yml` — Lighthouse-Check (Performance, Barrierefreiheit, Best Practices).
 - `pages.yml` — deployt GitHub Pages, aber nur nach grüner Regression im selben Run (Job `qa`, `needs: qa`). Kopiert nur statische App-Files ins Artifact (kein `node_modules`, kein `scripts/`, kein `package.json`).
 
@@ -167,9 +167,11 @@ Aktuell arbeitet das Projekt direkt auf `main`. Seit v3.9.65 ist `main` per GitH
 
 ## Häufige Stolperfallen
 
-**„Regression läuft lokal grün, in CI rot."** Meist Playwright-Version-Drift. `package.json` pinnt `playwright: 1.59.0` exakt (kein `^`). Wenn ein anderer Dev-Package eine Range-Version einbringt, kann das den Chromium-Download brechen. Bei Verdacht: `rm -rf node_modules package-lock.json && npm install`.
+**„Regression läuft lokal grün, in CI rot."** Meist Playwright-Version-Drift. `package.json` pinnt `playwright: 1.65.1` exakt (kein `^`). Wenn ein anderer Dev-Package eine Range-Version einbringt, kann das den Chromium-Download brechen. Bei Verdacht: `rm -rf node_modules package-lock.json && npm install`.
 
 **„Service Worker zeigt alte Version nach Push."** `CACHE_NAME` in `sw.js` wurde nicht gebumpt. Das ist Pflicht bei JEDER gecachten Änderung, siehe Checkliste oben. Der Update-Banner triggert nur, wenn der Cache-Name sich ändert.
+
+**„Nach einem Update fehlen Funktionen (z. B. `minutesToHM is not a function`)."** Der neue Cache war gemischt, weil das CDN von GitHub Pages kurz nach dem Deploy noch einzelne alte Dateien lieferte (v3.14.3). Seit v3.14.4 holt `sw.js` jede eigene Datei mit `?v=CACHE_NAME` und prüft danach, ob `modules/constants.js` die Version des Service Workers enthält. Sonst schlägt die Installation fehl und wird beim nächsten Start wiederholt. `CACHE_NAME` muss deshalb immer zu `APP_VERSION` passen (`npm run -s version:check`). Tests: `scripts/sw-precache-tests.mjs`.
 
 **„Pages baut den neuen Stand nicht."** Sollte mit dem CI-Deploy nicht mehr passieren. Falls doch: Actions-Tab im Repo öffnen, Run manuell via „Run workflow" starten. Historisch war ein leerer Trigger-Commit nötig — mit `pages.yml` nicht mehr.
 

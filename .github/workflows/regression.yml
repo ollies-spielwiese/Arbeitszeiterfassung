@@ -15,7 +15,7 @@ permissions:
 jobs:
   qa:
     name: Playwright-Regression
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -70,7 +70,7 @@ jobs:
 
   qa-webkit:
     name: Playwright-Regression (WebKit/Safari)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -120,7 +120,7 @@ jobs:
 
   visual-regression:
     name: Visual-Regression
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:

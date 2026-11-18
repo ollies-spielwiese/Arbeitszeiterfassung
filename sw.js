@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-14-3';
+const CACHE_NAME = 'arbeitszeit-v3-14-4';
 const ASSETS = [
   './',
   './index.html',
@@ -100,20 +100,31 @@ const ASSETS = [
   'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
 ];
 
+// Seit v3.14.4: Schutz gegen gemischte Versionen durch den GitHub-Zwischenspeicher (CDN).
+// cache:'reload' umgeht nur den Browser-Cache. Das CDN von GitHub Pages hält Dateien bis zu
+// 10 Minuten (max-age=600) und kann kurz nach einem Deploy einzelne alte Dateien liefern
+// (beobachtet in v3.14.3: neue app.js mit alter modules/selectors.js). Deshalb wird jede
+// eigene Datei mit einer Versionskennung (?v=CACHE_NAME) geholt, die das CDN noch nicht kennt,
+// und unter der normalen Adresse gespeichert. Danach muss modules/constants.js genau die
+// Version dieses Service Workers enthalten, sonst schlägt die Installation fehl und der
+// Browser versucht es beim nächsten Start erneut. Der bisherige Cache bleibt so lange aktiv.
+const EXPECTED_VERSION = CACHE_NAME.replace(/^arbeitszeit-v/, '').replace(/-/g, '.');
+const VERSION_PROBE = './modules/constants.js';
+
+function precacheRequestUrl(url) {
+  if (url.startsWith('https:')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'v=' + CACHE_NAME;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(CACHE_NAME).then((cache) =>
       // Core failures reject installation; only optional assets may be missing.
-      // Fix v3.9.67: { cache: 'reload' } statt cache.add(url) — cache.add() respektiert
-      // das normale HTTP-Caching des Browsers. Kurz nach einem Deploy kann dessen
-      // Disk-Cache eine einzelne Datei (z. B. modules/constants.js) noch mit dem alten
-      // Inhalt liefern, waehrend andere Dateien (z. B. app.js) bereits frisch geholt
-      // werden — der neue Cache landet dann inkonsistent (neuer app.js + alter
-      // constants.js). Fetch mit cache:'reload' erzwingt eine echte Netzwerkanfrage
-      // unter Umgehung des HTTP-Caches fuer jede einzelne Datei.
-      return Promise.all(
+      // Fix v3.9.67: fetch mit { cache: 'reload' } statt cache.add(url), damit der
+      // Browser-Cache keine alte Datei liefert (siehe oben, seit v3.14.4 zusätzlich ?v=).
+      Promise.all(
         ASSETS.map((url) =>
-          fetch(url, { cache: 'reload' })
+          fetch(precacheRequestUrl(url), { cache: 'reload' })
             .then((response) => {
               if (!response || !response.ok) throw new Error('HTTP ' + (response && response.status));
               return cache.put(url, response);
@@ -125,8 +136,16 @@ self.addEventListener('install', (event) => {
               console.warn('Optional cache miss for', url, err);
             })
         )
-      );
-    })
+      )
+        .then(() => cache.match(VERSION_PROBE))
+        .then((probe) => (probe ? probe.text() : ''))
+        .then((text) => {
+          if (!text.includes(`APP_VERSION = '${EXPECTED_VERSION}'`)) {
+            throw new Error('Versionsprüfung fehlgeschlagen: ' + VERSION_PROBE + ' ist nicht ' + EXPECTED_VERSION);
+          }
+        })
+        .catch((err) => caches.delete(CACHE_NAME).then(() => { throw err; }))
+    )
   );
   // Do not skipWaiting automatically — wait for the client to opt in via message.
 });
