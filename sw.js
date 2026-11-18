@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-14-4';
+const CACHE_NAME = 'arbeitszeit-v3-15-0';
 const ASSETS = [
   './',
   './index.html',
@@ -41,6 +41,7 @@ const ASSETS = [
   './modules/field-service.js',
   './modules/app-context.js',
   './modules/storage-status.js',
+  './modules/storage-idb.js',
   './modules/export/download.js',
   './modules/sw-update.js',
   './modules/whatsnew.js',
@@ -55,6 +56,7 @@ const ASSETS = [
   './modules/ui/entry-modal.js',
   './modules/ui/field-service-ui.js',
   './modules/ui/storage-status-ui.js',
+  './modules/ui/mirror-restore-ui.js',
   './modules/ui/autogrow.js',
   './modules/ui/email-validation.js',
   './modules/ui/range-entry-modal.js',

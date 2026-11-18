@@ -741,7 +741,7 @@ textarea.note-autogrow {
 .modal-content .guide-body { padding: 0; margin-bottom: 0.5rem; }
 
 /* Modal */
-.modal {
+.modal, .modal-sticky {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.55);
@@ -753,7 +753,7 @@ textarea.note-autogrow {
   animation: fadeIn 0.15s;
 }
 @media (min-width: 600px) {
-  .modal { align-items: center; padding: 1rem; }
+  .modal, .modal-sticky { align-items: center; padding: 1rem; }
 }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

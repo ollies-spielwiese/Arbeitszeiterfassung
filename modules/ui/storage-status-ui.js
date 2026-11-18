@@ -14,6 +14,7 @@ import {
   normalizeChangesSinceBackup,
 } from '../storage-status.js';
 import { toAppContext } from '../app-context.js';
+import { getMirrorStatus, mirrorStatusInfo } from '../storage-idb.js';
 
 let _requestedThisSession = false;
 let _renderSeq = 0;
@@ -77,6 +78,17 @@ export async function maybeRequestPersist(ctx) {
 }
 
 /**
+ * v3.15.0: Zeile „Spiegelkopie (IndexedDB)“ mit Erklärung.
+ * @param {(s: string) => string} esc
+ */
+function mirrorRowHtml(esc) {
+  const st = getMirrorStatus();
+  const mi = mirrorStatusInfo(st);
+  return `<div class="st-row" data-mirror-state="${esc(st.key)}"><span>Spiegelkopie (IndexedDB)</span><span data-testid="storage-status-mirror"><span class="st-badge ${mi.badgeClass}">${esc(mi.badge)}</span></span></div>`
+    + `<p class="hint st-explain" data-testid="storage-status-mirror-text">${esc(mi.text)}</p>`;
+}
+
+/**
  * Zeichnet die Karte „Speicherstatus“.
  * @param {any} ctx
  */
@@ -101,7 +113,8 @@ export async function renderStorageStatus(ctx) {
     + `<p class="hint st-explain" data-testid="storage-status-text">${esc(info.text)}</p>`
     + row('Letztes Backup', esc(lastBackupText(settings.lastBackupAt, Date.now())), 'storage-status-last-backup')
     + row('Änderungen seit dem letzten Backup', String(normalizeChangesSinceBackup(settings)), 'storage-status-changes')
-    + row('Belegter Speicher', esc(sizeText(dataSizeBytes(state))), 'storage-status-size');
+    + row('Belegter Speicher', esc(sizeText(dataSizeBytes(state))), 'storage-status-size')
+    + mirrorRowHtml(esc);
   if (btn) btn.classList.toggle('hidden', !info.showRequestButton);
 }
 

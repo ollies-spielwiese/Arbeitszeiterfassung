@@ -192,7 +192,7 @@ export function loadState(helpers) {
         normalizeSegments: helpers.normalizeSegments,
       });
       if (changed) {
-        try { storage.set(STORAGE_KEY, JSON.stringify(migrated)); } catch (e) { /* ignore */ }
+        try { persist(JSON.stringify(migrated)); } catch (e) { /* ignore */ }
       }
       // v3.14.0: Zähler „Änderungen seit dem letzten Backup“ — fehlt er (ältere Daten),
       // gilt mit Backup 1 (bisherige 7-Tage-Erinnerung bleibt erhalten), sonst 0.
@@ -234,6 +234,23 @@ function trackChangeSinceBackup(s) {
   _lastFingerprint = fp;
 }
 
+// v3.15.0: Nach jedem erfolgreichen Schreiben in localStorage wird der Stand an
+// den Zuhörer übergeben (Spiegelkopie in IndexedDB, siehe modules/storage-idb.js).
+// Fehler des Zuhörers dürfen das Speichern nie unterbrechen.
+/** @type {((json: string) => void)|null} */
+let _persistListener = null;
+
+/** @param {((json: string) => void)|null} fn */
+export function onStatePersisted(fn) { _persistListener = typeof fn === 'function' ? fn : null; }
+
+/** @param {string} json */
+function persist(json) {
+  storage.set(STORAGE_KEY, json);
+  if (_persistListener) {
+    try { _persistListener(json); } catch (e) { console.warn('Spiegelkopie: Zuhörer fehlgeschlagen', e); }
+  }
+}
+
 /**
  * Persistiert den internen State. schemaVersion wird auf SCHEMA_VERSION gezwungen.
  * @returns {void}
@@ -242,7 +259,7 @@ export function saveState() {
   if (!_currentState || _replacingState) return;
   _currentState.schemaVersion = SCHEMA_VERSION;
   trackChangeSinceBackup(_currentState);
-  storage.set(STORAGE_KEY, JSON.stringify(_currentState));
+  persist(JSON.stringify(_currentState));
 }
 
 /**
@@ -262,7 +279,7 @@ export function replaceStateAtomically(candidate, apply) {
     apply(candidate);
     candidate.schemaVersion = SCHEMA_VERSION;
     if (candidate.settings) candidate.settings.changesSinceBackup = normalizeChangesSinceBackup(candidate.settings);
-    storage.set(STORAGE_KEY, JSON.stringify(candidate));
+    persist(JSON.stringify(candidate));
     _lastFingerprint = contentFingerprint(candidate);
   } catch (error) {
     _currentState = previous;

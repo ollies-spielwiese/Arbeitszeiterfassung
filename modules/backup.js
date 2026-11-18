@@ -29,40 +29,40 @@ export function exportBackup(ctx) {
   toast('Backup heruntergeladen');
 }
 
+/**
+ * Prüft Backup-Daten, ergänzt Standardwerte und migriert auf das aktuelle Schema.
+ * Wirft bei ungültigen Daten. Seit v3.15.0 auch für die Wiederherstellung aus der
+ * Spiegelkopie (modules/ui/mirror-restore-ui.js) genutzt.
+ * @param {any} data
+ * @param {any} ctx
+ */
+export function prepareImportedState(data, ctx) {
+  const { DEFAULT_STATE, normalizeHolidayOverrides, runMigrations, uid, normalizeSegments } = ctx;
+  validateBackup(data);
+  let imported = {
+    ...JSON.parse(JSON.stringify(DEFAULT_STATE)),
+    ...data,
+    settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
+  };
+  imported.settings.holidayOverrides = normalizeHolidayOverrides(imported.settings.holidayOverrides);
+  // Seit v3.9.49: importierte Backups können von einem anderen Gerät oder einer
+  // älteren App-Version stammen und ein älteres Schema haben. Dieselbe
+  // Migrations-Garantie wie beim normalen Start (loadState) gilt auch hier.
+  if (typeof runMigrations === 'function') {
+    const { state: migrated } = runMigrations(imported, { uid, normalizeSegments });
+    imported = migrated;
+  }
+  validateBackup(imported);
+  return imported;
+}
+
 export function importBackup(file, ctx) {
-  const {
-    commitImport,
-    toast,
-    DEFAULT_STATE,
-    normalizeHolidayOverrides,
-    onImport,
-    runMigrations,
-    uid,
-    normalizeSegments,
-  } = ctx;
+  const { commitImport, toast, onImport } = ctx;
 
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(/** @type {string} */ (reader.result));
-      validateBackup(data);
-      let imported = {
-        ...JSON.parse(JSON.stringify(DEFAULT_STATE)),
-        ...data,
-        settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
-      };
-      imported.settings.holidayOverrides = normalizeHolidayOverrides(imported.settings.holidayOverrides);
-      // Seit v3.9.49: importierte Backups können von einem anderen Gerät oder einer
-      // älteren App-Version stammen (z.B. Sync-Brücke zwischen iPad/Desktop ohne
-      // Cloud-Sync) und ein älteres Schema haben. Ohne diesen Migrations-Lauf würde
-      // ein Backup mit altem schemaVersion-Stand unmigriert übernommen werden,
-      // während loadState() beim normalen Start immer migriert — dieselbe Garantie
-      // muss auch für importierte Daten gelten.
-      if (typeof runMigrations === 'function') {
-        const { state: migrated } = runMigrations(imported, { uid, normalizeSegments });
-        imported = migrated;
-      }
-      validateBackup(imported);
+      const imported = prepareImportedState(JSON.parse(/** @type {string} */ (reader.result)), ctx);
       if (!confirm('Aktuelle Daten überschreiben?')) return;
       commitImport(imported, onImport);
       toast('Backup importiert');

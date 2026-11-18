@@ -56,7 +56,11 @@ import {
   replaceStateAtomically,
   wasLastLoadCorrupted,
   getCorruptedBackupKey,
+  onStatePersisted,
 } from './modules/state.js';
+import * as MirrorModule from './modules/storage-idb.js';
+const { mirrorPersisted, startMirror, MIRROR_STATUS_EVENT } = MirrorModule;
+import { showMirrorRestore } from './modules/ui/mirror-restore-ui.js';
 import {
   pad,
   todayISO,
@@ -178,7 +182,7 @@ import { createAppContext, withExtras } from './modules/app-context.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
-import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw } from './modules/backup.js';
+import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw, prepareImportedState } from './modules/backup.js';
 import {
   isFolderPickerSupported,
   getStoredFolderHandle,
@@ -370,7 +374,11 @@ function saveState() {
 // Seit v3.14.3 gibt es in app.js keine eigene Variable `state` mehr: Der Zustand
 // liegt nur in modules/state.js und wird über _getState() gelesen. window.state
 // liefert für Regression-Skripte immer den aktuellen Zustand (siehe regression-bridge.js).
+// v3.15.0: Jeder erfolgreiche Schreibvorgang geht zusätzlich in die Spiegelkopie (IndexedDB).
+onStatePersisted(mirrorPersisted);
 loadState();
+// Stand direkt nach dem Laden, für den Vergleich mit der Spiegelkopie beim Start.
+const loadedRawForMirror = storage.get(STORAGE_KEY);
 
 // Seit v3.9.55: gemeinsames, nicht-persistiertes Flag "Ehemalige Arbeitgeber anzeigen".
 // Steuert alle aktiven/Live-Dropdowns (active-employer, filter-employer, week-employer,
@@ -2232,8 +2240,9 @@ async function handleConfirmBackupFolderAccess() {
   renderBackupFolderSection();
 }
 
-function importBackup(file) {
-  _importBackupRaw(file, {
+/** Gemeinsame Abhängigkeiten für Backup-Import und Wiederherstellung aus der Spiegelkopie. */
+function importDeps() {
+  return {
     commitImport: replaceStateAtomically,
     toast,
     DEFAULT_STATE,
@@ -2245,7 +2254,20 @@ function importBackup(file) {
       updateModeVisibility();
       renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
     },
-  });
+  };
+}
+
+/**
+ * v3.15.0: Daten aus der Spiegelkopie übernehmen (gleicher geprüfter Weg wie ein Backup-Import).
+ * @param {any} data
+ */
+function restoreFromMirror(data) {
+  const deps = importDeps();
+  replaceStateAtomically(prepareImportedState(data, deps), deps.onImport);
+}
+
+function importBackup(file) {
+  _importBackupRaw(file, importDeps());
 }
 
 /* ---------- Helpers ---------- */
@@ -2292,6 +2314,23 @@ function toast(msg, opts) {
 document.addEventListener('DOMContentLoaded', () => {
   wireFieldServiceUI(appCtx());
   wireStorageStatusUI(appCtx());
+  // v3.15.0: Spiegelkopie in IndexedDB prüfen; Fehler unterbrechen den Start nie.
+  window.addEventListener(MIRROR_STATUS_EVENT, () => {
+    try { renderStorageStatus(appCtx()).catch(() => {}); } catch (_) { /* Karte fehlt */ }
+  });
+  startMirror({
+    loadedRaw: loadedRawForMirror,
+    loadedState: _getState(),
+    corrupted: stateWasCorrupted,
+    getCurrentRaw: () => storage.get(STORAGE_KEY),
+    appVersion: APP_VERSION,
+    onRestoreOffer: (rec) => showMirrorRestore(rec, {
+      restore: restoreFromMirror,
+      getRaw: () => storage.get(STORAGE_KEY),
+      toast,
+      corrupted: stateWasCorrupted,
+    }),
+  }).catch((err) => console.warn('Spiegelkopie: Start fehlgeschlagen', err));
   const kmBtn = document.getElementById('btn-export-km-pdf');
   if (kmBtn) kmBtn.addEventListener('click', exportKmPdf);
   const arbzgCbFs = document.getElementById('setting-arbzg-hints');
@@ -2354,6 +2393,8 @@ function maybeShowKindMigrationNotice() {
 /* ---------- Module-Scope Compatibility Bridge ----------
    Siehe modules/regression-bridge.js (extrahiert in Phase 3.9i). */
 if (typeof window !== 'undefined') {
+  // v3.15.0: Spiegelkopie für Regression-Skripte (gleiche Modul-Instanz wie die App).
+  /** @type {any} */ (window).__azMirror = MirrorModule;
   exportBridge(window, {
     appCtx,
     getState: _getState, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
