@@ -133,7 +133,7 @@ Wenn CI rot ist, wird der Push zurückgezogen oder ein Fix-Commit auf denselben 
 
 Drei Workflows in `.github/workflows/` (alle mit `permissions: contents: read`, sofern nicht mehr nötig ist):
 
-- `regression.yml` — läuft bei jedem Push und PR auf `main`. Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
+- `regression.yml` — läuft bei jedem Push und PR auf `main` (Playwright-Jobs fest auf `ubuntu-24.04`, weil Playwright 1.59 Ubuntu 26.04 nicht unterstützt; ein Wechsel nur zusammen mit Playwright-Update und neuen Bild-Vergleichsbasen). Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
 - `lighthouse.yml` — Lighthouse-Check (Performance, Barrierefreiheit, Best Practices).
 - `pages.yml` — deployt GitHub Pages, aber nur nach grüner Regression im selben Run (Job `qa`, `needs: qa`). Kopiert nur statische App-Files ins Artifact (kein `node_modules`, kein `scripts/`, kein `package.json`).
 
