@@ -9,6 +9,8 @@
 // Max Mustermann (scripts/fixtures/test-backup-muster.json):
 //   v3.15.1  E1–E5 Einträge, A1–A6 Archiv
 //   v3.15.2  W1–W7 Woche, G1–G5 Gleitzeitkonto, KW1 isoWeekToDates
+//   v3.15.3  U1–U5 Urlaubsplanung, Ü1–Ü6 Übersicht, B1 Sollstunden-Banner,
+//            J1 Jahresauswahl (modules/ui/year-select.js)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,7 +19,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const FIXTURE = path.join(REPO_ROOT, 'scripts', 'fixtures', 'test-backup-muster.json');
 
 /** Obergrenze für app.js (Zeilen), sinkt je Release: 2.350 / 2.150 / 1.900 / 1.550 / 1.300. */
-export const APP_JS_MAX_LINES = 2150;
+export const APP_JS_MAX_LINES = 1900;
 
 /** Verschobene Funktionen: Name in app.js → [Modul, Name des Exports]. */
 export const MOVED = {
@@ -29,17 +31,27 @@ export const MOVED = {
   renderGleitzeitkonto: ['modules/tabs/gleitzeit.js', 'renderGleitzeitkonto'],
   getCurrentGleitzeitkonto: ['modules/tabs/gleitzeit.js', 'getCurrentGleitzeitkonto'],
   exportGleitzeitkontoPdf: ['modules/tabs/gleitzeit.js', 'exportGleitzeitkontoPdf'],
+  renderVacationPlanning: ['modules/tabs/vacation.js', 'renderVacationPlanning'],
+  renderOverview: ['modules/tabs/overview.js', 'renderOverview'],
+  getCurrentOverview: ['modules/tabs/overview.js', 'getCurrentOverview'],
+  exportOverviewPdf: ['modules/tabs/overview.js', 'exportOverviewPdf'],
+  updateSollWarningBanner: ['modules/ui/soll-warning-banner-ui.js', 'updateSollWarningBanner'],
 };
 
 /** Funktionen, die ganz aus app.js verschwinden (jetzt in Modulen ohne Einzeiler). */
-export const REMOVED = ['isoWeekToDates', 'supportsWeekInput', 'fileNameForGleitzeitkonto'];
+export const REMOVED = ['isoWeekToDates', 'supportsWeekInput', 'fileNameForGleitzeitkonto',
+  'fileNameForOverview', 'computeSelectableYears', 'populateYearSelect', 'exportVacationCertificatePdf',
+  'stepVacationCalendarMonth', 'wireVacationCalendarNav', 'renderVacationCalendarOnly'];
+
+/** Variablen und Konstanten, die nur noch in Modulen liegen. */
+export const REMOVED_NAMES = ['vacationCalendarYm', 'SOLL_WARNING_BANNER_TARGETS'];
 
 const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 function runSourceChecks(check) {
   const tabFiles = fs.readdirSync(path.join(REPO_ROOT, 'modules', 'tabs')).filter((f) => f.endsWith('.js')).map((f) => `modules/tabs/${f}`);
-  check('TAB1 Reiter-Module vorhanden', tabFiles.length >= new Set(Object.values(MOVED).map(([m]) => m)).size, true);
+  check('TAB1 Reiter-Module vorhanden', tabFiles.length >= new Set(Object.values(MOVED).map(([m]) => m).filter((m) => m.startsWith('modules/tabs/'))).size, true);
   for (const rel of tabFiles) {
     const src = stripComments(read(rel));
     check(`TAB1 ${rel} ohne Import von app.js`, /from\s+['"][./]*app\.js['"]/.test(src), false);
@@ -50,21 +62,28 @@ function runSourceChecks(check) {
   }
   const app = read('app.js');
   for (const [name, [rel, exp]] of Object.entries(MOVED)) {
-    const m = app.match(new RegExp(`^function ${name}\\(\\) \\{ return (_\\w+)\\(appCtx\\(\\)\\); \\}$`, 'm'));
+    const m = app.match(new RegExp(`^function ${name}\\((\\w*)\\) \\{ return (_\\w+)\\(appCtx\\(\\)(?:, \\1)?\\); \\}$`, 'm'));
     check(`TAB2 ${name} in app.js nur Einzeiler`, !!m, true);
     const count = (app.match(new RegExp(`function ${name}\\s*\\(`, 'g')) || []).length;
     check(`TAB2 ${name} nur einmal in app.js`, count, 1);
     if (m) {
-      const imp = new RegExp(`import \\{[^}]*\\b${exp} as ${m[1]}\\b[^}]*\\} from '\\./${rel.replace(/\./g, '\\.')}';`);
+      const imp = new RegExp(`import \\{[^}]*\\b${exp} as ${m[2]}\\b[^}]*\\} from '\\./${rel.replace(/\./g, '\\.')}';`);
       check(`TAB2 ${name} bindet ${rel} an`, imp.test(app), true);
     }
     check(`TAB2 ${rel} exportiert ${exp}`, new RegExp(`export (async )?function ${exp}\\(ctx[,)]`).test(read(rel)), true);
   }
   for (const name of REMOVED) check(`TAB2 ${name} nicht mehr in app.js`, new RegExp(`function ${name}\\s*\\(`).test(app), false);
-  check('TAB2 app.js ohne DOM-Ziele der verschobenen Reiter', ['archive-list', 'entries-list', 'filter-month', 'week-content', 'week-input', 'week-employer', 'gleitzeitkonto-content', 'gleitzeitkonto-year'].filter((id) => app.includes(`'${id}'`)), []);
+  for (const name of REMOVED_NAMES) check(`TAB2 ${name} nicht mehr in app.js`, new RegExp(`\\b${name}\\b`).test(app), false);
+  check('TAB2 fileNameForOverview kommt aus tabs/overview.js', /import \{[^}]*\bfileNameForOverview\b[^}]*\} from '\.\/modules\/tabs\/overview\.js';/.test(app), true);
+  check('TAB2 Jahresauswahl kommt aus ui/year-select.js', /populateYearSelect: \(selectEl, year\) => _populateYearSelectUi\(selectEl, year, _getState\(\)\)/.test(app), true);
+  const banner = stripComments(read('modules/ui/soll-warning-banner-ui.js'));
+  check('TAB1 Sollstunden-Banner ohne Import von app.js und window.state', [/from\s+['"][./]*app\.js['"]/.test(banner), /window\.state\b/.test(banner)], [false, false]);
+  check('TAB2 app.js ohne DOM-Ziele der verschobenen Reiter', ['archive-list', 'entries-list', 'filter-month', 'week-content', 'week-input', 'week-employer', 'gleitzeitkonto-content', 'gleitzeitkonto-year',
+    'vacation-planning-content', 'vacation-planning-year', 'overview-content', 'overview-month', 'sollstunden-warning-list', 'sollstunden-warning-banner-overview'].filter((id) => app.includes(`'${id}'`)), []);
   const lines = app.split('\n').length;
   check(`TAB4 app.js höchstens ${APP_JS_MAX_LINES} Zeilen (aktuell ${lines})`, lines <= APP_JS_MAX_LINES, true);
   const sw = read('sw.js');
+  for (const rel of ['modules/ui/soll-warning-banner-ui.js', 'modules/ui/year-select.js']) check(`TAB5 ${rel} in sw.js ASSETS`, sw.includes(`'./${rel}'`), true);
   for (const rel of tabFiles) check(`TAB5 ${rel} in sw.js ASSETS`, sw.includes(`'./${rel}'`), true);
 }
 
@@ -81,6 +100,9 @@ export async function runTabsStructureTests(browser, baseURL, { assertEq }) {
   check('KW1 2027-W01 beginnt nach 2026-W53', span('2027-W01'), [7, '2027-01-04', '2027-01-10']);
   check('KW1 2020-W53 und 2021-W01', [span('2020-W53')[2], span('2021-W01')[1]], ['2021-01-03', '2021-01-04']);
   check('KW1 2025-W01 beginnt im Vorjahr', span('2025-W01')[1], '2024-12-30');
+  const Y = await import('../modules/ui/year-select.js');
+  check('J1 rein: laufendes und kommendes Jahr', Y.computeSelectableYears({}, 2026), [2027, 2026]);
+  check('J1 rein: Beginn, Ende, Einträge, ohne Unsinn', Y.computeSelectableYears({ employers: [{ hiredSince: '2019-04-01', employmentEndDate: '2021-12-31' }, { hiredSince: 'x' }], entries: [{ date: '2023-05-02' }, { date: '1850-01-01' }, {}] }, 2026), [2027, 2026, 2023, 2021, 2019]);
   check('KW1 Wochenzahl 2026 und 2027', [T.isoWeeksInYear(2026), T.isoWeeksInYear(2027)], [53, 52]);
 
   const fixture = fs.readFileSync(FIXTURE, 'utf8');
@@ -310,6 +332,146 @@ export async function runTabsStructureTests(browser, baseURL, { assertEq }) {
       return t;
     });
     check('G5 ohne Arbeitgeber', g5, 'Bitte zuerst einen Arbeitgeber anlegen.');
+
+    // ---------- Urlaubsplanung (v3.15.3) ----------
+    const vac = (year) => page.evaluate((year) => {
+      window.switchView('vacation-planning');
+      const sel = document.getElementById('vacation-planning-year');
+      if (year) { if (![...sel.options].some((o) => o.value === String(year))) sel.add(new Option(String(year), String(year))); sel.value = String(year); }
+      window.__appCtx().render.vacation();
+      const box = document.getElementById('vacation-planning-content');
+      const grids = [...box.querySelectorAll('.summary-grid')].map((g) => [...g.querySelectorAll('.summary-item .value')].map((v) => v.textContent.trim()));
+      return {
+        grids,
+        month: (box.querySelector('.vac-cal-month-label') || {}).textContent,
+        rows: [...box.querySelectorAll('table tbody tr')].map((tr) => [...tr.querySelectorAll('td')].map((t) => t.textContent.trim()).slice(0, 2).join(' ')),
+        cert: !!document.getElementById('btn-export-vacation-certificate'),
+        text: box.textContent.trim(),
+      };
+    }, year);
+    const calLabel = () => page.textContent('#vacation-planning-content .vac-cal-month-label');
+    const v26 = await vac(2026);
+    check('U1 Urlaubsplanung 2026 Kacheln', v26.grids[0], ['28 Tage', '9 Tage', '0 Tage', '19 Tage']);
+    check('U1 Bildungsurlaub 2026', [v26.grids[1][0], v26.grids[1][1], v26.grids[1][3]], ['5 Tage', '0 Tage', '5 Tage']);
+    check('U1 Monatstabelle', v26.rows.filter((r) => !/ 0$/.test(r)), ['Januar 1', 'April 2', 'Mai 2', 'Juni 2', 'Juli 1', 'August 1', 'Gesamt 9']);
+    check('U2 Kalender startet im November 2026', v26.month, 'November 2026');
+    await page.click('#btn-vacation-calendar-prev');
+    check('U2 ‹ zeigt Oktober', await calLabel(), 'Oktober 2026');
+    check('U2 Kacheln bleiben stehen', (await vac()).grids[0][3], '19 Tage');
+    for (let i = 0; i < 3; i++) await page.click('#btn-vacation-calendar-next');
+    check('U2 › endet im Dezember', await calLabel(), 'Dezember 2026');
+    for (let i = 0; i < 12; i++) await page.click('#btn-vacation-calendar-prev');
+    check('U2 ‹ endet im Januar', await calLabel(), 'Januar 2026');
+    check('U3 Jahr 2025 öffnet im Januar', (await vac(2025)).month, 'Januar 2025');
+    check('U3 zurück zu 2026 öffnet im November', (await vac(2026)).month, 'November 2026');
+    check('U4 ohne Beschäftigungsende kein Knopf', v26.cert, false);
+    const formerId = await page.evaluate(() => {
+      const e = window.state.employers.find((x) => x.name === 'Alte Softwareschmiede AG');
+      window.state.activeEmployerId = e.id;
+      return e.id;
+    });
+    check('U4 Knopf bei Beschäftigungsende', (await vac(2025)).cert, true);
+    const [vdl] = await Promise.all([page.waitForEvent('download'), page.click('#btn-export-vacation-certificate')]);
+    await page.waitForFunction(() => document.getElementById('toast').textContent === 'Urlaubsbescheinigung als PDF heruntergeladen');
+    check('U4 Urlaubsbescheinigung', [vdl.suggestedFilename(), formerId.length > 0], ['Urlaubsbescheinigung_Alte_Softwareschmiede_AG_2025.pdf', true]);
+    await page.evaluate((id) => { window.state.activeEmployerId = id; }, expected.empId);
+    const u5 = await page.evaluate(() => {
+      const saved = [window.state.employers, window.state.activeEmployerId];
+      window.state.employers = []; window.state.activeEmployerId = null;
+      window.__appCtx().render.vacation();
+      const t = document.getElementById('vacation-planning-content').textContent.trim();
+      [window.state.employers, window.state.activeEmployerId] = saved;
+      return t;
+    });
+    check('U5 ohne Arbeitgeber', u5, 'Bitte zuerst einen Arbeitgeber anlegen.');
+    await vac(2026);
+
+    // ---------- Übersicht (v3.15.3) ----------
+    const ov = (ym) => page.evaluate((ym) => {
+      window.switchView('overview');
+      if (ym) document.getElementById('overview-month').value = ym;
+      window.__appCtx().render.overview();
+      const box = document.getElementById('overview-content');
+      const h = box.querySelector('[data-testid="arbzg-overview"] h4');
+      return {
+        values: [...box.querySelectorAll('.summary-grid .summary-item .value')].map((v) => v.textContent.trim().replace(/\u00a0/g, ' ')),
+        tips: [...box.querySelectorAll('.info-tooltip-content')].map((t) => t.textContent),
+        rows: [...box.querySelectorAll('.overview-table > tbody > tr:not(.totals-row)')].map((tr) => tr.querySelector('td').textContent.trim()),
+        arbzg: h ? h.textContent : null,
+        text: box.textContent.trim(),
+      };
+    }, ym);
+    const o9 = await ov('2026-09');
+    check('Ü1 September 2026', o9.values.slice(0, 4), ['118:47', '287:45', '-168:58', '956,25 € · 476,67 CHF']);
+    check('Ü1 Arbeitgeber September', o9.rows, ['Musterfirma GmbH', 'Teilzeit Logistik Nord', 'Studio Nordlicht', 'Alpine Design SA']);
+    const o4 = await ov('2026-04');
+    check('Ü2 April 2026', o4.values.slice(0, 4), ['230:47', '257:15', '+17:47', '1.618,75 € · 979,00 CHF']);
+    check('Ü2 Erklärung Saldo', o4.tips.some((t) => t.includes('44:15 Std. Gutschrift für 3 Urlaubstage und 4 Krankheitstage')), true);
+    check('Ü3 Hinweise Arbeitszeitgesetz', [o9.arbzg, o4.arbzg], ['Arbeitszeitgesetz: 5 Hinweise im September 2026', 'Arbeitszeitgesetz: 9 Hinweise im April 2026']);
+    await page.evaluate(() => { window.state.settings.arbzgHintsEnabled = false; });
+    check('Ü3 Hinweise ausgeschaltet', (await ov('2026-09')).arbzg, null);
+    await page.evaluate(() => { delete window.state.settings.arbzgHintsEnabled; });
+    const sharedOv = await page.evaluate(() => window.__appCtx().compute.currentOverview().rows.length);
+    await page.evaluate(() => window.setShowFormerEmployers(true));
+    const withFormerOv = await ov('2026-09');
+    const sharedOvFormer = await page.evaluate(() => [window.__appCtx().compute.currentOverview().rows.length, document.getElementById('show-former-employers-overview').checked]);
+    await page.evaluate(() => window.setShowFormerEmployers(false));
+    check('Ü4 Ehemalige anzeigen', [o9.rows.length, withFormerOv.rows.length, (await ov('2026-09')).rows.length], [4, 4 + expected.formerCount, 4]);
+    check('Ü4 Teilen und PDF nutzen denselben Stand', [sharedOv, ...sharedOvFormer], [4, 4 + expected.formerCount, true]);
+    // Chromium meldet bei Umlauten im Dateinamen nur „download“, deshalb das download-Attribut prüfen.
+    await page.evaluate(() => {
+      const orig = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () { window.__lastDownloadName = this.download; HTMLAnchorElement.prototype.click = orig; return orig.call(this); };
+    });
+    await Promise.all([page.waitForEvent('download'), page.click('#btn-export-overview-pdf')]);
+    await page.waitForFunction(() => document.getElementById('toast').textContent === 'Übersicht als PDF heruntergeladen');
+    check('Ü5 Knopf PDF', await page.evaluate(() => window.__lastDownloadName), 'Arbeitszeit_Übersicht_2026-09.pdf');
+    check('Ü5 Dateiname über den Kontext', await page.evaluate(() => window.__appCtx().format.fileNameForOverview({ ym: '2026-09' }, 'pdf')), 'Arbeitszeit_Übersicht_2026-09.pdf');
+    const o6 = await page.evaluate(() => {
+      const saved = window.state.employers;
+      window.state.employers = [];
+      window.__appCtx().render.overview();
+      const t = document.getElementById('overview-content').textContent.trim();
+      const cur = window.__appCtx().compute.currentOverview();
+      const msg = document.getElementById('toast').textContent;
+      window.state.employers = saved;
+      window.__appCtx().render.overview();
+      return [t, cur, msg];
+    });
+    check('Ü6 ohne Arbeitgeber', o6, ['Bitte zuerst einen Arbeitgeber anlegen.', null, 'Bitte zuerst einen Arbeitgeber anlegen']);
+
+    // ---------- Sollstunden-Banner (v3.15.3) ----------
+    const banner = () => page.evaluate(() => ['sollstunden-warning-banner', 'sollstunden-warning-banner-overview'].map((id) => {
+      const b = document.getElementById(id);
+      return { hidden: b.classList.contains('hidden'), list: b.querySelector('[id^="sollstunden-warning-list"]').innerHTML };
+    }));
+    check('B1 Warnung aus: Banner verborgen', (await banner()).map((b) => b.hidden), [true, true]);
+    await page.evaluate(() => {
+      Object.assign(window.state.settings, { sollWarningMonthEnabled: true, sollWarningGleitzeitEnabled: true });
+      window.updateSollWarningBanner({ ym: '2026-09', year: 2026, today: '2026-09-30' });
+    });
+    const b1 = await banner();
+    check('B1 Warnung an: beide Banner sichtbar mit gleichem Inhalt', [b1[0].hidden, b1[1].hidden, b1[0].list.length > 0, b1[0].list === b1[1].list], [false, false, true, true]);
+    await page.click('#btn-sollwarning-snooze-overview');
+    check('B1 Später erinnern blendet beide aus', (await banner()).map((b) => b.hidden), [true, true]);
+    check('B1 Hinweis', await page.textContent('#toast'), 'Erinnerung für 7 Tage verschoben');
+    await page.evaluate(() => {
+      delete window.state.settings.sollWarningSnoozeUntil;
+      Object.assign(window.state.settings, { sollWarningMonthEnabled: false, sollWarningGleitzeitEnabled: false });
+      window.updateSollWarningBanner();
+    });
+
+    // ---------- Jahresauswahl (v3.15.3) ----------
+    const j1 = await page.evaluate(async () => {
+      const Y = await import('/modules/ui/year-select.js');
+      const opts = (id) => [...document.querySelectorAll(`#${id} option`)].map((o) => Number(o.value));
+      window.switchView('vacation-planning');
+      const vac = opts('vacation-planning-year');
+      window.switchView('gleitzeitkonto');
+      return { pure: Y.computeSelectableYears(window.state, 2026), vac, gleit: opts('gleitzeitkonto-year') };
+    });
+    check('J1 Jahre aus den Testdaten', j1.pure, [2027, 2026, 2025, 2024, 2023, 2022]);
+    check('J1 Urlaubsplanung und Gleitzeitkonto gleich', [j1.vac, j1.gleit], [j1.pure, j1.pure]);
   } finally {
     await context.close();
   }

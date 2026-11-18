@@ -62,6 +62,10 @@ export const LEGACY_MAP = Object.freeze({
   computeGleitzeitkontoAsOfTodayForEmployer: 'compute.gleitzeitAsOf',
   computeGleitzeitkontoWindowForEmployer: 'compute.gleitzeitWindow',
   computeBalanceWarningInfo: 'compute.balanceWarning',
+  // seit v3.15.3 (Urlaubsplanung, Übersicht, Sollstunden-Banner)
+  computeMonthReport: 'compute.monthReport',
+  computeMonthOverview: 'compute.monthOverview',
+  computeElapsedMonthProgressForEmployer: 'compute.elapsedMonthProgress',
   // Formate
   formatDate: 'format.date',
   formatMonthYear: 'format.monthYear',

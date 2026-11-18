@@ -135,7 +135,6 @@ import { buildSollWarningListHTML as _buildSollWarningListHTMLRaw } from './modu
 import {
   getEmployer as _getEmployerRaw,
   getCurrentReport as _getCurrentReportRaw,
-  getCurrentOverview as _getCurrentOverviewRaw,
   getSummaryFields as _getSummaryFieldsRaw,
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
   computeEntryRows as _computeEntryRowsRaw,
@@ -148,11 +147,17 @@ import {
   renderSummaryPlaintext as _renderSummaryPlaintextRaw,
 } from './modules/render/summary.js';
 import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
-import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
-import { computeArbzgHints, buildArbzgOverviewHTML, isArbzgHintEnabled } from './modules/arbzg-hints.js';
+import { isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
 import { renderArchive as _renderArchiveTab, archiveCurrentMonth as _archiveCurrentMonthTab } from './modules/tabs/archive.js';
 import { renderEntries as _renderEntriesTab } from './modules/tabs/entries.js';
+import { renderVacationPlanning as _renderVacationPlanningTab } from './modules/tabs/vacation.js';
+import {
+  renderOverview as _renderOverviewTab, getCurrentOverview as _getCurrentOverviewTab,
+  exportOverviewPdf as _exportOverviewPdfTab, fileNameForOverview,
+} from './modules/tabs/overview.js';
+import { updateSollWarningBanner as _updateSollWarningBannerUi } from './modules/ui/soll-warning-banner-ui.js';
+import { populateYearSelect as _populateYearSelectUi } from './modules/ui/year-select.js';
 import { renderWeek as _renderWeekTab, installWeekInputFallback as _installWeekInputFallbackTab } from './modules/tabs/week.js';
 import {
   renderGleitzeitkonto as _renderGleitzeitkontoTab, getCurrentGleitzeitkonto as _getCurrentGleitzeitkontoTab,
@@ -383,10 +388,6 @@ const loadedRawForMirror = storage.get(STORAGE_KEY);
 // report-employer) sowie die Entries-/Uebersicht-/Gleitzeitkonto-Listen. Erstell-Dropdowns
 // (entry-employer, range-employer, ho-employer) ignorieren dieses Flag bewusst (siehe RELEASE.md).
 let showFormerEmployers = false;
-// Seit v3.9.86: aktuell angezeigter Monat (YYYY-MM) im Kalendergitter der Urlaubsplanung.
-// Nicht persistiert; wird bei Jahreswechsel auf den aktuellen Monat (falls im gewaehlten
-// Jahr) bzw. sonst auf Januar zurueckgesetzt (siehe renderVacationPlanning()).
-let vacationCalendarYm = null;
 // Seit v3.9.49: unmittelbar nach dem Laden festhalten, ob der Speicher defekt war —
 // wireEvents() zeigt in diesem Fall einen sichtbaren Warn-Banner (siehe modules/bootstrap.js).
 const stateWasCorrupted = wasLastLoadCorrupted();
@@ -638,7 +639,10 @@ function appCtx() {
     computeWeekTargetMinutes, computeDayTargetMinutes, isHoliday, getHolidaysInRange,
     computeGleitzeitkontoRowsForEmployer: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() }),
     computeGleitzeitkontoAsOfTodayForEmployer, computeGleitzeitkontoWindowForEmployer, computeBalanceWarningInfo,
-    ensureActiveEmployer, populateYearSelect,
+    ensureActiveEmployer,
+    populateYearSelect: (selectEl, year) => _populateYearSelectUi(selectEl, year, _getState()),
+    // seit v3.15.3 (Urlaubsplanung, Übersicht, Sollstunden-Banner)
+    computeMonthReport, computeMonthOverview, computeElapsedMonthProgressForEmployer,
     getEmployer, uid, todayISO, dayOfWeekISO, isFreelance, getAppMode, DAY_KEYS, DAY_LABELS_LONG,
     // Feld-Definitionen des Erfassen-Dialogs (Phase 4.8, seit v3.14.3 im Kontext)
     computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
@@ -1158,43 +1162,8 @@ function setShowFormerEmployers(value) {
   renderGleitzeitkonto();
 }
 
-function renderOverview() {
-  updateSollWarningBanner();
-  const monthInput = document.getElementById('overview-month');
-  const formerCb = document.getElementById('show-former-employers-overview');
-  if (formerCb) formerCb.checked = showFormerEmployers;
-  if (!monthInput.value) monthInput.value = currentYearMonth();
-  const ym = monthInput.value;
-  const container = document.getElementById('overview-content');
-
-  if (!_getState().employers.length) {
-    container.innerHTML = '<div class="empty-state">Bitte zuerst einen Arbeitgeber anlegen.</div>';
-    return;
-  }
-
-  const ov = computeMonthOverview(ym);
-
-  if (!ov.rows.length) {
-    container.innerHTML = '<div class="empty-state">Keine Daten für diesen Monat.</div>';
-    return;
-  }
-
-  container.innerHTML = _buildOverviewHTMLRaw(ov, ym, {
-    escapeHtml,
-    formatMonthYear,
-    minutesToHM,
-    formatMoney,
-    isFreelance,
-    getOverviewSummaryFields,
-    renderSummaryHTML,
-  });
-  // v3.12.0: Hinweise Arbeitszeitgesetz des Monats (alle Arbeitgeber zusammen).
-  if (isArbzgHintEnabled(_getState().settings)) {
-    const lastDay = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate();
-    const hints = computeArbzgHints(_getState().entries, _getState().employers, `${ym}-01`, `${ym}-${String(lastDay).padStart(2, '0')}`);
-    container.insertAdjacentHTML('beforeend', buildArbzgOverviewHTML(hints, formatMonthYear(ym), escapeHtml));
-  }
-}
+/** Reiter Übersicht, siehe modules/tabs/overview.js (seit v3.15.3). */
+function renderOverview() { return _renderOverviewTab(appCtx()); }
 
 function renderAuditLog() {
   const container = document.getElementById('audit-log-list');
@@ -1251,129 +1220,11 @@ function updateBackupReminderBanner() {
   try { maybeRequestPersist(appCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
 }
 
-// Sollstunden-Warnung-Banner (Erfassen- und Übersicht-Ansicht, seit v3.9.78/v3.9.79): fasst alle
-// aktiven Warnungen (Monats-Saldo + Gleitzeitkonto-Saldo, ueber alle nicht-ehemaligen Arbeitgeber)
-// zusammen. Gleiches Snooze-/Toggle-Muster wie updateBackupReminderBanner().
-// Banner erscheint an mehreren Stellen (Erfassen + Übersicht) mit identischem Inhalt —
-// die Warnliste ist global (aktueller Monat/Jahr), unabhängig vom jeweils angezeigten View-Filter.
-const SOLL_WARNING_BANNER_TARGETS = [
-  { bannerId: 'sollstunden-warning-banner', listId: 'sollstunden-warning-list' },
-  { bannerId: 'sollstunden-warning-banner-overview', listId: 'sollstunden-warning-list-overview' },
-];
+/** Banner Sollstunden-Warnung (Erfassen, Übersicht), siehe modules/ui/soll-warning-banner-ui.js (seit v3.15.3). */
+function updateSollWarningBanner(overridePeriod) { return _updateSollWarningBannerUi(appCtx(), overridePeriod); }
 
-// `overridePeriod` ({ym, year, today}) ist ausschliesslich fuer Regression-Unit-Tests gedacht,
-// damit Integrationstests deterministisch bleiben (unabhaengig vom echten Kalendertag, an dem die
-// Tests laufen). Produktiv-Aufrufe uebergeben nichts und verwenden weiterhin den echten Stichtag.
-function updateSollWarningBanner(overridePeriod) {
-  const targets = SOLL_WARNING_BANNER_TARGETS
-    .map(({ bannerId, listId }) => ({ banner: document.getElementById(bannerId), listEl: document.getElementById(listId) }))
-    .filter(({ banner, listEl }) => banner && listEl);
-  if (!targets.length) return;
-  const settings = /** @type {import('./types.js').AZSettings} */ (_getState().settings || {});
-  const now = Date.now();
-
-  if (settings.sollWarningSnoozeUntil && new Date(settings.sollWarningSnoozeUntil).getTime() > now) {
-    targets.forEach(({ banner }) => banner.classList.add('hidden'));
-    return;
-  }
-
-  const warnings = _computeActiveSollWarningsRaw(
-    {
-      state: _getState(),
-      computeMonthReport,
-      computeGleitzeitkontoRows: (emp, year) => _computeGleitzeitkontoRowsRaw(emp, year, { state: _getState() }),
-      computeGleitzeitkontoWindow: computeGleitzeitkontoWindowForEmployer,
-      computeElapsedMonthProgress: computeElapsedMonthProgressForEmployer,
-      isFormerEmployer,
-    },
-    overridePeriod || { ym: currentYearMonth(), year: new Date().getFullYear(), today: todayISO() }
-  );
-
-  if (!warnings.length) {
-    targets.forEach(({ banner }) => banner.classList.add('hidden'));
-    return;
-  }
-  const listHTML = _buildSollWarningListHTMLRaw(warnings, { escapeHtml, minutesToHM, formatMonthYear });
-  targets.forEach(({ banner, listEl }) => {
-    listEl.innerHTML = listHTML;
-    banner.classList.remove('hidden');
-  });
-}
-
-// Jahre, die in den Jahr-Pulldowns von Urlaubsplanung und Gleitzeitkonto zur Auswahl stehen:
-// alle Jahre, in denen Einträge existieren oder ein Arbeitgeber angestellt war/ist, plus das
-// laufende und das kommende Jahr (für Vorausplanung), absteigend sortiert (neuestes zuerst).
-function computeSelectableYears() {
-  const now = new Date().getFullYear();
-  const years = new Set([now, now + 1]);
-  (_getState().employers || []).forEach((e) => {
-    if (e.hiredSince) years.add(parseInt(String(e.hiredSince).slice(0, 4), 10));
-    if (e.employmentEndDate) years.add(parseInt(String(e.employmentEndDate).slice(0, 4), 10));
-  });
-  (_getState().entries || []).forEach((e) => {
-    if (e.date) years.add(parseInt(String(e.date).slice(0, 4), 10));
-  });
-  return [...years]
-    .filter((y) => Number.isFinite(y) && y >= 1900 && y <= 2100)
-    .sort((a, b) => b - a);
-}
-
-// Befuellt ein Jahr-<select> mit computeSelectableYears() und waehlt `selectedYear` aus
-// (wird die gewuenschte Jahreszahl nicht in den Daten gefunden, ergaenzt sie die Liste).
-function populateYearSelect(selectEl, selectedYear) {
-  const years = computeSelectableYears();
-  if (!years.includes(selectedYear)) {
-    years.push(selectedYear);
-    years.sort((a, b) => b - a);
-  }
-  selectEl.innerHTML = years.map((y) => `<option value="${y}"${y === selectedYear ? ' selected' : ''}>${y}</option>`).join('');
-}
-
-function renderVacationPlanning() {
-  const yearInput = document.getElementById('vacation-planning-year');
-  const year = Math.max(1900, Math.min(2100, parseInt(yearInput.value, 10) || new Date().getFullYear()));
-  populateYearSelect(yearInput, year);
-  const container = document.getElementById('vacation-planning-content');
-
-  ensureActiveEmployer();
-  const emp = getEmployer(_getState().activeEmployerId);
-  if (!emp) {
-    container.innerHTML = `<div class="empty-state">Bitte zuerst einen ${L('employer')} anlegen.</div>`;
-    return;
-  }
-
-  const vp = computeYearlyVacationPlanning(emp, year, _getState().entries, todayISO());
-  const vr = computeVacationRemaining(emp, `${year}-12`, _getState().entries);
-
-  // Angezeigten Kalendermonat bestimmen: falls noch keiner gesetzt ist oder das gewaehlte
-  // Jahr nicht mehr zum zuletzt angezeigten Monat passt (z.B. nach Jahreswechsel per
-  // Dropdown), auf den aktuellen Monat zurueckfallen (falls dieser im gewaehlten Jahr
-  // liegt) bzw. sonst auf Januar.
-  const todayYm = todayISO().slice(0, 7);
-  const todayYear = todayISO().slice(0, 4);
-  if (!vacationCalendarYm || vacationCalendarYm.slice(0, 4) !== String(year)) {
-    vacationCalendarYm = String(year) === todayYear ? todayYm : `${year}-01`;
-  }
-
-  const stateCode = _getState().settings?.state || 'HE';
-  const holidayOverrides = _getState().settings?.holidayOverrides;
-  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, _getState().entries, todayISO(), stateCode, holidayOverrides);
-  const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
-  const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
-  const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
-
-  container.innerHTML = _buildVacationPlanningHTMLRaw(vp, vr, emp, {
-    escapeHtml,
-    renderSummaryHTML,
-    monthLabels: MONTH_LABELS_LONG,
-    calendarHTML,
-    educationLeave: computeEducationLeaveYear(emp, year, _getState().entries, todayISO(), stateCode),
-  });
-
-  wireVacationCalendarNav();
-  const certBtn = document.getElementById('btn-export-vacation-certificate');
-  if (certBtn) certBtn.addEventListener('click', exportVacationCertificatePdf);
-}
+/** Reiter Urlaubsplanung, siehe modules/tabs/vacation.js (seit v3.15.3). */
+function renderVacationPlanning() { return _renderVacationPlanningTab(appCtx()); }
 
 /* ---------- Urlaubsbescheinigung (§ 6 Abs. 2 BUrlG, seit v3.9.99) ---------- */
 
@@ -1383,59 +1234,6 @@ async function generateVacationCertificatePdfBlob(emp) {
   await ensurePdfLibs();
   const { jsPDF } = window.jspdf;
   return _generateVacationCertificatePdfBlobRaw(cert, emp, { employeeName: _getState().settings?.employeeName || '' }, { jsPDF, formatDate, todayISO });
-}
-
-async function exportVacationCertificatePdf() {
-  ensureActiveEmployer();
-  const emp = getEmployer(_getState().activeEmployerId);
-  if (!emp) return;
-  try {
-    const blob = await generateVacationCertificatePdfBlob(emp);
-    const empSlug = (emp.name || 'Arbeitgeber').replace(/[^\p{L}\p{N}]+/gu, '_');
-    downloadBlob(blob, `Urlaubsbescheinigung_${empSlug}_${String(emp.employmentEndDate).slice(0, 4)}.pdf`);
-    toast('Urlaubsbescheinigung als PDF heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('PDF-Export fehlgeschlagen: ' + err.message);
-  }
-}
-
-// Verschiebt vacationCalendarYm um +/-1 Monat, begrenzt auf Januar..Dezember des im
-// Jahr-Dropdown gewaehlten Jahres (Kachel-Werte und Monatstabelle beziehen sich auf genau
-// dieses Jahr, ein Ueberlauf in ein Nachbarjahr wuerde beides auseinanderlaufen lassen).
-function stepVacationCalendarMonth(delta) {
-  const yearInput = document.getElementById('vacation-planning-year');
-  const selectedYear = yearInput ? yearInput.value : vacationCalendarYm.slice(0, 4);
-  const candidate = shiftYearMonth(vacationCalendarYm, delta);
-  if (candidate.slice(0, 4) !== String(selectedYear)) return;
-  vacationCalendarYm = candidate;
-  renderVacationCalendarOnly();
-}
-
-function wireVacationCalendarNav() {
-  const prevBtn = document.getElementById('btn-vacation-calendar-prev');
-  const nextBtn = document.getElementById('btn-vacation-calendar-next');
-  if (prevBtn) prevBtn.addEventListener('click', () => stepVacationCalendarMonth(-1));
-  if (nextBtn) nextBtn.addEventListener('click', () => stepVacationCalendarMonth(1));
-}
-
-// Rendert nur das Kalendergitter neu (Monatsnavigation), ohne die Kennzahlen-Kacheln und
-// die Monatstabelle der Jahresuebersicht neu aufzubauen — vermeidet unnoetigen Re-Render
-// bei jedem ‹/›-Klick.
-function renderVacationCalendarOnly() {
-  const emp = getEmployer(_getState().activeEmployerId);
-  const calendarContainer = document.querySelector('#vacation-planning-content .vacation-calendar');
-  if (!emp || !calendarContainer) { renderVacationPlanning(); return; }
-
-  const stateCode = _getState().settings?.state || 'HE';
-  const holidayOverrides = _getState().settings?.holidayOverrides;
-  const calendarMonth = computeVacationCalendarMonth(emp, vacationCalendarYm, _getState().entries, todayISO(), stateCode, holidayOverrides);
-  const monthIdx = parseInt(vacationCalendarYm.slice(5, 7), 10) - 1;
-  const monthLabel = `${MONTH_LABELS_LONG[monthIdx]} ${vacationCalendarYm.slice(0, 4)}`;
-  const calendarHTML = _buildVacationCalendarHTMLRaw(calendarMonth, { escapeHtml, monthLabel });
-  calendarContainer.outerHTML = calendarHTML;
-
-  wireVacationCalendarNav();
 }
 
 /** Reiter Gleitzeitkonto, siehe modules/tabs/gleitzeit.js (seit v3.15.2). */
@@ -1460,31 +1258,9 @@ async function generateOverviewPdfBlob(ov) {
   });
 }
 
-function fileNameForOverview(ov, ext) {
-  return `Arbeitszeit_Übersicht_${ov.ym}.${ext}`;
-}
+function getCurrentOverview() { return _getCurrentOverviewTab(appCtx()); }
 
-function getCurrentOverview() {
-  return _getCurrentOverviewRaw({
-    state: _getState(),
-    computeMonthOverview,
-    toast,
-    getYm: () => document.getElementById('overview-month').value,
-  });
-}
-
-async function exportOverviewPdf() {
-  const ov = getCurrentOverview();
-  if (!ov) return;
-  try {
-    const blob = await generateOverviewPdfBlob(ov);
-    downloadBlob(blob, fileNameForOverview(ov, 'pdf'));
-    toast('Übersicht als PDF heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('PDF-Export fehlgeschlagen: ' + err.message);
-  }
-}
+function exportOverviewPdf() { return _exportOverviewPdfTab(appCtx()); }
 
 async function shareOverviewPdf() {
   return _shareOverviewPdfRaw(appCtx());
