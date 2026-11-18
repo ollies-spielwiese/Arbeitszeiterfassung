@@ -174,6 +174,7 @@ import { computeBackupReminder } from './modules/storage-status.js';
 import { getFieldServiceSettings, isFieldServiceActive, entryKm, formatKm, formatEuro } from './modules/field-service.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
+import { createAppContext, legacyView } from './modules/app-context.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
@@ -282,7 +283,7 @@ function formatMoney(amount, currency) {
 
 /* ---------- Selectors ctx-Builder (siehe modules/selectors.js) ---------- */
 function _selectorsFmtCtx() {
-  return { isFreelance, minutesToHM, hoursDecimal, formatMoney };
+  return legacyView(appCtx(), ['isFreelance', 'minutesToHM', 'hoursDecimal', 'formatMoney']);
 }
 
 /* ========================================================================
@@ -322,7 +323,7 @@ function getOverviewSummaryFields(ov) {
 }
 
 /* ---------- Summary-Renderer (Wrapper — siehe modules/render/summary.js) ---------- */
-function _renderSummaryCtx() { return { formatMoney }; }
+function _renderSummaryCtx() { return legacyView(appCtx(), ['formatMoney']); }
 
 function renderSummaryHTML(fields) {
   return _renderSummaryHTMLRaw(fields);
@@ -671,16 +672,50 @@ function renderTracker() {
 }
 
 /* ---------- Außendienst-Nachweis (seit v3.13.0) ---------- */
+/* ---------- Zentraler Kontext (seit v3.14.1) ---------- */
+
+let _appCtxInstance = null;
+/**
+ * Liefert den zentralen Kontext (modules/app-context.js). Wird beim ersten
+ * Aufruf gebaut, damit alle Funktionen von app.js bereits definiert sind.
+ * Der Zustand wird ausschließlich über getState() aus modules/state.js gelesen.
+ * @returns {any}
+ */
+function appCtx() {
+  if (_appCtxInstance) return _appCtxInstance;
+  _appCtxInstance = createAppContext({
+    getState: _getState, saveState,
+    computeWorkMinutes, computeHomeofficeMinutes, computeSuggestedBreak,
+    holidayOf: (iso) => {
+      const st = _getState();
+      return isHoliday(iso, (st && st.settings && st.settings.state) || 'HE');
+    },
+    normalizeSegments, normalizeHolidayOverrides, hhmmToMinutes, defaultSchedule,
+    getSummaryFields, getOverviewSummaryFields, getCurrentReport, getCurrentOverview,
+    formatDate, formatMonthYear, formatMoney, minutesToHM, hoursDecimal, escapeHtml,
+    renderSummaryPlaintext, fileNameForReport, fileNameForOverview,
+    buildHomeofficeSegmentsHTML: _buildHomeofficeSegmentsHTMLRaw, L,
+    toast, closeModals,
+    openEntryModal: (entry, opts) => openEntryModal(entry, opts),
+    populateTemplatePicker,
+    renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderEmployers, refreshAll,
+    generatePdfBlob, generateWordBlob, generateOverviewPdfBlob, downloadBlob,
+    getEmployer, uid, todayISO, dayOfWeekISO, isFreelance, getAppMode, DAY_KEYS, DAY_LABELS_LONG,
+  });
+  return _appCtxInstance;
+}
+
 function _storageStatusCtx() {
-  return { getState: _getState, saveState, toast, escapeHtml };
+  return legacyView(appCtx(), ['getState', 'saveState', 'toast', 'escapeHtml']);
 }
 
 function _fsCtx() {
   return {
-    getState: _getState, saveState, escapeHtml, getEmployer, todayISO,
-    holidayOf: (iso) => isHoliday(iso, (state.settings && state.settings.state) || 'HE'),
-    computeSuggestedBreak, openEntryModal, renderTracker, refreshAll, toast, uid,
-    minutesToHM, computeWorkMinutes,
+    ...legacyView(appCtx(), [
+      'getState', 'saveState', 'escapeHtml', 'getEmployer', 'todayISO', 'holidayOf',
+      'computeSuggestedBreak', 'openEntryModal', 'renderTracker', 'refreshAll', 'toast', 'uid',
+      'minutesToHM', 'computeWorkMinutes',
+    ]),
     saveEntryAndNext: (e) => _saveEntryRaw(e, { ..._entryCtx(), __saveAndNext: true }),
   };
 }
@@ -857,33 +892,20 @@ function endWork() {
 
 function _entryCtx() {
   return {
-    holidayOf: (iso) => isHoliday(iso, (state.settings && state.settings.state) || 'HE'),
-    openEntryModal: (entry, opts) => openEntryModal(entry, opts),
-    getState: _getState,
-    saveState,
-    getEmployer,
-    todayISO,
-    dayOfWeekISO,
-    DAY_KEYS,
-    DAY_LABELS_LONG,
-    escapeHtml,
-    populateTemplatePicker,
-    computeSuggestedBreak,
+    ...legacyView(appCtx(), [
+      'holidayOf', 'openEntryModal', 'getState', 'saveState', 'getEmployer', 'todayISO',
+      'dayOfWeekISO', 'DAY_KEYS', 'DAY_LABELS_LONG', 'escapeHtml', 'populateTemplatePicker',
+      'computeSuggestedBreak', 'renderTracker', 'renderEntries', 'refreshAll', 'toast', 'closeModals', 'uid',
+    ]),
     // Phase 4.8: Selector fuer Feld-Definitionen mit partiell gebundenem ctx
     computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
-      state,
+      state: _getState(),
       todayISO,
       getEmployer,
       DAY_KEYS,
       DAY_LABELS_LONG,
       dayOfWeekISO,
     }),
-    renderTracker,
-    renderEntries,
-    refreshAll,
-    toast,
-    closeModals,
-    uid,
   };
 }
 
@@ -939,18 +961,10 @@ function deleteEntry() {
 
 /* ---------- Range-Entry Modal (Zeitraum erfassen, Option B) ---------- */
 function _rangeEntryCtx() {
-  return {
-    getState: _getState,
-    saveState,
-    escapeHtml,
-    todayISO,
-    renderTracker,
-    renderEntries,
-    refreshAll,
-    toast,
-    closeModals,
-    uid,
-  };
+  return legacyView(appCtx(), [
+    'getState', 'saveState', 'escapeHtml', 'todayISO', 'renderTracker', 'renderEntries',
+    'refreshAll', 'toast', 'closeModals', 'uid',
+  ]);
 }
 
 function openRangeEntryModal() {
@@ -983,29 +997,12 @@ function setMode(mode) {
 }
 
 function _hoCtx() {
-  return {
-    getState: _getState,
-    saveState,
-    getEmployer,
-    escapeHtml,
-    todayISO,
-    formatDate,
-    populateTemplatePicker,
-    buildHomeofficeSegmentsHTML: _buildHomeofficeSegmentsHTMLRaw,
-    computeHomeofficeMinutes,
-    minutesToHM,
-    hhmmToMinutes,
-    normalizeSegments,
-    renderTracker,
-    renderEntries,
-    renderWeek,
-    renderReport,
-    renderOverview,
-    refreshAll,
-    closeModals,
-    toast,
-    uid,
-  };
+  return legacyView(appCtx(), [
+    'getState', 'saveState', 'getEmployer', 'escapeHtml', 'todayISO', 'formatDate',
+    'populateTemplatePicker', 'buildHomeofficeSegmentsHTML', 'computeHomeofficeMinutes',
+    'minutesToHM', 'hhmmToMinutes', 'normalizeSegments', 'renderTracker', 'renderEntries',
+    'renderWeek', 'renderReport', 'renderOverview', 'refreshAll', 'closeModals', 'toast', 'uid',
+  ]);
 }
 
 function openHomeofficeModal(entry, opts) {
@@ -1848,19 +1845,11 @@ async function exportOverviewPdf() {
 }
 
 function _overviewShareCtx() {
-  return {
-    getCurrentOverview,
-    getState: _getState,
-    escapeHtml,
-    fileNameForOverview,
-    formatMonthYear,
-    renderSummaryPlaintext,
-    getOverviewSummaryFields,
-    generateOverviewPdfBlob,
-    downloadBlob,
-    toast,
-    closeModals,
-  };
+  return legacyView(appCtx(), [
+    'getCurrentOverview', 'getState', 'escapeHtml', 'fileNameForOverview', 'formatMonthYear',
+    'renderSummaryPlaintext', 'getOverviewSummaryFields', 'generateOverviewPdfBlob',
+    'downloadBlob', 'toast', 'closeModals',
+  ]);
 }
 
 async function shareOverviewPdf() {
@@ -1937,20 +1926,11 @@ function getCurrentReport() {
 /* ---------- Share (Web Share API + Fallback) ---------- */
 
 function _shareCtx() {
-  return {
-    getCurrentReport,
-    getState: _getState,
-    escapeHtml,
-    fileNameForReport,
-    formatMonthYear,
-    renderSummaryPlaintext,
-    getSummaryFields,
-    generateWordBlob,
-    generatePdfBlob,
-    downloadBlob,
-    toast,
-    closeModals,
-  };
+  return legacyView(appCtx(), [
+    'getCurrentReport', 'getState', 'escapeHtml', 'fileNameForReport', 'formatMonthYear',
+    'renderSummaryPlaintext', 'getSummaryFields', 'generateWordBlob', 'generatePdfBlob',
+    'downloadBlob', 'toast', 'closeModals',
+  ]);
 }
 
 function openShareModal() {
@@ -2085,19 +2065,10 @@ function breakModeLabel(mode) {
 /* ---------- Employer-Modal via modules/ui/employer-modal.js (Phase 3.9f) ---------- */
 
 function _emCtx() {
-  return {
-    getState: () => state,
-    saveState,
-    getEmployer,
-    defaultSchedule,
-    L,
-    isFreelance,
-    uid,
-    closeModals,
-    renderEmployers,
-    renderTracker,
-    toast,
-  };
+  return legacyView(appCtx(), [
+    'getState', 'saveState', 'getEmployer', 'defaultSchedule', 'L', 'isFreelance', 'uid',
+    'closeModals', 'renderEmployers', 'renderTracker', 'toast',
+  ]);
 }
 
 function buildScheduleGrid(schedule) { return _buildScheduleGridRaw(schedule); }
@@ -2198,15 +2169,9 @@ function updateModeVisibility() {
 /* ---------- Holiday-Overrides via modules/ui/holiday-overrides.js (Phase 3.9g) ---------- */
 
 function _holCtx() {
-  return {
-    getState: () => state,
-    saveState,
-    normalizeHolidayOverrides,
-    escapeHtml,
-    formatDate,
-    closeModals,
-    toast,
-  };
+  return legacyView(appCtx(), [
+    'getState', 'saveState', 'normalizeHolidayOverrides', 'escapeHtml', 'formatDate', 'closeModals', 'toast',
+  ]);
 }
 
 function ensureHolidayOverrides() { return _ensureHolidayOverridesRaw(_holCtx()); }
@@ -2219,16 +2184,9 @@ function saveHoliday(ev) { return _saveHolidayRaw(ev, _holCtx()); }
 /* ---------- Templates via modules/ui/templates.js (Phase 3.9h) ---------- */
 
 function _tplCtx() {
-  return {
-    getState: () => state,
-    saveState,
-    getAppMode,
-    isFreelance,
-    escapeHtml,
-    uid,
-    closeModals,
-    toast,
-  };
+  return legacyView(appCtx(), [
+    'getState', 'saveState', 'getAppMode', 'isFreelance', 'escapeHtml', 'uid', 'closeModals', 'toast',
+  ]);
 }
 
 function renderTemplates() { return _renderTemplatesRaw(_tplCtx()); }
@@ -2485,6 +2443,11 @@ function maybeShowKindMigrationNotice() {
    Siehe modules/regression-bridge.js (extrahiert in Phase 3.9i). */
 if (typeof window !== 'undefined') {
   exportBridge(window, {
+    appCtx,
+    legacyCtxFactories: {
+      _selectorsFmtCtx, _renderSummaryCtx, _storageStatusCtx, _fsCtx, _entryCtx, _rangeEntryCtx,
+      _hoCtx, _overviewShareCtx, _shareCtx, _emCtx, _holCtx, _tplCtx,
+    },
     state, saveState, loadState, SCHEMA_VERSION, DEFAULT_STATE, STORAGE_KEY,
     _runMigrationsModule, migrateHomeofficeEntries,
     wasLastLoadCorrupted, getCorruptedBackupKey,

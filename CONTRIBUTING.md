@@ -61,6 +61,7 @@ Erwartet: `echte Fehler: 0` (DOM-Rauschen wird gefiltert).
 Weitere Prüfungen:
 - `ENGINE=webkit npm run qa` — dieselbe Regression in WebKit (Safari).
 - `npm run visual:test` — Pixelvergleich gegen `visual-baselines/`; Abweichungen landen in `visual-diffs/` (nicht versioniert). Bewusste Layout-Änderungen mit `npm run visual:update` übernehmen.
+- Prüfsummen der Berichte (seit v3.14.1, läuft in der Regression mit): `scripts/report-snapshot.mjs` erzeugt mit festem Datum für alle Arbeitgeber und Monate der Testdaten `scripts/fixtures/test-backup-muster.json` Bericht, CSV, Übersicht und Gleitzeitkonto und vergleicht die Prüfsummen mit `scripts/fixtures/report-snapshot.expected.json`. Bei reinen Umbauten müssen sie gleich bleiben. Nur nach einer bewussten fachlichen Änderung mit `BASE_URL=http://localhost:8766 node scripts/report-snapshot.mjs --update` neu schreiben. Mit einem eigenen Backup als Argument lässt sich derselbe Vergleich vorher und nachher von Hand fahren.
 
 Headed-Modus für Debugging (Chromium öffnet sichtbar):
 ```
@@ -84,6 +85,7 @@ Wenn Regression rot ist, ist der Change nicht fertig. Kein Bump, kein Commit auf
 - Neue Zusammenfassungs-Felder gehen durch `getSummaryFields`. Nicht direkt in Renderer.
 - Neue Berechnungen in `compute`-Funktionen. Renderer rufen nur auf.
 - Neue Exporte konsumieren `AZMonthReport` oder `AZMonthOverview`. Nie direkt `state`.
+- Funktionen, die Module von `app.js` brauchen, kommen in den zentralen Kontext `modules/app-context.js` (Bereiche `state`, `compute`, `format`, `ui`, `render`, `exports`, `data`; Eintrag in `LEGACY_MAP` und in `appCtx()` in `app.js`). Kein neues `_xyzCtx()`-Objekt anlegen. Den Zustand nur über `getState()` bzw. `ctx.state.get()` lesen.
 - JSDoc-Signaturen für neue Public-Funktionen setzen — `types.js`-Typen wo passend referenzieren.
 - Kein Feature-Creep: wenn du bei einem Fix ein zweites Ding entdeckst, das dich stört — separater Commit oder Ticket. Nicht einfach mitnehmen.
 
@@ -157,7 +159,7 @@ Aktuell arbeitet das Projekt direkt auf `main`. Seit v3.9.65 ist `main` per GitH
 ## Was NICHT ins Repo gehört
 
 - `node_modules/` — `.gitignore` regelt das.
-- Persönliche `state`-Backups (die JSON-Exports der App).
+- Persönliche `state`-Backups (die JSON-Exports der App). Ausnahme: die neutralen Testdaten unter `scripts/fixtures/` (Max Mustermann, Musterfirma GmbH).
 - `.env` — die App braucht keine Secrets.
 - `dist/`, `build/` — die App wird nicht gebaut, sondern statisch ausgeliefert.
 

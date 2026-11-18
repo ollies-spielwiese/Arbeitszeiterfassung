@@ -63,6 +63,8 @@ export function exportBridge(target, refs) {
     isFormerEmployer, filterVisibleEmployers, setShowFormerEmployers, todayISO, buildEmployerCardsHTML,
     // Backup-Ordner (File System Access API, seit v3.9.69)
     exportBackup, renderBackupFolderSection,
+    // Zentraler Kontext (seit v3.14.1)
+    appCtx, legacyCtxFactories,
   } = refs;
 
   // State + Persistenz
@@ -193,4 +195,8 @@ export function exportBridge(target, refs) {
   // Backup-Ordner (File System Access API, seit v3.9.69, für Regression-Unit-Tests)
   if (typeof exportBackup === 'function') target.exportBackup = exportBackup;
   if (typeof renderBackupFolderSection === 'function') target.renderBackupFolderSection = renderBackupFolderSection;
+
+  // Zentraler Kontext (seit v3.14.1, für Regression-Unit-Tests)
+  if (typeof appCtx === 'function') target.__appCtx = appCtx;
+  if (legacyCtxFactories && typeof legacyCtxFactories === 'object') target.__legacyCtx = legacyCtxFactories;
 }

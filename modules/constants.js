@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.14.0';
+export const APP_VERSION = '3.14.1';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.14.1', items: [
+    'Interner Umbau ohne sichtbare Änderung: Die App gibt ihre Funktionen jetzt über ein zentrales Modul an die einzelnen Bereiche weiter. Das macht künftige Erweiterungen sicherer.',
+    'Neue automatische Prüfung: Berichte, CSV, Übersicht und Gleitzeitkonto werden bei jedem Umbau mit festen Testdaten verglichen.',
+  ] },
   { version: '3.14.0', items: [
     'Neu: Karte „Speicherstatus“ in den Einstellungen. Sie zeigt, ob der Browser die Daten dauerhaft speichert, wann das letzte Backup war, wie viele Änderungen es seitdem gibt und wie viel Speicher die Daten belegen.',
     'Die App bittet den Browser nach dem ersten Eintrag um dauerhaften Speicher, als installierte App bei jedem Start. Die Anfrage lässt sich auch von Hand stellen.',

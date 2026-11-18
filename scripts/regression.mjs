@@ -37,6 +37,8 @@ import { runEducationLeaveStatesTests } from './education-leave-states-tests.mjs
 import { runArbzgHintsTests } from './arbzg-hints-tests.mjs';
 import { runBumpVersionTests } from './bump-version-tests.mjs';
 import { runStorageStatusTests } from './storage-status-tests.mjs';
+import { runAppContextTests } from './app-context-tests.mjs';
+import { runReportSnapshotTests } from './report-snapshot.mjs';
 import { runFieldServiceTests } from './field-service-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -4813,6 +4815,8 @@ function runServiceWorkerCacheBustCheck() {
     await runArbzgHintsTests(browser, BASE_URL, { assertEq });
     await runFieldServiceTests(browser, BASE_URL, { assertEq });
     await runStorageStatusTests(browser, BASE_URL, { assertEq });
+    await runAppContextTests(browser, BASE_URL, { assertEq });
+    await runReportSnapshotTests(browser, BASE_URL, { assertEq });
     await runFreelance(page);
     await runEmployee(page);
   } catch (err) {
