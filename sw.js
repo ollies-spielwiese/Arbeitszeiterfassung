@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-15-0';
+const CACHE_NAME = 'arbeitszeit-v3-15-1';
 const ASSETS = [
   './',
   './index.html',
@@ -65,6 +65,8 @@ const ASSETS = [
   './modules/ui/employer-modal.js',
   './modules/ui/holiday-overrides.js',
   './modules/ui/templates.js',
+  './modules/tabs/archive.js',
+  './modules/tabs/entries.js',
   './modules/regression-bridge.js',
   './modules/constants.js',
   './modules/bootstrap.js',

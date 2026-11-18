@@ -21,6 +21,9 @@
  * Module (auch selectors.js und render/summary.js) bekommen appCtx(). Der
  * Zustand liegt nur in modules/state.js; window.state liest über ctx.state.get().
  *
+ * Seit v3.15.1 steuern die Reiter-Module unter modules/tabs/ ihre Ansicht nur
+ * über diesen Kontext (Regeln und Tests: scripts/tabs-structure-tests.mjs).
+ *
  * Das Modul ist reine Logik ohne DOM-Zugriff.
  */
 
@@ -47,6 +50,9 @@ export const LEGACY_MAP = Object.freeze({
   getCurrentReport: 'compute.currentReport',
   getCurrentOverview: 'compute.currentOverview',
   computeFormFields: 'compute.formFields',
+  // seit v3.15.1 (Reiter-Module unter modules/tabs/)
+  computeMonthTargetMinutes: 'compute.monthTargetMinutes',
+  countWorkdaysInMonth: 'compute.workdaysInMonth',
   // Formate
   formatDate: 'format.date',
   formatMonthYear: 'format.monthYear',
@@ -65,6 +71,9 @@ export const LEGACY_MAP = Object.freeze({
   openEntryModal: 'ui.openEntryModal',
   populateTemplatePicker: 'ui.populateTemplatePicker',
   saveEntryAndNext: 'ui.saveEntryAndNext',
+  openHomeofficeModal: 'ui.openHomeofficeModal',
+  getShowFormerEmployers: 'ui.showFormerEmployers',
+  setShowFormerEmployers: 'ui.setShowFormerEmployers',
   // Neuzeichnen
   renderTracker: 'render.tracker',
   renderEntries: 'render.entries',
@@ -73,11 +82,19 @@ export const LEGACY_MAP = Object.freeze({
   renderOverview: 'render.overview',
   renderEmployers: 'render.employers',
   refreshAll: 'render.all',
+  renderArchive: 'render.archive',
+  renderGleitzeitkonto: 'render.gleitzeit',
+  renderVacationPlanning: 'render.vacation',
+  renderSettings: 'render.settings',
+  renderAuditLog: 'render.auditLog',
   // Exporte
   generatePdfBlob: 'exports.pdf',
   generateWordBlob: 'exports.word',
   generateOverviewPdfBlob: 'exports.overviewPdf',
   downloadBlob: 'exports.download',
+  generateKmPdfBlob: 'exports.kmPdf',
+  generateGleitzeitkontoPdfBlob: 'exports.gleitzeitPdf',
+  generateVacationCertificatePdfBlob: 'exports.vacationCertificatePdf',
   // Stammdaten und Hilfen
   getEmployer: 'data.employer',
   uid: 'data.uid',

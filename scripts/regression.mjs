@@ -40,6 +40,7 @@ import { runBumpVersionTests } from './bump-version-tests.mjs';
 import { runStorageStatusTests } from './storage-status-tests.mjs';
 import { runStorageIdbTests } from './storage-idb-tests.mjs';
 import { runAppContextTests } from './app-context-tests.mjs';
+import { runTabsStructureTests } from './tabs-structure-tests.mjs';
 import { runReportSnapshotTests } from './report-snapshot.mjs';
 import { runCiRunnerTests } from './ci-runner-tests.mjs';
 import { runFieldServiceTests } from './field-service-tests.mjs';
@@ -4825,6 +4826,7 @@ function runServiceWorkerCacheBustCheck() {
     await runStorageStatusTests(browser, BASE_URL, { assertEq });
     await runStorageIdbTests(browser, BASE_URL, { assertEq });
     await runAppContextTests(browser, BASE_URL, { assertEq });
+    await runTabsStructureTests(browser, BASE_URL, { assertEq });
     await runReportSnapshotTests(browser, BASE_URL, { assertEq });
     await runCiRunnerTests({ assertEq });
     await runFreelance(page);

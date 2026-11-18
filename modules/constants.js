@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.15.0';
+export const APP_VERSION = '3.15.1';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.15.1', items: [
+    'Interner Umbau: Reiter Archiv und Einträge als eigene Module (keine sichtbare Änderung)',
+  ] },
   { version: '3.15.0', items: [
     'Spiegelkopie: Die Daten werden zusätzlich in IndexedDB gesichert. Die Karte Speicherstatus zeigt, ob die Kopie aktuell ist.',
     'Ist der normale Speicher leer oder beschädigt, bietet die App an, die Daten aus der Spiegelkopie wiederherzustellen.',

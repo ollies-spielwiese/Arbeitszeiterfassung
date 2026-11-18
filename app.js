@@ -45,7 +45,6 @@
 import { SCHEMA_VERSION, migrateHomeofficeEntries as _migrateHomeofficeEntriesRaw, runMigrations as _runMigrationsModule } from './modules/migrations.js';
 import { splitAcrossMidnight } from './modules/util-time.js';
 import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from './modules/entry-conflicts.js';
-import { restoreArchiveReport } from './modules/archive-report.js';
 import {
   STORAGE_KEY,
   DEFAULT_STATE,
@@ -153,11 +152,11 @@ import {
 } from './modules/render/summary.js';
 import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
 import { buildOverviewHTML as _buildOverviewHTMLRaw } from './modules/render/overview.js';
-import { buildEntriesHTML as _buildEntriesHTMLRaw } from './modules/render/entries.js';
 import { buildWeekHTML as _buildWeekHTMLRaw } from './modules/render/week.js';
 import { computeArbzgHints, arbzgHintsForEmployerDay, buildArbzgWeekBadgesHTML, buildArbzgOverviewHTML, isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
-import { buildArchiveHTML as _buildArchiveHTMLRaw } from './modules/render/archive.js';
+import { renderArchive as _renderArchiveTab, archiveCurrentMonth as _archiveCurrentMonthTab } from './modules/tabs/archive.js';
+import { renderEntries as _renderEntriesTab } from './modules/tabs/entries.js';
 import {
   buildTodaySummaryHTML as _buildTodaySummaryHTMLRaw,
   buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
@@ -700,7 +699,14 @@ function appCtx() {
     openEntryModal: (entry, opts) => openEntryModal(entry, opts),
     populateTemplatePicker,
     renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderEmployers, refreshAll,
+    renderArchive, renderGleitzeitkonto, renderVacationPlanning, renderSettings, renderAuditLog,
     generatePdfBlob, generateWordBlob, generateOverviewPdfBlob, downloadBlob,
+    generateKmPdfBlob, generateGleitzeitkontoPdfBlob, generateVacationCertificatePdfBlob,
+    // seit v3.15.1 für die Reiter-Module unter modules/tabs/
+    computeMonthTargetMinutes, countWorkdaysInMonth,
+    openHomeofficeModal: (entry, opts) => openHomeofficeModal(entry, opts),
+    getShowFormerEmployers: () => showFormerEmployers,
+    setShowFormerEmployers: (v) => setShowFormerEmployers(v),
     getEmployer, uid, todayISO, dayOfWeekISO, isFreelance, getAppMode, DAY_KEYS, DAY_LABELS_LONG,
     // Feld-Definitionen des Erfassen-Dialogs (Phase 4.8, seit v3.14.3 im Kontext)
     computeFormFields: (entry, opts) => _computeFormFieldsRaw(entry, opts, {
@@ -1031,63 +1037,8 @@ function hhmmToMinutes(hhmm) {
 
 /* ---------- Entries View ---------- */
 
-function renderEntries() {
-  const filterSel = document.getElementById('filter-employer');
-  const monthInput = document.getElementById('filter-month');
-  const formerCb = document.getElementById('show-former-employers-entries');
-  if (formerCb) formerCb.checked = showFormerEmployers;
-
-  const currentEmpFilter = filterSel.value;
-  const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
-    showAll: showFormerEmployers,
-    includeIds: [currentEmpFilter],
-  });
-  filterSel.innerHTML =
-    `<option value="">Alle Arbeitgeber</option>` +
-    visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('');
-  filterSel.value = currentEmpFilter || '';
-
-  if (!monthInput.value) monthInput.value = currentYearMonth();
-
-  const empFilter = filterSel.value;
-  const monthFilter = monthInput.value;
-
-  let list = [..._getState().entries];
-  if (empFilter) list = list.filter(e => e.employerId === empFilter);
-  else if (!showFormerEmployers) list = list.filter(e => !isFormerEmployer(getEmployer(e.employerId), today));
-  if (monthFilter) list = list.filter(e => e.date.startsWith(monthFilter));
-
-  list.sort((a, b) => b.date.localeCompare(a.date) || (b.start || '').localeCompare(a.start || ''));
-
-  const container = document.getElementById('entries-list');
-  if (!list.length) {
-    container.innerHTML = '<div class="empty-state">Keine Einträge in diesem Zeitraum.</div>';
-    return;
-  }
-
-  const rows = _computeEntryRowsRaw(list, {
-    getEmployer,
-    computeWorkMinutes,
-    computeHomeofficeMinutes,
-    computeMonthTargetMinutes,
-    countWorkdaysInMonth,
-  });
-  container.innerHTML = _buildEntriesHTMLRaw(rows, {
-    escapeHtml,
-    formatDateLong,
-    minutesToHM,
-  });
-
-  container.querySelectorAll('.entry-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const entry = _getState().entries.find(e => e.id === card.dataset.id);
-      if (!entry) return;
-      if (entry.type === 'homeoffice') openHomeofficeModal(entry);
-      else openEntryModal(entry);
-    });
-  });
-}
+/** Reiter Einträge, siehe modules/tabs/entries.js (seit v3.15.1). */
+function renderEntries() { return _renderEntriesTab(appCtx()); }
 
 /* ---------- Week View ---------- */
 
@@ -1890,74 +1841,11 @@ async function shareReport(format, recipientEmails) {
 
 /* ---------- Archive ---------- */
 
-function archiveCurrentMonth() {
-  const r = getCurrentReport();
-  if (!r) return;
-  const empId = r.employer.id;
-  const ym = r.ym;
+/** Monat archivieren, siehe modules/tabs/archive.js (seit v3.15.1). */
+function archiveCurrentMonth() { return _archiveCurrentMonthTab(appCtx()); }
 
-  const exists = _getState().archives.find(a => a.employerId === empId && a.yearMonth === ym);
-  if (exists && !confirm('Für diesen Monat existiert bereits ein Archiv. Überschreiben?')) return;
-
-  const snapshot = {
-    employer: JSON.parse(JSON.stringify(r.employer)),
-    entries: JSON.parse(JSON.stringify(r.entries)),
-    workedMin: r.workedMin, targetMin: r.targetMin, balance: r.balance,
-    creditedAbsenceMin: r.creditedAbsenceMin,
-    vacationRemaining: r.vacationRemaining,
-    vacationDays: r.vacationEntries.length, sickDays: r.sickEntries.length, educationLeaveDays: (r.educationLeaveEntries || []).length,
-    overtimeReductionDays: r.overtimeReductionEntries.length,
-    holidays: r.holidays,
-  };
-
-  if (exists) {
-    exists.snapshot = snapshot; exists.generatedAt = new Date().toISOString();
-  } else {
-    _getState().archives.push({ id: uid(), employerId: empId, yearMonth: ym, generatedAt: new Date().toISOString(), snapshot });
-  }
-  saveState();
-  renderArchive();
-  toast('Monat archiviert');
-}
-
-function renderArchive() {
-  const container = document.getElementById('archive-list');
-  if (!_getState().archives.length) {
-    container.innerHTML = '<div class="empty-state">Noch keine archivierten Monate.<br><br>Sie können abgeschlossene Monate in der Monatsauswertung archivieren.</div>';
-    return;
-  }
-  container.innerHTML = _buildArchiveHTMLRaw(_getState().archives, {
-    escapeHtml,
-    formatMonthYear,
-    minutesToHM,
-  });
-
-  container.querySelectorAll('button[data-action]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const archive = _getState().archives.find(a => a.id === btn.dataset.id);
-      if (!archive) return;
-      const action = btn.dataset.action;
-      if (action === 'delete') {
-        if (!confirm('Archiv löschen?')) return;
-        _getState().archives = _getState().archives.filter(a => a.id !== archive.id);
-        saveState(); renderArchive(); toast('Archiv gelöscht');
-      } else if (action === 'word' || action === 'pdf') {
-        const report = restoreArchiveReport(archive);
-        // Seit v3.9.49: explizites try/catch, damit ein Ladefehler der CDN-Libraries
-        // (Netzwerk oder SRI-Hash-Mismatch, siehe modules/lib-loader.js) hier nicht als
-        // unbehandelte Promise-Rejection verschwindet, sondern sichtbar als Toast landet.
-        try {
-          const blob = action === 'word' ? await generateWordBlob(report) : await generatePdfBlob(report);
-          downloadBlob(blob, fileNameForReport(report, action === 'word' ? 'docx' : 'pdf'));
-          toast('Datei heruntergeladen');
-        } catch (err) {
-          console.error(err);
-          toast((action === 'word' ? 'Word' : 'PDF') + '-Export fehlgeschlagen: ' + err.message);
-        }
-      }
-    });
-  });
-}
+/** Reiter Archiv, siehe modules/tabs/archive.js (seit v3.15.1). */
+function renderArchive() { return _renderArchiveTab(appCtx()); }
 
 /* ---------- Employers ---------- */
 
