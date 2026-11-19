@@ -177,6 +177,10 @@ export function generatePdfBlob(report, ctx) {
       y = wrapText(doc, t, marginX, y, 180);
     }
   }
+  // Nachtschicht über den Monatsrand (seit v3.15.8), in beiden Modi.
+  for (const t of (report.nightShiftNotes || [])) {
+    y = wrapText(doc, 'Nachtschicht: ' + t, marginX, y, 180);
+  }
 
   y += 4;
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arbeitszeit-v3-15-7';
+const CACHE_NAME = 'arbeitszeit-v3-15-8';
 const ASSETS = [
   './',
   './index.html',
@@ -79,6 +79,7 @@ const ASSETS = [
   './modules/tabs/settings.js',
   './modules/ui/backup-ui.js',
   './modules/dst.js',
+  './modules/night-shift.js',
   './modules/timer-check.js',
   './modules/ui/timer-check-modal.js',
   './modules/ui/year-select.js',

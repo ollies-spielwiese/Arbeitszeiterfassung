@@ -62,7 +62,8 @@ export function buildEntriesHTML(rows, ctx) {
   return rows.map((row) => {
     const right = renderRight(row, ctx);
     const badge = renderBadge(row)
-      + (row.dstShiftMin ? `<span class="entry-badge dst" data-testid="badge-dst-${escapeHtml(row.id)}">Zeitumstellung ${formatDstShift(row.dstShiftMin)}</span>` : '');
+      + (row.dstShiftMin ? `<span class="entry-badge dst" data-testid="badge-dst-${escapeHtml(row.id)}">Zeitumstellung ${formatDstShift(row.dstShiftMin)}</span>` : '')
+      + (row.nightShiftLabel ? `<span class="entry-badge night" data-testid="badge-night-${escapeHtml(row.id)}">${escapeHtml(row.nightShiftLabel)}</span>` : '');
     const details = row.detailsParts.map(escapeHtml).join(' • ');
     const note = row.note ? `<div class="entry-note">${escapeHtml(row.note)}</div>` : '';
     return `

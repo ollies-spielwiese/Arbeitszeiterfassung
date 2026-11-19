@@ -119,7 +119,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.7</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.8</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -437,6 +437,7 @@
               <li>Die Pflicht-Pausenprüfung des Arbeitszeitgesetzes wird im Home-Office nicht angewendet. Du bist selbst für die Einhaltung verantwortlich.</li>
             </ul>
             <p><strong>Über Mitternacht:</strong> Als Ende eines Blocks lässt sich über das Häkchen <strong>24:00</strong> das Tagesende wählen. Läuft ein Timer über Mitternacht oder über eine Zeitumstellung hinweg, teilt die App die Arbeitszeit automatisch auf die betroffenen Kalendertage auf — jeder Tag erhält seinen eigenen Home-Office-Eintrag mit der korrekten Dauer.</p>
+            <p><strong>Nachtschicht:</strong> Zu welchem Tag die Stunden einer Nacht zählen, legst du unter <em>Einstellungen → Nachtschicht über Mitternacht</em> fest. Standard ist der Tag des Schichtbeginns: Ein Block ab 00:00 zählt dann zum Vortag, wenn dort ein Block um 24:00 endet. Wahlweise zählt jede Stunde an ihrem Kalendertag, dann wird auch eine Präsenz-Schicht um 24:00 geteilt.</p>
             <p><strong>Bearbeiten:</strong> Ein Tipp auf einen Home-Office-Eintrag im Reiter <em>Einträge</em> öffnet den Editor. Blöcke lassen sich hinzufügen, ändern oder löschen.</p>
           </div>
         </details>
@@ -806,6 +807,27 @@
           </label>
           <p class="hint">Zeigt beim Erfassen den Hinweis auf Ausnahmen und Ersatzruhetag und zählt die Sonntage mit Arbeit im Jahr (alle Arbeitgeber). Mindestens 15 müssen frei bleiben (§ 11 Abs. 1 ArbZG), per Tarifvertrag weniger – einstellbar je Arbeitgeber.</p>
         </div>
+      </div>
+
+      <div class="settings-block" id="settings-block-night-shift" data-testid="settings-block-night-shift">
+        <h3 id="settings-night-shift-title">Nachtschicht über Mitternacht</h3>
+        <div class="appmode-toggle" role="radiogroup" aria-labelledby="settings-night-shift-title">
+          <label class="appmode-option">
+            <input type="radio" name="setting-night-shift" value="start" data-testid="radio-night-shift-start" />
+            <div>
+              <strong>zählt zum Tag des Schichtbeginns</strong>
+              <span class="hint">Standard. Eine Schicht von So 22:00 bis Mo 06:00 zählt ganz zum Sonntag.</span>
+            </div>
+          </label>
+          <label class="appmode-option">
+            <input type="radio" name="setting-night-shift" value="calendar" data-testid="radio-night-shift-calendar" />
+            <div>
+              <strong>wird nach Kalendertag aufgeteilt</strong>
+              <span class="hint">2 Std. zählen zum Sonntag, 6 Std. zum Montag. Die Pause wird anteilig verteilt.</span>
+            </div>
+          </label>
+        </div>
+        <p class="hint">Gilt für Präsenz und Home-Office und für alle Arbeitgeber. Die gespeicherten Einträge bleiben unverändert, nur Woche, Monat und Gleitzeitkonto rechnen danach.</p>
       </div>
 
       <div class="settings-block" id="settings-block-fieldservice" data-testid="settings-block-fieldservice">

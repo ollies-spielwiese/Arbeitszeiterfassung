@@ -14,6 +14,7 @@
  */
 import { toAppContext } from '../app-context.js';
 import { isArbzgHintEnabled } from '../arbzg-hints.js';
+import { getNightShiftRule } from '../night-shift.js';
 import { buildAuditLogHTML } from '../render/audit-log.js';
 import { formatDateLong } from '../util-time.js';
 import { validateEmailField } from '../ui/email-validation.js';
@@ -43,6 +44,12 @@ export function renderSettings(ctx) {
   if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(settings);
   try { renderFieldServiceSettings(cx); } catch (err) { console.error(err); }
   try { renderStorageStatus(cx).catch((err) => console.error(err)); } catch (err) { console.error(err); }
+  // Nachtschicht über Mitternacht (seit v3.15.8)
+  const nightRule = getNightShiftRule(settings);
+  document.querySelectorAll('input[name="setting-night-shift"]').forEach((r) => {
+    const radio = /** @type {HTMLInputElement} */ (r);
+    radio.checked = (radio.value === nightRule);
+  });
   // Modus-Radios
   const mode = cx.data.appMode();
   document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {

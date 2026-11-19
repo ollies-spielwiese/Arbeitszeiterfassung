@@ -14,6 +14,7 @@ import { buildEntriesHTML } from '../render/entries.js';
 import { computeEntryRows } from '../selectors.js';
 import { currentYearMonth, formatDateLong } from '../util-time.js';
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
+import { getNightShiftRule } from '../night-shift.js';
 
 /**
  * @param {any} ctx
@@ -64,6 +65,9 @@ export function renderEntries(ctx) {
     computeHomeofficeMinutes: cx.compute.homeofficeMinutes,
     computeMonthTargetMinutes: cx.compute.monthTargetMinutes,
     countWorkdaysInMonth: cx.compute.workdaysInMonth,
+    allEntries: state.entries,
+    nightShiftRule: getNightShiftRule(state.settings),
+    minutesToHM: cx.format.minutesToHM,
   });
   container.innerHTML = buildEntriesHTML(rows, {
     escapeHtml: esc,

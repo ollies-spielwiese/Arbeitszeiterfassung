@@ -125,6 +125,13 @@ export async function generateWordBlob(report, ctx) {
       new TextRun({ text: report.holidays.map(h => `${formatDate(h.date)} ${h.name}`).join(', ') }),
     ]}));
   }
+  // Nachtschicht über den Monatsrand (seit v3.15.8).
+  for (const t of (report.nightShiftNotes || [])) {
+    absenceLines.push(new Paragraph({ children: [
+      new TextRun({ text: 'Nachtschicht: ', bold: true }),
+      new TextRun({ text: t }),
+    ]}));
+  }
 
   const overtimeSection = report.overtimeEntries.length ? [
     new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text: 'Überstunden – Begründung', bold: true })] }),

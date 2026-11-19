@@ -11,6 +11,7 @@
 
 import { pad, timeToMinutes, dayOfWeekISO, monthDates, shiftYearMonth } from './util-time.js';
 import { realMinutes } from './dst.js';
+import { getNightShiftRule, minutesByDate, sumMinutes, monthBoundaryNotes } from './night-shift.js';
 import { getHolidays, getHolidaysInRange } from './holidays.js';
 import { getFieldServiceSettings, isFieldServiceActive, computeFieldServiceMonth } from './field-service.js';
 import { EDUCATION_LEAVE_RULES, getEducationLeaveRule, getEducationLeaveFirstYear, getEducationLeavePeriod } from './education-leave-rules.js';
@@ -735,9 +736,19 @@ export function computeMonthReport(employerId, ym, ctx) {
   const offDayDates = new Set(offDayEntries.map(e => e.date));
   const innerCtx = { stateCode, holidayOverrides: overrides, offDayDates, throughDate: ctx.throughDate };
 
-  const workedMin = workEntries.reduce((s, e) => s + computeWorkMinutes(e), 0)
-    + homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
-  const homeofficeMin = homeofficeEntries.reduce((s, e) => s + computeHomeofficeMinutes(e), 0);
+  // Nachtschicht über Mitternacht (seit v3.15.8): Minuten zählen nach der Regel
+  // settings.nightShiftDay zum Tag des Schichtbeginns oder zum Kalendertag. Dafür werden
+  // auch die Einträge vom Vortag und Folgetag des Monats betrachtet.
+  const nightRule = getNightShiftRule(state.settings);
+  const monthFrom = `${ym}-01`;
+  const monthTo = monthDates(ym).slice(-1)[0];
+  const nearEntries = state.entries.filter(e => e.employerId === employerId && withinEmployment(emp, e.date, ctx));
+  const workedMin = sumMinutes(minutesByDate(nearEntries, state.entries, nightRule, monthFrom, monthTo));
+  const homeofficeMin = sumMinutes(minutesByDate(nearEntries, state.entries, nightRule, monthFrom, monthTo, { type: 'homeoffice' }));
+  const nightShiftNotes = monthBoundaryNotes(nearEntries, state.entries, nightRule, ym, {
+    formatDate: (iso) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`,
+    minutesToHM: (m) => `${Math.floor(m / 60)}:${pad(m % 60)}`,
+  });
   const targetMin = computeMonthTargetMinutes(emp, ym, innerCtx);
   const workdays = countWorkdaysInMonth(ym, emp, innerCtx);
   // Berechnungsregel Urlaub/Krank/Überstundenabbau.
@@ -799,6 +810,8 @@ export function computeMonthReport(employerId, ym, ctx) {
     employer: emp, ym, entries, workEntries, homeofficeEntries, vacationEntries, sickEntries, educationLeaveEntries, overtimeReductionEntries, offDayEntries, overtimeEntries,
     workedMin, homeofficeMin, targetMin, creditedAbsenceMin, balance, dailyTargetMin, holidays, workdays,
     vacationRemaining, exitPayout, fieldService,
+    // Nur bei vorhandenen Hinweisen gesetzt, damit Berichte ohne Nachtschicht unverändert bleiben.
+    ...(nightShiftNotes.length ? { nightShiftNotes } : {}),
   };
 }
 

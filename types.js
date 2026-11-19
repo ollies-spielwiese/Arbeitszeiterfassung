@@ -188,6 +188,7 @@
  * @property {boolean} [sollWarningGleitzeitEnabled] Sollstunden-Warnung für den Gleitzeitkonto-Saldo aktiv (seit v3.9.78)
  * @property {number} [sollWarningGleitzeitThresholdPct] Schwelle in Prozent für den Gleitzeitkonto-Saldo-Baustein (seit v3.9.78)
  * @property {string|null} [sollWarningSnoozeUntil] ISO-Timestamp, bis zu dem der Sollstunden-Warnung-Banner stummgeschaltet ist (seit v3.9.78)
+ * @property {'start'|'calendar'} [nightShiftDay] Nachtschicht zählt zum Tag des Schichtbeginns ('start', Standard) oder nach Kalendertag (seit v3.15.8)
  * @property {boolean} [arbzgHintsEnabled] Hinweis Arbeitszeitgesetz anzeigen (seit v3.12.0, Standard true; fehlend = an)
  * @property {boolean} [sundayHintEnabled] Hinweis Sonn- und Feiertagsarbeit (seit v3.13.0, Standard true)
  * @property {any} [fieldService] Außendienst-Nachweis (seit v3.13.0), siehe modules/field-service.js
@@ -279,6 +280,7 @@
  * @property {AZHoliday[]} holidays
  * @property {number} workdays
  * @property {any} [fieldService] Außendienst-Monatsauswertung (seit v3.13.0) oder null
+ * @property {string[]} [nightShiftNotes] Hinweise zu Nachtschicht-Anteilen über den Monatsrand (seit v3.15.8)
  */
 
 /**

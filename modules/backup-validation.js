@@ -180,7 +180,7 @@ export function validateBackup(data) {
       ...texts('employeeName ownEmail state'), currency,
       appMode: choice(['employee', 'freelance']), holidayOverrides: overrides,
       sollWarningMonthEnabled: bool, sollWarningGleitzeitEnabled: bool, arbzgHintsEnabled: bool,
-      sundayHintEnabled: bool, fieldService,
+      sundayHintEnabled: bool, fieldService, nightShiftDay: choice(['start', 'calendar']),
       ...numbers('sollWarningMonthThresholdPct sollWarningGleitzeitThresholdPct'),
       lastBackupAt: timestamp, backupReminderSnoozeUntil: timestamp,
       backupReminderFirstSeenAt: timestamp, sollWarningSnoozeUntil: timestamp,

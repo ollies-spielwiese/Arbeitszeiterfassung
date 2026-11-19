@@ -73,6 +73,11 @@ export function buildReportHTML(r, ctx) {
     ? `<div class="entry-note" style="margin-top: 0.75rem;">Feiertage im Monat: ${r.holidays.map(h => `${formatDate(h.date)} ${escapeHtml(h.name)}`).join(' · ')}</div>`
     : '';
 
+  // Nachtschicht über den Monatsrand (seit v3.15.8).
+  const nightNotes = (r.nightShiftNotes || []).length
+    ? `<div class="entry-note night-shift-note" data-testid="report-night-shift-notes">${(r.nightShiftNotes || []).map(t => escapeHtml(t)).join('<br>')}</div>`
+    : '';
+
   const homeofficeFooter = r.homeofficeEntries.length
     ? `<div class="report-footer-note">davon Home-Office: ${r.homeofficeEntries.length} ${r.homeofficeEntries.length === 1 ? 'Tag' : 'Tage'} · ${minutesToHM(r.homeofficeMin)}</div>`
     : '';
@@ -108,7 +113,7 @@ export function buildReportHTML(r, ctx) {
     <div class="summary-grid">
       ${renderSummaryHTML(mrFields)}
     </div>
-    ${holidayList}
+    ${holidayList}${nightNotes}
     ${rows ? `
       <table class="report-table">
         <thead><tr><th>Datum</th><th>Zeit</th><th>Pause (Min)</th><th>Std.</th><th>Grund Überstunden</th><th>Bemerkung</th></tr></thead>

@@ -273,6 +273,17 @@ export function wireEvents(ctx) {
       try { renderWeek(); } catch (err) {}
       try { renderOverview(); } catch (err) {}
     });
+    // Nachtschicht über Mitternacht (seit v3.15.8): Regel speichern und Salden neu zeichnen.
+    document.querySelectorAll('input[name="setting-night-shift"]').forEach((r) => {
+      r.addEventListener('change', (e) => {
+        if (!e.target.checked) return;
+        getState().settings.nightShiftDay = e.target.value === 'calendar' ? 'calendar' : 'start';
+        saveState();
+        for (const fn of [renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderGleitzeitkonto]) {
+          try { if (typeof fn === 'function') fn(); } catch (err) { console.error(err); }
+        }
+      });
+    });
     document.getElementById('setting-state').addEventListener('change', (e) => {
       getState().settings.state = e.target.value; saveState();
       // Recompute if any view depends on it

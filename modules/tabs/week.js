@@ -13,10 +13,11 @@
 import { toAppContext } from '../app-context.js';
 import { buildWeekHTML } from '../render/week.js';
 import { renderSummaryHTML } from '../render/summary.js';
-import { currentYearWeek, isoWeekToDates, isoWeeksInYear, pad } from '../util-time.js';
-import { isFormerEmployer, filterVisibleEmployers, isWorkedEntry } from '../compute.js';
+import { currentYearWeek, isoWeekToDates, isoWeeksInYear, pad, isoDateAdd } from '../util-time.js';
+import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 import { computeArbzgHints, arbzgHintsForEmployerDay, buildArbzgWeekBadgesHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
 import { isFieldServiceActive, entryKm, formatKm } from '../field-service.js';
+import { getNightShiftRule, minutesByDate, movedParts } from '../night-shift.js';
 
 /**
  * Zeichnet den Reiter Woche.
@@ -58,10 +59,23 @@ export function renderWeek(ctx) {
 
   let totalMin = 0;
   const fsWeekActive = isFieldServiceActive(state.settings, empId);
+  // Nachtschicht über Mitternacht (seit v3.15.8): Minuten je Tag nach der eingestellten Regel.
+  const nightRule = getNightShiftRule(state.settings);
+  const empEntries = state.entries.filter((/** @type {any} */ e) => e.employerId === empId);
+  const minutesOfDay = minutesByDate(empEntries, state.entries, nightRule, dates[0], dates[6]);
+  /** @type {Map<string, 'in'|'out'>} */
+  const nightMarks = new Map();
+  for (const e of empEntries) {
+    if (e.date < isoDateAdd(dates[0], -1) || e.date > isoDateAdd(dates[6], 1)) continue;
+    for (const p of movedParts(e, state.entries, nightRule)) {
+      if (p.date > e.date) nightMarks.set(p.date, 'in');
+      else nightMarks.set(e.date, 'out');
+    }
+  }
   const dayModels = dates.map((d) => {
     const holiday = cx.compute.isHoliday(d, stateCode);
     const dayEntries = state.entries.filter((/** @type {any} */ e) => e.employerId === empId && e.date === d);
-    const workMin = dayEntries.filter(isWorkedEntry).reduce((/** @type {number} */ s, /** @type {any} */ e) => s + cx.compute.workMinutes(e), 0);
+    const workMin = minutesOfDay.get(d) || 0;
     totalMin += workMin;
     const has = (/** @type {string} */ type) => dayEntries.some((/** @type {any} */ e) => e.type === type);
 
@@ -86,6 +100,9 @@ export function renderWeek(ctx) {
       if (dayKm > 0) detail += ` · ${formatKm(dayKm)} km`;
     }
 
+    const mark = nightMarks.get(d);
+    if (mark === 'in') detail = detail ? `${detail} · Nachtschicht vom Vortag` : 'Nachtschicht vom Vortag';
+    else if (mark === 'out') detail = detail ? `${detail} · Block ab 00:00 zählt zum Vortag` : 'Block ab 00:00 zählt zum Vortag';
     const arbzgHTML = buildArbzgWeekBadgesHTML(arbzgHintsForEmployerDay(arbzgHints, empId, d), esc);
     return { workMin, hoursDisplay, detail, isToday: d === today, holiday, arbzgHTML };
   });

@@ -15,6 +15,7 @@
 import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
 import { toAppContext } from './app-context.js';
 import { entryDstShift } from './dst.js';
+import { nightShiftBadgeText } from './night-shift.js';
 
 /**
  * Baut den Erklärungstext für den Saldo-Tooltip (Urlaubs-/Krankheitsgutschrift), der als
@@ -347,7 +348,8 @@ export function getOverviewSummaryFields(ov, ctx) {
  * @param {{getEmployer:(id:string)=>any, computeWorkMinutes:(e:any)=>number,
  *          computeHomeofficeMinutes:(e:any)=>number,
  *          computeMonthTargetMinutes:(emp:any, ym:string)=>number,
- *          countWorkdaysInMonth:(ym:string, emp:any)=>number}} ctx
+ *          countWorkdaysInMonth:(ym:string, emp:any)=>number,
+ *          allEntries?:Array<any>, nightShiftRule?:string, minutesToHM?:(m:number)=>string}} ctx
  * @returns {Array<{id:string, entry:any, employer:any, color:string, type:string,
  *                  rightKind:string, rightValueMin:number, isOvertime:boolean,
  *                  detailsParts:Array<string>, badgeType:string|null,
@@ -361,6 +363,11 @@ export function computeEntryRows(list, ctx) {
     computeMonthTargetMinutes,
     countWorkdaysInMonth,
   } = ctx;
+  // Seit v3.15.8: Schild für Nachtschicht-Anteile, die an einem anderen Tag zählen.
+  const allEntries = Array.isArray(ctx.allEntries) ? ctx.allEntries : list;
+  const nightRule = ctx.nightShiftRule === 'calendar' ? 'calendar' : 'start';
+  const hm = typeof ctx.minutesToHM === 'function' ? ctx.minutesToHM
+    : (/** @type {number} */ m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 
   return list.map((e) => {
     const emp = getEmployer(e.employerId);
@@ -471,6 +478,7 @@ export function computeEntryRows(list, ctx) {
       ...row,
       // Seit v3.15.7: Verschiebung durch Sommer-/Winterzeit in Minuten (0 = keine).
       dstShiftMin: entryDstShift(e),
+      nightShiftLabel: nightShiftBadgeText(e, allEntries, nightRule, hm),
       note: noteParts.length ? noteParts.join(' • ') : null,
     };
   });

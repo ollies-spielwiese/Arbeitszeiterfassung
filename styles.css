@@ -1782,3 +1782,10 @@ textarea.note-autogrow {
 @media (prefers-color-scheme: dark) {
   .entry-badge.dst, .dst-hint { background: #172554; border-color: #1d4ed8; color: #bfdbfe; }
 }
+
+/* Nachtschicht über Mitternacht (seit v3.15.8) */
+.entry-badge.night { background: #f5f3ff; border: 1px solid #c4b5fd; color: #4c1d95; }
+.night-shift-note { margin-top: 0.5rem; }
+@media (prefers-color-scheme: dark) {
+  .entry-badge.night { background: #2e1065; border-color: #6d28d9; color: #ddd6fe; }
+}
