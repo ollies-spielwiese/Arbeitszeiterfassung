@@ -30,6 +30,16 @@ Offline-fähige Progressive Web App zur Erfassung von Arbeitszeit für Angestell
 - Backup-Ordner (Chrome/Edge): fester Ordner lässt sich einmalig auswählen und wird geräteweise gemerkt (File System Access API) — danach werden Backups automatisch dorthin geschrieben, ohne erneuten Auswahldialog; in Safari/iOS zeigt der Bereich stattdessen eine Anleitung, das Backup nach dem Export manuell über Mehr … bzw. das Teilen-Symbol und die Option In „Dateien“ sichern abzulegen (Safari erlaubt Web-Apps aus Sicherheitsgründen keinen automatischen Ordnerzugriff)
 - CSV-Export eines Monatsberichts (Excel-kompatibel, UTF-8 mit BOM) zusätzlich zu PDF und Word
 - Vorlagen für häufige Überstundengründe
+- Sollstunden-Warnung (optional): meldet, wenn Monats- oder Gleitzeitsaldo eine einstellbare Schwelle über- oder unterschreitet
+- Bildungsurlaub als eigene Eintragsart mit Anspruch, Zeitraum und Wartezeit nach Bundesland
+- Abgeltung bei Austritt: ausbezahlte Urlaubstage und Überstunden, Urlaubsbescheinigung als PDF
+- Firmenbezeichnung und Firmenadresse beim Arbeitgeber und Kunden, in allen Nachweisen
+- Hinweis Arbeitszeitgesetz über alle Arbeitgeber: mehr als 10 Std. am Tag, weniger als 11 Std. Ruhezeit, Arbeit an Sonn- und Feiertagen mit Zählung der freien Sonntage (abschaltbar, nur Hinweis)
+- Außendienst-Nachweis (je Arbeitgeber einschaltbar): Tätigkeit und Einsatzort je Arbeitsblock, Kilometer bei Fahrten, Kilometer-Aufstellung als PDF
+- Timer prüfen: läuft der Timer 12 Stunden oder länger, fragt die App nach dem tatsächlichen Ende
+- Sommer- und Winterzeit: in den Nächten der Zeitumstellung zählt die tatsächlich gearbeitete Zeit
+- Nachtschicht über Mitternacht: zählt wahlweise zum Tag des Schichtbeginns (Standard) oder nach Kalendertag, für Präsenz und Home-Office gleich
+- Speicherstatus in den Einstellungen und eine Spiegelkopie der Daten in IndexedDB, aus der sich ein leerer oder beschädigter Speicher wiederherstellen lässt
 - Datensicherung als JSON-Export mit Wiederherstellung
 - Läuft komplett offline. Keine Datenübertragung an Server. Alle Daten bleiben auf dem Gerät.
 
@@ -127,7 +137,8 @@ Im Chrome oder Edge auf das Installations-Icon in der Adressleiste klicken oder 
 
 - Reines HTML, CSS, JavaScript. Keine Frameworks, keine Build-Pipeline.
 - Service Worker mit Cache-First-Strategie für Offline-Betrieb.
-- Speicherung ausschließlich in `localStorage` des Browsers.
+- Speicherung ausschließlich im Browser: `localStorage` als Hauptspeicher, seit v3.15.0 zusätzlich eine Spiegelkopie in IndexedDB.
+- Content-Security-Policy per Meta-Tag: Skripte nur von der eigenen Seite und den drei fest benannten Export-Bibliotheken, keine eingebetteten Stile.
 - Feiertagsberechnung nach Gauß'scher Osterformel, keine externen Datenquellen.
 - Auto-Update: Beim Deployment einer neuen Version erscheint in der geöffneten App ein Banner „Neue Version verfügbar", das nach einem Klick den Cache leert und die App neu lädt.
 
@@ -139,7 +150,7 @@ Keine Server-Kommunikation, keine Analytics, keine Cookies, kein Tracking. Die A
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Datenfluss, State-Layout, Modul-Karte (Ist und Ziel), Kontrakte für Selektoren, Migrationen und Regression
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Setup, QA-Ablauf, Version-Bump-Checkliste, CI-Details
-- [docs/ROADMAP.md](docs/ROADMAP.md) — Vier-Phasen-Plan (Sicherheitsnetz, Verstehen, Modul-Split, Sauberkeit)
+- [docs/ROADMAP.md](docs/ROADMAP.md) — aktueller Stand und nächste Versionen, darunter der frühere Phasenplan als Verlauf
 - [docs/CHECKLIST.md](docs/CHECKLIST.md) — Pro-Feature-Checkliste
 - [RELEASE.md](RELEASE.md) — Deploy-Kommandos, Versions-Schema und Rollback
 
@@ -149,15 +160,19 @@ Vor jedem Version-Bump und in CI bei jedem Push auf `main`:
 
 ```bash
 npm ci
+npm run typecheck        # Typecheck gegen die gespeicherte Liste, 0 neue Meldungen
+npm run -s unit          # 174 Unit-Checks in Node, Berlin und New York, unter 1 s
 npm run serve &          # lokaler HTTP-Server auf Port 8765
-npm run qa               # 514 Checks, ~3 s
+npm run qa               # Regression in Chromium, rund 2.390 Checks
+npm run qa:webkit        # dieselbe Regression in WebKit (Safari)
+npm run visual:test      # Bildvergleich, 6 Ansichten
 ```
 
 Umgebungsvariablen:
 - `BASE_URL` — Server-URL (Default `http://localhost:8765`)
 - `HEADLESS=0` — Browser sichtbar starten (`npm run qa:headed`)
 
-Deckt Selector-Unit-Tests, Migrations-Unit-Tests, Freelance- und Employee-E2E in allen Views sowie PDF/Word/OverviewPDF inhaltlich (Text-Extraktion via pdf-parse und mammoth) ab. Exit-Code 0 = alles grün, 1 = mindestens ein Fehler.
+Deckt Selector-Unit-Tests, Migrations-Unit-Tests (bis zur ganzen Kette von Schema 1 bis 7), Freelance- und Employee-E2E in allen Views, die Prüfsummen der Berichte, einen CSP-Wächter sowie PDF/Word/OverviewPDF inhaltlich (Text-Extraktion via pdf-parse und mammoth) ab. Exit-Code 0 = alles grün, 1 = mindestens ein Fehler.
 
 CI läuft automatisch bei Push und PR auf `main`. Pages-Deployment ist gated: rote Regression blockt den Deploy.
 

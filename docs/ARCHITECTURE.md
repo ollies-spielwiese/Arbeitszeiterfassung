@@ -13,7 +13,7 @@ Wer die App weiterentwickelt, sollte diese Datei zuerst lesen und danach `types.
 ## Big Picture
 
 - **Statische PWA.** Kein Build-Step, kein Framework. HTML/CSS/JS werden 1:1 von GitHub Pages ausgeliefert.
-- **Offline-First.** Service Worker cached alle Assets. State liegt im `localStorage` unter `arbeitszeit_v1`.
+- **Offline-First.** Service Worker cached alle Assets. State liegt im `localStorage` unter `arbeitszeit_v1`, seit v3.15.0 zusätzlich als Spiegelkopie in IndexedDB (`modules/storage-idb.js`). Seit v3.15.9 gilt eine strenge Content-Security-Policy per Meta-Tag (Skripte nur `'self'` und drei fest benannte Bibliotheksdateien, `style-src 'self'`).
 - **Single Source of Truth für Daten:** das globale `state`-Objekt (`app.js:324`, geladen über `loadState()` aus `modules/state.js`), definiert durch `AZState` in `types.js`.
 - **Single Source of Truth für Zusammenfassungs-Felder:** `getSummaryFields()` (`modules/selectors.js`, seit Phase 3.5 aus `app.js` extrahiert). Screen, PDF, Word und E-Mail rendern aus demselben Feld-Array.
 - **Zwei Modi:** `employee` (mit Soll/Saldo/Urlaub/Krank) und `freelance` (nur Ist + Rechnungsbetrag). Umschaltung via `state.settings.appMode`. Labels via `L(key)` (`app.js:212`).
@@ -107,9 +107,9 @@ state (AZState)
 
 ---
 
-## Modul-Karte (Ist-Zustand — Phase 3 Modul-Split abgeschlossen)
+## Modul-Karte (Ist-Zustand v3.15.10)
 
-`app.js` ist seit Phase 3 nur noch der Einstiegspunkt (DOMContentLoaded, Router, Wiring), 1906 Zeilen statt ursprünglich 4118. Die eigentliche Logik lebt in `modules/*`:
+`app.js` ist seit Phase 3 nur noch der Einstiegspunkt (DOMContentLoaded, Router, Wiring), seit v3.15.5 1.188 Zeilen statt ursprünglich 4118 (Ziel unter 600). Seit v3.14.3 reicht `app.js` seine Funktionen über den zentralen Kontext `modules/app-context.js` weiter, seit v3.15.5 hat jeder Reiter ein eigenes Modul unter `modules/tabs/`. Die eigentliche Logik lebt in `modules/*`:
 
 | Modul                         | Verantwortung                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------- |
@@ -129,6 +129,16 @@ state (AZState)
 | `modules/sw-update.js`         | Service-Worker-Registrierung + Update-Prompt                                       |
 | `modules/whatsnew.js`          | „Was ist neu"-Modal-Logik                                                          |
 | `modules/bootstrap.js`         | Verdrahtet alle Event-Listener, startet die App                                    |
+| `modules/app-context.js`      | Zentraler Kontext (Bereiche `state`, `compute`, `format`, `ui`, `render`, `exports`, `data`), seit v3.14.1 |
+| `modules/tabs/*.js`            | Ein Modul je Reiter (`tracker`, `entries`, `week`, `report`, `overview`, `vacation`, `gleitzeit`, `employers`, `archive`, `settings`), seit v3.15.1–v3.15.5 |
+| `modules/backup.js`, `backup-validation.js`, `backupFolder.js` | Backup-Export und -Import (`prepareImportedState` mit Migrationen), Prüfung unsicherer Importdaten, Backup-Ordner |
+| `modules/storage-idb.js`, `storage-status.js` | Spiegelkopie in IndexedDB (v3.15.0), Karte Speicherstatus (v3.14.0) |
+| `modules/soll-warning.js`      | Sollstunden-Warnung: Schwellen, anteiliges Soll, Mindest-Arbeitstage |
+| `modules/arbzg-hints.js`, `sunday-hints.js` | Hinweise Arbeitszeitgesetz (§§ 3, 5) und Sonn-/Feiertagsarbeit (§§ 9–11) |
+| `modules/field-service.js`     | Außendienst-Nachweis: Tätigkeiten, Kilometer, Beträge |
+| `modules/education-leave-rules.js` | Bildungsurlaub nach Bundesland |
+| `modules/timer-check.js`, `dst.js`, `night-shift.js` | Timer prüfen ab 12 Std. (v3.15.6), Zeitumstellung (v3.15.7), Nachtschicht über Mitternacht (v3.15.8) |
+| `modules/entry-conflicts.js`, `archive-report.js`, `report-mode.js`, `employer-address.js`, `kind-migration-notice.js` | Konfliktprüfung ganztägiger Abwesenheiten, Archiv als Momentaufnahme, Berichtsart je Arbeitgeber, Firmenadresse, Hinweis nach Migration 6→7 |
 | `modules/regression-bridge.js` | Compatibility-Bridge, exponiert interne Funktionen für `scripts/regression.mjs`     |
 | `modules/render/*.js`          | Reine HTML-Builder pro View (`summary`, `tracker`, `entries`, `week`, `report`, `overview`, `employers`, `archive`, `audit-log`, `gleitzeitkonto`, `vacation-planning`) — kein DOM-Zugriff, keine Seiteneffekte |
 | `modules/ui/*.js`              | Modal-/Formular-Controller mit ctx-DI (`entry-modal`, `homeoffice-modal`, `employer-modal`, `range-entry-modal`, `holiday-overrides`, `templates`) — lesen/schreiben `state` über `ctx` |
@@ -225,9 +235,9 @@ User mit `hoursMode='month'` und Schichtdienst/konzentrierter Teilzeit müssen K
 
 Formalisiert in v3.8.3. Regeln:
 
-1. **`SCHEMA_VERSION` ist die einzige Wahrheit.** Aktuell 4.
+1. **`SCHEMA_VERSION` ist die einzige Wahrheit.** Aktuell 7.
 2. **`migrations[]` ist ein Array von `{ from, to, apply(state) }`.** Jede Migration erhöht die Version um genau 1 und ist idempotent bei doppelter Anwendung.
-3. **`runMigrations(state)` läuft in `loadState`** und iteriert vom aktuellen `state.schemaVersion` (Default 0 für Alt-Daten) bis `SCHEMA_VERSION`. Seit v3.9.49 läuft `runMigrations` aus demselben Grund auch in `importBackup()` (`modules/backup.js`) — ein importiertes Backup durchläuft dieselben Migrationen wie ein normaler App-Start, statt mit veraltetem Schema eingespielt zu werden.
+3. **`runMigrations(state)` läuft in `loadState`** und iteriert vom aktuellen `state.schemaVersion` (Default 1 für Alt-Daten ohne `schemaVersion`) bis `SCHEMA_VERSION`. Seit v3.9.49 läuft `runMigrations` aus demselben Grund auch in `importBackup()` (`modules/backup.js`) — ein importiertes Backup durchläuft dieselben Migrationen wie ein normaler App-Start, statt mit veraltetem Schema eingespielt zu werden.
 4. **Bestehende Daten dürfen sich nicht verändern**, außer die Migration steht dafür. Test: `mig-M2` in `scripts/regression.mjs` prüft genau das.
 5. **Neue Migration = neuer Regression-Test** in Sektion 1b von `regression.mjs`. Sonst brechen die Idempotenz-Garantien.
 
@@ -236,6 +246,11 @@ Bekannte Migrationen:
 - 1→2: Home-Office-Duplikat-Konsolidierung (`migrateHomeofficeEntries`, `modules/migrations.js`)
 - 2→3: Template `scope`-Feld setzen (`tpl-2` → `employee`, sonst `both`)
 - 3→4 (v3.9.31): Neue Employer-Felder `hiredSince` (Datum, leer `''`) und `vacationCarryOver` (Zahl, Default 0) bekommen sichere Defaults auf bestehenden Employern.
+- 4→5 (v3.9.55): Employer-Feld `employmentEndDate` („Beschäftigt bis“, leer `''`).
+- 5→6 (v3.9.56): Employer-Feld `personnelNumber` („Pers.-Nr.“, leer `''`).
+- 6→7 (v3.9.58): Employer-Feld `kind` (`'employer'` oder `'client'`) nach dem Modus zum Zeitpunkt der Migration, dazu ein einmaliger Hinweis (`pendingMigrationNotice`).
+
+Seit v3.15.10 prüft **MIG7** die ganze Kette: ein Backup ohne `schemaVersion` läuft in Node (`scripts/unit/migration.cases.mjs`) und über den echten Import der App (`scripts/migration-tests.mjs`) bis Schema 7. Die Summen für November 2026 müssen gleich sein wie bei denselben Daten im Schema 7, ein zweiter Durchlauf darf nichts ändern. Eine neue Migration erweitert diesen Test.
 
 Neue Migration hinzufügen:
 1. `SCHEMA_VERSION` in `modules/migrations.js` erhöhen.
@@ -249,7 +264,7 @@ Neue Migration hinzufügen:
 
 `scripts/regression.mjs` ist das Sicherheitsnetz. CI läuft ihn bei jedem Push. Grün ist Voraussetzung für jeden Version-Bump und für den Pages-Deploy.
 
-**Aktueller Umfang: 282 Checks in laufend wachsenden Sektionen** (Zahlen unten sind Anker zum Zeitpunkt v3.9.52 — die verbindliche, aktuelle Zahl liefert immer `npm run qa`; jedes neue Feature ergänzt eine eigene Sektion, siehe Regel unten).
+**Aktueller Umfang: 2.390 Checks in Chromium und WebKit (Stand v3.15.10), dazu 174 Unit-Checks in Node (`npm run -s unit`).** Seit v3.15.9 überwacht ein CSP-Wächter den ganzen Lauf, seit v3.14.1 vergleicht `scripts/report-snapshot.mjs` die Prüfsummen der Berichte. (Die Zahlen unten sind Anker zum Zeitpunkt v3.9.52 — die verbindliche, aktuelle Zahl liefert immer `npm run qa`; jedes neue Feature ergänzt eine eigene Sektion, siehe Regel unten).
 
 1. **Selektor-Unit-Tests** (8) — `getSummaryFields` in 5 Konfigurationen. Erwartet: richtige Felder pro Modus, richtige `rawAmount` und `rawMinutes`.
 2. **Migrations-Unit-Tests** (9) — Legacy → migriert; Idempotenz; keine ungewollten Mutationen; Home-Office-Konsolidierung.
@@ -341,7 +356,7 @@ Muster für „von … bis …“-Erfassung, umgesetzt für Urlaub/Krankheit in 
 - **`CACHE_NAME`** in `sw.js:1` — muss synchron zu `APP_VERSION` sein (Schema `arbeitszeit-vMAJOR-MINOR-PATCH`), sonst zeigt der Service Worker alte Assets.
 - **`"version"`** in `package.json` — muss ebenfalls synchron sein.
 - **`CHANGELOG`** in `modules/constants.js` — neuester Eintrag oben. Wird beim ersten Öffnen einer neuen Version als „Was ist neu"-Modal angezeigt.
-- Alle 4 Stellen (`modules/constants.js` ×2, `package.json`, `index.html`, `sw.js`) müssen bei jedem Release synchron gehalten werden — siehe `RELEASE.md`.
+- Alle Stellen (`modules/constants.js` ×2, `package.json`, `package-lock.json`, `index.html`, `sw.js`) setzt seit v3.13.1 `npm run -s bump -- X.Y.Z --item "…"` auf einmal; `npm run -s version:check` prüft sie — siehe `RELEASE.md`.
 
 Der Version-Bump-Ablauf lebt in `CONTRIBUTING.md`.
 
@@ -350,7 +365,9 @@ Der Version-Bump-Ablauf lebt in `CONTRIBUTING.md`.
 ## Referenzen
 
 - `types.js` — alle Typ-Signaturen
-- `scripts/regression.mjs` — 282 Checks (aktuelle Zahl siehe `npm run qa`-Ausgabe)
+- `scripts/regression.mjs` — 2.390 Checks (Stand v3.15.10, aktuelle Zahl siehe `npm run qa`-Ausgabe)
+- `scripts/unit.mjs` und `scripts/unit/*.cases.mjs` — Unit-Tests in Node
+- `scripts/fixtures/typecheck-baseline.json` — gespeicherte Liste der Typecheck-Meldungen
 - `.github/workflows/regression.yml` — CI-Sweep
 - `.github/workflows/pages.yml` — CI-gated Deploy
 - `docs/ROADMAP.md` — Phasen und Reihenfolge

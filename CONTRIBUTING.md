@@ -52,11 +52,14 @@ npm run qa
 
 Erwartete Ausgabe: `N/N Checks OK — 0 Fehler — X.Xs` (N wächst mit jedem neuen Test). Jeder Fehler ist rot.
 
-Vor der Regression außerdem den JSDoc-Typcheck fahren:
+Vor der Regression außerdem den JSDoc-Typcheck und die Unit-Tests fahren:
 ```
 npm run typecheck
+npm run -s unit
 ```
-Erwartet: `echte Fehler: 0` (DOM-Rauschen wird gefiltert).
+Typecheck erwartet: `echte Fehler: 0` und `neue Meldungen: 0`. Seit v3.15.10 vergleicht `scripts/typecheck.mjs` alle Meldungen, auch das gefilterte DOM-Rauschen, je Datei und Meldungstext mit `scripts/fixtures/typecheck-baseline.json`. Jede neue oder häufigere Meldung lässt den Lauf scheitern. Wer Meldungen abbaut, schreibt die Liste mit `npm run -s typecheck -- --update` neu und committet sie mit.
+
+Unit-Tests erwartet: `N/N Unit-Checks OK — 0 Fehler`. `scripts/unit.mjs` führt alle `scripts/unit/*.cases.mjs` ohne Browser aus, je einmal mit `TZ=Europe/Berlin` und `TZ=America/New_York`. Eine Fallsammlung exportiert `async function cases(load)` und gibt `[[name, wert, erwartet], …]` zurück; `load('x.js')` lädt `modules/x.js`. Die Sammlungen zu Zeitumstellung, Timer, Nachtschicht und Migrationskette laufen zusätzlich in der Browser-Regression. Erwartete Werte werden von Hand gerechnet und im Kopf der Datei begründet.
 
 Weitere Prüfungen:
 - `ENGINE=webkit npm run qa` — dieselbe Regression in WebKit (Safari).
@@ -133,7 +136,7 @@ Wenn CI rot ist, wird der Push zurückgezogen oder ein Fix-Commit auf denselben 
 
 Drei Workflows in `.github/workflows/` (alle mit `permissions: contents: read`, sofern nicht mehr nötig ist):
 
-- `regression.yml` — läuft bei jedem Push und PR auf `main` (Playwright-Jobs auf `ubuntu-latest`; seit v3.14.4 mit Playwright 1.65.1, Ubuntu 26.04 wird ab Playwright 1.61 unterstützt. `scripts/ci-runner-tests.mjs` prüft, dass Playwright-Version und Abbild zusammenpassen). Drei Jobs: `Playwright-Regression` (Typcheck + Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
+- `regression.yml` — läuft bei jedem Push und PR auf `main` (Playwright-Jobs auf `ubuntu-latest`; seit v3.14.4 mit Playwright 1.65.1, Ubuntu 26.04 wird ab Playwright 1.61 unterstützt. `scripts/ci-runner-tests.mjs` prüft, dass Playwright-Version und Abbild zusammenpassen). Drei Jobs: `Playwright-Regression` (Versionsprüfung, Typcheck, Unit-Tests in Node, Chromium), `Playwright-Regression (WebKit/Safari)` und `Visual-Regression`. Zeitlimit je Job (auch in `lighthouse.yml` und `pages.yml`) 20 Minuten (Playwright-Installation auf langsamen Runnern dauert teils über 6 Minuten).
 - `lighthouse.yml` — Lighthouse-Check (Performance, Barrierefreiheit, Best Practices).
 - `pages.yml` — deployt GitHub Pages, aber nur nach grüner Regression im selben Run (Job `qa`, `needs: qa`). Kopiert nur statische App-Files ins Artifact (kein `node_modules`, kein `scripts/`, kein `package.json`).
 
@@ -175,7 +178,7 @@ Aktuell arbeitet das Projekt direkt auf `main`. Seit v3.9.65 ist `main` per GitH
 
 **„Pages baut den neuen Stand nicht."** Sollte mit dem CI-Deploy nicht mehr passieren. Falls doch: Actions-Tab im Repo öffnen, Run manuell via „Run workflow" starten. Historisch war ein leerer Trigger-Commit nötig — mit `pages.yml` nicht mehr.
 
-**„localStorage-Migration hängt."** Migrations sind idempotent gebaut. Wenn eine hängt, ist entweder `SCHEMA_VERSION` nicht erhöht oder die Migration mutiert state falsch. Regression-Test M2 fängt das ab.
+**„localStorage-Migration hängt."** Migrations sind idempotent gebaut. Wenn eine hängt, ist entweder `SCHEMA_VERSION` nicht erhöht oder die Migration mutiert state falsch. Regression-Test M2 fängt das ab, MIG7 prüft seit v3.15.10 die ganze Kette von Schema 1 bis 7 samt Summen.
 
 ---
 

@@ -45,7 +45,7 @@ Lehre aus der Arbeitszeit-App (v1.0 → v3.8.1, 38 Releases). Nicht jeder Punkt 
 - [ ] **Export-Inhalt prüfen**, nicht nur "Datei existiert" — konkrete Werte im PDF/Word/CSV assert-en
 - [ ] **CI ab Tag 1** (GitHub Actions). Ohne Grün kein Merge.
 - [ ] **Playwright oder ähnlich** für Browser-Tests, nicht "läuft im Chrome"
-- [ ] **Jede neue pure Funktion über die Regression-Bridge exponieren**, sobald sie entsteht — nicht erst am Ende der Feature-Arbeit. Sonst häufen sich mehrere fertig implementierte, aber ungetestete Features an (siehe v3.9.47: 6 Features fertig gebaut, bevor die fehlende Testabdeckung auffiel).
+- [ ] **Jede neue pure Funktion über die Regression-Bridge exponieren**, sobald sie entsteht — nicht erst am Ende der Feature-Arbeit. Sonst häufen sich mehrere fertig implementierte, aber ungetestete Features an (siehe v3.9.47: 6 Features fertig gebaut, bevor die fehlende Testabdeckung auffiel). Reine Rechenfälle kommen seit v3.15.10 zusätzlich als Fallsammlung nach `scripts/unit/` und laufen damit auch in Node.
 
 ## Release-Disziplin
 
@@ -74,7 +74,8 @@ Lehre aus der Arbeitszeit-App (v1.0 → v3.8.1, 38 Releases). Nicht jeder Punkt 
 
 ## Vor jedem Commit
 
-- [ ] `npm run qa` grün
+- [ ] `npm run typecheck` ohne neue Meldungen, `npm run -s unit` grün (seit v3.15.10)
+- [ ] `npm run qa` grün, auch `npm run qa:webkit`
 - [ ] Manuell im Browser geprüft, nicht nur Tests
 - [ ] Cache-Version gebumpt, falls PWA-Asset geändert
 - [ ] Changelog-Eintrag ergänzt

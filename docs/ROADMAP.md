@@ -1,4 +1,45 @@
-# Arbeitszeit-App — Roadmap v3.9 → v4.0
+# Arbeitszeit-App — Roadmap
+
+## Aktueller Stand (v3.15.10, 19.11.2026)
+
+Seit v3.9.97 erledigt, Details im Changelog (`modules/constants.js`):
+
+| Version | Inhalt |
+|---|---|
+| v3.9.98 bis v3.13.0 | Anleitung, Abgeltung bei Austritt mit Urlaubsbescheinigung, Firmenadresse, Bildungsurlaub für alle Bundesländer, Hinweis Arbeitszeitgesetz, Außendienst-Nachweis mit Kilometer-PDF, Hinweis Sonn- und Feiertagsarbeit |
+| v3.13.1 | Versionsnummer per Skript (`npm run -s bump`) |
+| v3.14.0 | Speicherstatus, dauerhafter Speicher, Backup-Erinnerung im Reiter Erfassen |
+| v3.14.1 bis v3.14.4 | Zentraler Kontext `modules/app-context.js`, Prüfsummen der Berichte, Update-Cache nur vollständig, Playwright 1.65.1 |
+| v3.15.0 | Spiegelkopie in IndexedDB mit Wiederherstellung |
+| v3.15.1 bis v3.15.5 | Ein Modul je Reiter unter `modules/tabs/`, `app.js` 1.188 Zeilen |
+| v3.15.6 | Timer prüfen ab 12 Std., CSV-Formelschutz, Barrierefreiheit 100, Content-Security-Policy |
+| v3.15.7 | Sommer- und Winterzeit: tatsächlich gearbeitete Zeit |
+| v3.15.8 | Nachtschicht über Mitternacht: Schichtbeginn (Standard) oder Kalendertag |
+| v3.15.9 | Nachtschicht-Hinweis in der CSV, strengere CSP (Stufe 1) |
+| v3.15.10 | Unit-Tests in Node, Typecheck mit gespeicherter Liste, Test der Migrationskette |
+
+Qualität: Regression 2.390 Checks in Chromium und WebKit, 174 Unit-Checks in Node, Visual 6/6, Lighthouse 95/100/100/100.
+
+## Nächste Versionen
+
+Jede Version beginnt mit einer Vorschau mit Beispieldaten.
+
+| Version | Schwerpunkt |
+|---|---|
+| v3.16.0 | Einstieg nach Nutzerprofil mit Startwerten |
+| v3.17.0 | IndexedDB als Hauptspeicher, `localStorage` bleibt Notfallkopie |
+| v3.18.0 | Einstellungen und Anleitung nach Profil gliedern, Offline-Speicher verkleinern |
+| v3.19.0 | Bibliotheken lokal statt vom CDN, CSP ohne fremde Hosts, getrennter Build für Web und App-Stores |
+| v3.20.0 | App-Hülle für iOS und Android |
+| v4.0.0 | Testphase und Einreichung in den App-Stores |
+
+Weiter offen: Test auf echtem iPhone/iPad, `app.js` unter 600 Zeilen, Abbau der 239 Typecheck-Meldungen, fachliche Erweiterungen wie Nachtstunden-Anzeige und Schichtfolge.
+
+Hinweis zu den Nicht-Zielen unten: Für die App-Stores ist ab v3.19.0 ein kleiner Build-Schritt geplant. Die Web-Version bleibt ohne Bundler auslieferbar.
+
+---
+
+## Verlauf: Phasenplan v3.9 → v4.0 (Stand v3.9.97)
 
 **Status (Stand v3.9.97, 27.10.2026): Phasen 1–4 und 6 sind vollständig umgesetzt, Phase 5 bis auf einen optionalen Punkt.** Die strukturellen Phasen 1–4 wurden bis v3.9.36 abgeschlossen (Typprüfung per `@ts-check`/`tsc --noEmit`, Migrations-Layer, Export-Inhaltsprüfung, CI, Modul-Split von `app.js`). Die Abschnitte zu Phase 1–4 bleiben als historische Referenz erhalten. Aktuelle offene Aufgaben stehen unter „Phase 7“ am Ende.
 
