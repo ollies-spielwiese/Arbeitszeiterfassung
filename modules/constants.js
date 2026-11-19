@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.15.5';
+export const APP_VERSION = '3.15.6';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.15.6', items: [
+    'Fix: Läuft der Timer 12 Stunden oder länger, fragt „Ende“ nach dem tatsächlichen Ende (vergessene Timer werden nicht mehr still gekürzt). Dazu: Präsenz über Mitternacht lässt sich trotz Abwesenheit am Folgetag beenden, CSV-Export schützt vor Formeln, bessere Barrierefreiheit und eine Content-Security-Policy',
+  ] },
   { version: '3.15.5', items: [
     'Interner Umbau: Reiter Arbeitgeber und Einstellungen sowie das Backup als eigene Module (keine sichtbare Änderung)',
   ] },

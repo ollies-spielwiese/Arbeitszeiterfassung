@@ -2,6 +2,10 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
+  <!-- Seit v3.15.6: Content-Security-Policy. Skripte nur von der eigenen Adresse und den drei
+       Export-Bibliotheken auf unpkg.com (zusätzlich per SRI geprüft). 'unsafe-inline' bei den
+       Stilen ist nötig, weil die App Farben und Abstände direkt im HTML setzt. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Offline-Arbeitszeiterfassung mit Wochen-, Monats- und Jahresbilanz, PDF- und Word-Export." />
   <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: light)" />
@@ -115,7 +119,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.5</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.6</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -135,6 +139,7 @@
   <main id="app">
     <!-- Tracker View -->
     <section id="view-tracker" class="view active">
+      <h2 class="sr-only">Erfassen</h2>
       <div id="backup-reminder-banner-tracker" class="backup-reminder-banner hidden" data-testid="banner-backup-reminder-tracker">
         <span id="backup-reminder-text-tracker"></span>
         <div class="backup-reminder-actions">
@@ -226,6 +231,7 @@
 
     <!-- Entries View -->
     <section id="view-entries" class="view">
+      <h2 class="sr-only">Einträge</h2>
       <div class="filter-row">
         <select id="filter-employer" data-testid="select-filter-employer"></select>
         <input type="month" id="filter-month" data-testid="input-filter-month" />
@@ -239,6 +245,7 @@
 
     <!-- Week View -->
     <section id="view-week" class="view">
+      <h2 class="sr-only">Woche</h2>
       <div class="filter-row">
         <select id="week-employer" data-testid="select-week-employer"></select>
         <input type="week" id="week-input" data-testid="input-week" />
@@ -248,6 +255,7 @@
 
     <!-- Monthly Report View -->
     <section id="view-report" class="view">
+      <h2 class="sr-only">Monat</h2>
       <div class="filter-row">
         <select id="report-employer" data-testid="select-report-employer"></select>
         <input type="month" id="report-month" data-testid="input-report-month" />
@@ -277,6 +285,7 @@
 
     <!-- Overview View: Monatsauswertung über alle Arbeitgeber -->
     <section id="view-overview" class="view">
+      <h2 class="sr-only">Übersicht</h2>
       <div id="sollstunden-warning-banner-overview" class="sw-warning-banner hidden" data-testid="banner-sollstunden-warning-overview">
         <span class="sw-title">Sollstunden-Warnung</span>
         <ul id="sollstunden-warning-list-overview" class="sw-list"></ul>
@@ -306,6 +315,7 @@
 
     <!-- Vacation-Planning View: Jahresübersicht der Urlaubsplanung (aktueller Arbeitgeber) -->
     <section id="view-vacation-planning" class="view">
+      <h2 class="sr-only">Urlaubsplanung</h2>
       <div class="filter-row">
         <label>
           Jahr
@@ -318,6 +328,7 @@
     <!-- Gleitzeitkonto View: kumulierter Überstundenverlauf im gewählten Kalenderjahr, seit
          v3.9.48 jahresbasiert statt rollierendem Zeitraum (siehe RELEASE.md) -->
     <section id="view-gleitzeitkonto" class="view">
+      <h2 class="sr-only">Gleitzeitkonto</h2>
       <div class="filter-row">
         <label>
           Jahr
@@ -928,11 +939,11 @@
   </main>
 
   <!-- Modal: Entry Form -->
-  <div id="modal-entry" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-entry" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-entry-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-entry-title">Zeit erfassen</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-entry-title">Zeit erfassen</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-entry">
         <input type="hidden" id="entry-id" />
@@ -1035,8 +1046,8 @@
   <div id="modal-fs-km" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-fs-km-title" data-testid="modal-fs-km">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-fs-km-title">Kilometer erfassen</h3>
-        <button type="button" class="modal-close" data-fs-km-close>✕</button>
+        <h2 id="modal-fs-km-title">Kilometer erfassen</h2>
+        <button type="button" class="modal-close" data-fs-km-close aria-label="Schließen">✕</button>
       </div>
       <p class="hint">Strecke der Fahrt in km (ohne Kilometerstand).</p>
       <div id="fs-km-rows"></div>
@@ -1051,8 +1062,8 @@
   <div id="modal-fs-activity" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-fs-activity-title" data-testid="modal-fs-activity">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-fs-activity-title">Eigene Tätigkeit</h3>
-        <button type="button" class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-fs-activity-title">Eigene Tätigkeit</h2>
+        <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-fs-activity">
         <input type="hidden" id="fs-activity-id" />
@@ -1079,11 +1090,11 @@
   </div>
 
   <!-- Modal: Range Entry Form (Zeitraum erfassen — Urlaub/Krankheit „von … bis …") -->
-  <div id="modal-range-entry" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-range-entry" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-range-entry-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Zeitraum erfassen</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-range-entry-title">Zeitraum erfassen</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-range-entry">
         <div class="form-row">
@@ -1131,12 +1142,12 @@
   </div>
 
   <!-- Modal: Home-Office (Multi-Segment) -->
-  <div id="modal-homeoffice" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-homeoffice" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-homeoffice-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-homeoffice-title">Home-Office-Tag</h3>
+        <h2 id="modal-homeoffice-title">Home-Office-Tag</h2>
         <div class="ho-live-total" id="ho-live-total" aria-live="polite">0:00</div>
-        <button class="modal-close" data-close-modal>✕</button>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="ho-context" id="ho-context" aria-live="polite"></div>
       <form id="form-homeoffice">
@@ -1175,11 +1186,11 @@
   </div>
 
   <!-- Modal: Employer Form -->
-  <div id="modal-employer" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-employer" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-employer-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-employer-title">Arbeitgeber</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-employer-title">Arbeitgeber</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-employer">
         <input type="hidden" id="employer-id" />
@@ -1426,11 +1437,38 @@
     </div>
   </div>
 
-  <!-- Modal: Template Editor -->
-  <div id="modal-whatsnew" class="modal hidden" role="dialog" aria-modal="true">
+  <!-- Modal: Timer prüfen (seit v3.15.6) -->
+  <div id="modal-timer-check" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-timer-check-title" data-testid="modal-timer-check">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-whatsnew-title">Was ist neu</h3>
+        <h2 id="modal-timer-check-title">Timer prüfen</h2>
+        <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="timer-check-message" class="timer-check-message" data-testid="text-timer-check-message"></p>
+        <div class="timer-check-row">
+          <label for="timer-check-date">Tatsächliches Ende am
+            <input type="date" id="timer-check-date" data-testid="input-timer-check-date" />
+          </label>
+          <label for="timer-check-time">um
+            <input type="time" id="timer-check-time" data-testid="input-timer-check-time" />
+          </label>
+        </div>
+        <p id="timer-check-result" class="timer-check-result" data-testid="text-timer-check-result"></p>
+        <p id="timer-check-error" class="timer-check-error hidden" role="alert" data-testid="text-timer-check-error"></p>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" data-close-modal data-testid="button-timer-check-continue">Timer weiterlaufen lassen</button>
+          <button type="button" class="btn-primary" id="btn-timer-check-save" data-testid="button-timer-check-save">Mit diesem Ende speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Was ist neu -->
+  <div id="modal-whatsnew" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-whatsnew-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-whatsnew-title">Was ist neu</h2>
         <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="modal-body">
@@ -1442,10 +1480,10 @@
     </div>
   </div>
 
-  <div id="modal-kind-migration-notice" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-kind-migration-notice" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-kind-migration-notice-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-kind-migration-notice-title">Bitte prüfen: Arbeitgeber/Kunde-Zuordnung</h3>
+        <h2 id="modal-kind-migration-notice-title">Bitte prüfen: Arbeitgeber/Kunde-Zuordnung</h2>
         <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="modal-body">
@@ -1465,10 +1503,10 @@
     </div>
   </div>
 
-  <div id="modal-holiday" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-holiday" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-holiday-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-holiday-title">Feiertag hinzufügen</h3>
+        <h2 id="modal-holiday-title">Feiertag hinzufügen</h2>
         <button type="button" class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-holiday" class="modal-body">
@@ -1512,11 +1550,11 @@
     </div>
   </div>
 
-  <div id="modal-template" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-template" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-template-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-template-title">Notizvorlage</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-template-title">Notizvorlage</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <form id="form-template">
         <input type="hidden" id="template-id" />
@@ -1547,11 +1585,11 @@
   </div>
 
   <!-- Modal: Share / Recipient Chooser -->
-  <div id="modal-share" class="modal hidden" role="dialog" aria-modal="true">
+  <div id="modal-share" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-share-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Auswertung versenden</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-share-title">Auswertung versenden</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="form-row">
         <label>Format</label>
@@ -1575,8 +1613,8 @@
   <div id="modal-settings-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-help-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-settings-help-title">Hilfe: Einstellungen</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-settings-help-title">Hilfe: Einstellungen</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="guide-body" data-testid="text-settings-help-body">
         <p>Ganz oben steht der Umschalter <strong>Modus</strong> (Angestellt / Freiberuflich). Daneben findest du:</p>
@@ -1615,8 +1653,8 @@
   <div id="modal-employers-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-employers-help-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="modal-employers-help-title">Hilfe: Arbeitgeber verwalten</h3>
-        <button class="modal-close" data-close-modal>✕</button>
+        <h2 id="modal-employers-help-title">Hilfe: Arbeitgeber verwalten</h2>
+        <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
       </div>
       <div class="guide-body" id="employers-help-employed" data-testid="text-employers-help-employed">
         <p>Hier legst du fest, wie viel du wo arbeiten sollst.</p>
@@ -1667,7 +1705,7 @@
   <div id="modal-mirror-restore" class="modal-sticky hidden" role="dialog" aria-modal="true" aria-labelledby="mirror-restore-title" data-testid="modal-mirror-restore">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="mirror-restore-title">Daten in der Spiegelkopie gefunden</h3>
+        <h2 id="mirror-restore-title">Daten in der Spiegelkopie gefunden</h2>
       </div>
       <p id="mirror-restore-text" data-testid="mirror-restore-text"></p>
       <p><strong id="mirror-restore-sums" data-testid="mirror-restore-sums"></strong></p>

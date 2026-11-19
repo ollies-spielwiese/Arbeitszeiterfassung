@@ -5,6 +5,8 @@
   --border: #e2e8f0;
   --text: #0f172a;
   --text-muted: #64748b;
+  /* Seit v3.15.6: kräftigeres Grau für kleine Schrift auf --surface-alt (Kontrast 6,9 : 1). */
+  --text-muted-strong: #475569;
   --primary: #2563eb;
   --primary-dark: #1d4ed8;
   --success: #16a34a;
@@ -28,6 +30,7 @@
     --border: #334155;
     --text: #f1f5f9;
     --text-muted: #94a3b8;
+    --text-muted-strong: #94a3b8;
   }
 }
 
@@ -782,6 +785,7 @@ textarea.note-autogrow {
   align-items: center;
   margin-bottom: 1rem;
 }
+.modal-header h2,
 .modal-header h3 { margin: 0; font-size: 1.15rem; }
 .modal-close {
   background: none;
@@ -1398,7 +1402,7 @@ textarea.note-autogrow {
   border-radius: 999px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: var(--text-muted-strong);
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -1420,7 +1424,7 @@ textarea.note-autogrow {
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-muted-strong);
   padding: 5px 12px;
   border-radius: 999px;
   cursor: pointer;
@@ -1741,4 +1745,32 @@ textarea.note-autogrow {
 .arbzg-sub { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 @media (prefers-color-scheme: dark) {
   .fs-chip-custom { background: #12301f; border-color: #2f7a4d; color: #b7f0cc; }
+}
+
+/* Seit v3.15.6: Überschrift nur für Screenreader (Reihenfolge h1 → h2 → h3). */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; border: 0;
+}
+
+/* Seit v3.15.6: Dialog „Timer prüfen“. */
+.timer-check-message {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #78350f;
+  margin: 0 0 10px;
+}
+.timer-check-row { display: flex; gap: 8px; }
+.timer-check-row label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; font-size: 0.85rem; }
+.timer-check-row input { width: 100%; box-sizing: border-box; }
+.timer-check-result { font-size: 0.85rem; color: var(--text-muted-strong); margin: 8px 0 0; min-height: 1.2em; }
+.timer-check-error { font-size: 0.85rem; color: var(--danger, #b91c1c); margin: 6px 0 0; }
+#modal-timer-check .modal-footer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+@media (prefers-color-scheme: dark) {
+  .timer-check-message { background: #422006; border-color: #b45309; color: #fde68a; }
 }

@@ -24,6 +24,8 @@ import {
 import { buildTodaySummaryHTML } from '../render/tracker.js';
 import { renderSummaryHTML } from '../render/summary.js';
 import { updateSollWarningBanner } from '../ui/soll-warning-banner-ui.js';
+import { needsTimerCheck } from '../timer-check.js';
+import { openTimerCheckModal } from '../ui/timer-check-modal.js';
 
 /** Präsenz oder Home-Office (nicht gespeichert). */
 let currentMode = 'praesenz';
@@ -186,18 +188,30 @@ export function startWork(ctx) {
 
 /**
  * Knopf „Ende“.
+ * Seit v3.15.6: Läuft der Timer 12 Stunden oder länger, öffnet sich zuerst der Dialog
+ * „Timer prüfen“ (modules/ui/timer-check-modal.js). Dessen Speichern ruft endWork mit
+ * festem Ende (opts.endDate) erneut auf.
  * @param {any} ctx
+ * @param {{endDate?: Date}} [opts]
  */
-export function endWork(ctx) {
+export function endWork(ctx, opts) {
   const cx = toAppContext(ctx);
   const st = cx.state.get();
   const r = st.runningTimer;
   if (!r) return;
   const startDate = new Date(r.startISO);
-  const endDate = new Date();
+  const fixedEnd = opts && opts.endDate instanceof Date ? opts.endDate : null;
+  if (!fixedEnd && needsTimerCheck(r.startISO, new Date())) {
+    openTimerCheckModal(cx, (endDate) => endWork(ctx, { endDate }));
+    return;
+  }
+  const endDate = fixedEnd || new Date();
   const parts = splitAcrossMidnight(startDate, endDate);
   if (!parts.length) { cx.ui.toast('Bitte mindestens eine Minute erfassen.'); return; }
-  if (parts.some((p) => findEntryConflict(st.entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
+  // Seit v3.15.6: Präsenz speichert nur am Starttag, also wird nur dieser Tag geprüft.
+  // Home-Office bucht auf jeden Kalendertag und prüft weiterhin alle.
+  const checkParts = r.type === 'homeoffice' ? parts : parts.slice(0, 1);
+  if (checkParts.some((p) => findEntryConflict(st.entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
     cx.ui.toast(ENTRY_CONFLICT_MESSAGE + ' Der Timer bleibt erhalten.'); return;
   }
 

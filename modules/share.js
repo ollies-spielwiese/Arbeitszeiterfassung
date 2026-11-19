@@ -385,8 +385,8 @@ export function openOverviewShareModal(ctx) {
 // Bei Aenderungen am Formular in index.html bitte auch hier nachziehen.
 const SHARE_MODAL_DEFAULT_HTML = `
     <div class="modal-header">
-      <h3>Auswertung versenden</h3>
-      <button class="modal-close" data-close-modal>✕</button>
+      <h2 id="modal-share-title">Auswertung versenden</h2>
+      <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
     </div>
     <div class="form-row">
       <label>Format</label>
@@ -411,8 +411,8 @@ const SHARE_MODAL_DEFAULT_HTML = `
 // SHARE_MODAL_DEFAULT_HTML bitte pruefen, ob diese Struktur nachgezogen werden muss.
 const OVERVIEW_SHARE_MODAL_HTML = `
     <div class="modal-header">
-      <h3>Auswertung versenden</h3>
-      <button class="modal-close" data-close-modal>✕</button>
+      <h2 id="modal-share-title">Auswertung versenden</h2>
+      <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
     </div>
     <div class="form-row">
       <label>Format</label>
@@ -451,8 +451,8 @@ export function showMailtoStage2(mailto, count, filename, ctx) {
     : `Datei „${filename}“ heruntergeladen. Jetzt öffnet sich die E-Mail-App mit ${count} Empfängern – bitte die Datei anhängen.`;
   content.innerHTML = `
     <div class="modal-header">
-      <h3>Fast fertig</h3>
-      <button class="modal-close" data-close-modal>✕</button>
+      <h2 id="modal-share-title">Fast fertig</h2>
+      <button class="modal-close" data-close-modal aria-label="Schließen">✕</button>
     </div>
     <div class="mailto-stage2">
       <div class="mailto-stage2-icon">✉️</div>

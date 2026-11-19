@@ -34,9 +34,13 @@ const TYPE_LABELS = {
  * @param {string|number} value
  * @returns {string}
  */
-function csvField(value) {
-  const s = value === undefined || value === null ? '' : String(value);
-  if (/[";\n]/.test(s)) {
+export function csvField(value) {
+  let s = value === undefined || value === null ? '' : String(value);
+  // Seit v3.15.6: Schutz gegen Formeln in Excel/LibreOffice. Freitext, der mit =, +, -, @,
+  // Tab oder Wagenrücklauf beginnt, bekommt ein Hochkomma vorangestellt. Zahlen, Zeiten und
+  // Beträge der App (z. B. „-0:30“, „-12,50“) bleiben unverändert und damit Zahlen.
+  if (/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d[\d.,:]*$/.test(s)) s = "'" + s;
+  if (/[";\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
