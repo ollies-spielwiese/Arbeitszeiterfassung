@@ -180,6 +180,24 @@ CI läuft automatisch bei Push und PR auf `main`. Pages-Deployment ist gated: ro
 
 Oliver Gläser · Frankfurt am Main
 
-## Lizenz
+## Lizenz und Nutzung
 
-Nutzung frei für nichtkommerzielle Zwecke. Kein Support-Anspruch.
+© 2026 Oliver Gläser. Alle Rechte vorbehalten, soweit unten nichts anderes steht.
+
+Der Quellcode ist öffentlich einsehbar, damit die App über GitHub Pages ausgeliefert und automatisch geprüft werden kann. Öffentlich einsehbar heißt nicht frei verwendbar.
+
+Erlaubt:
+- Die App unter [ollies-spielwiese.github.io/Arbeitszeiterfassung](https://ollies-spielwiese.github.io/Arbeitszeiterfassung/) privat und für die eigene berufliche Zeiterfassung nutzen, auch als Angestellte oder Freiberufler.
+- Den Quellcode lesen und zum Lernen lokal ausprobieren.
+- Fehler und Vorschläge als Issue melden.
+
+Nicht erlaubt ohne schriftliche Zustimmung:
+- Den Code oder Teile davon kopieren, verändern und weitergeben, auch nicht als eigenes Projekt (Fork mit eigener Veröffentlichung).
+- Die App oder abgeleitete Fassungen verkaufen, gegen Entgelt anbieten oder in ein kommerzielles Produkt einbauen.
+- Die App unter anderem Namen oder auf einem anderen Server bereitstellen.
+
+Haftung und Support: Die App wird ohne Gewähr bereitgestellt. Es besteht kein Anspruch auf Support, Fehlerbehebung oder Weiterentwicklung. Berechnungen und Hinweise (zum Beispiel zum Arbeitszeitgesetz) ersetzen keine rechtliche Prüfung; für die Richtigkeit der erfassten Daten und Exporte bist du selbst verantwortlich.
+
+Fremde Bibliotheken: Für die Exporte lädt die App [jsPDF](https://github.com/parallax/jsPDF), [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) und [docx](https://github.com/dolanmiu/docx) nach. Sie stehen unter der MIT-Lizenz ihrer jeweiligen Autoren und fallen nicht unter die Regeln oben.
+
+Anfragen zu Nutzung oder Lizenz bitte über ein Issue in diesem Repository.
