@@ -43,6 +43,7 @@ const MIGRATED_MODULES = [
   'modules/ui/holiday-overrides.js', 'modules/ui/storage-status-ui.js', 'modules/share.js',
   'modules/tabs/archive.js', 'modules/tabs/entries.js', 'modules/tabs/week.js', 'modules/tabs/gleitzeit.js',
   'modules/tabs/vacation.js', 'modules/tabs/overview.js', 'modules/ui/soll-warning-banner-ui.js',
+  'modules/tabs/tracker.js', 'modules/tabs/report.js', 'modules/ui/backup-reminder-banner-ui.js',
 ];
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');

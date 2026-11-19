@@ -8,7 +8,7 @@
  *   ctx.format   Zeit, Geld, Datum, HTML-Escaping, Dateinamen
  *   ctx.ui       Toast, Dialoge
  *   ctx.render   Neuzeichnen der Reiter
- *   ctx.exports  PDF, Word, Download
+ *   ctx.exports  PDF, Word, CSV, Download
  *   ctx.data     Arbeitgeber, IDs, Datum, Modus, Wochentage
  *
  *   ctx.extra    Zusätze für einen einzelnen Aufruf (z. B. __saveAndNext), siehe withExtras()
@@ -104,6 +104,7 @@ export const LEGACY_MAP = Object.freeze({
   // Exporte
   generatePdfBlob: 'exports.pdf',
   generateWordBlob: 'exports.word',
+  generateCsvBlob: 'exports.csv', // seit v3.15.4 (Reiter Monat)
   generateOverviewPdfBlob: 'exports.overviewPdf',
   downloadBlob: 'exports.download',
   generateKmPdfBlob: 'exports.kmPdf',

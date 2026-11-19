@@ -43,8 +43,6 @@
  */
 
 import { SCHEMA_VERSION, migrateHomeofficeEntries as _migrateHomeofficeEntriesRaw, runMigrations as _runMigrationsModule } from './modules/migrations.js';
-import { splitAcrossMidnight } from './modules/util-time.js';
-import { findEntryConflict, ENTRY_CONFLICT_MESSAGE } from './modules/entry-conflicts.js';
 import {
   STORAGE_KEY,
   DEFAULT_STATE,
@@ -61,9 +59,7 @@ import * as MirrorModule from './modules/storage-idb.js';
 const { mirrorPersisted, startMirror, MIRROR_STATUS_EVENT } = MirrorModule;
 import { showMirrorRestore } from './modules/ui/mirror-restore-ui.js';
 import {
-  pad,
   todayISO,
-  currentYearMonth,
   formatDate,
   formatDateLong,
   formatMonthYear,
@@ -134,7 +130,6 @@ import {
 import { buildSollWarningListHTML as _buildSollWarningListHTMLRaw } from './modules/render/soll-warning-banner.js';
 import {
   getEmployer as _getEmployerRaw,
-  getCurrentReport as _getCurrentReportRaw,
   getSummaryFields as _getSummaryFieldsRaw,
   getOverviewSummaryFields as _getOverviewSummaryFieldsRaw,
   computeEntryRows as _computeEntryRowsRaw,
@@ -146,7 +141,6 @@ import {
   renderSummaryWordParagraphs as _renderSummaryWordParagraphsRaw,
   renderSummaryPlaintext as _renderSummaryPlaintextRaw,
 } from './modules/render/summary.js';
-import { buildReportHTML as _buildReportHTMLRaw } from './modules/render/report.js';
 import { isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
 import { renderArchive as _renderArchiveTab, archiveCurrentMonth as _archiveCurrentMonthTab } from './modules/tabs/archive.js';
@@ -157,16 +151,21 @@ import {
   exportOverviewPdf as _exportOverviewPdfTab, fileNameForOverview,
 } from './modules/tabs/overview.js';
 import { updateSollWarningBanner as _updateSollWarningBannerUi } from './modules/ui/soll-warning-banner-ui.js';
+import { updateBackupReminderBanner as _updateBackupReminderBannerUi } from './modules/ui/backup-reminder-banner-ui.js';
+import {
+  renderTracker as _renderTrackerTab, startWork as _startWorkTab, endWork as _endWorkTab, setMode as _setModeTab,
+} from './modules/tabs/tracker.js';
+import {
+  renderReport as _renderReportTab, getCurrentReport as _getCurrentReportTab, fileNameForReport,
+  exportPdf as _exportPdfTab, exportWord as _exportWordTab, exportCsv as _exportCsvTab, exportKmPdf as _exportKmPdfTab,
+} from './modules/tabs/report.js';
 import { populateYearSelect as _populateYearSelectUi } from './modules/ui/year-select.js';
 import { renderWeek as _renderWeekTab, installWeekInputFallback as _installWeekInputFallbackTab } from './modules/tabs/week.js';
 import {
   renderGleitzeitkonto as _renderGleitzeitkontoTab, getCurrentGleitzeitkonto as _getCurrentGleitzeitkontoTab,
   exportGleitzeitkontoPdf as _exportGleitzeitkontoPdfTab,
 } from './modules/tabs/gleitzeit.js';
-import {
-  buildTodaySummaryHTML as _buildTodaySummaryHTMLRaw,
-  buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw,
-} from './modules/render/tracker.js';
+import { buildHomeofficeSegmentsHTML as _buildHomeofficeSegmentsHTMLRaw } from './modules/render/tracker.js';
 import { generateWordBlob as _generateWordBlobRaw } from './modules/export/word.js';
 import { generateCsvBlob as _generateCsvBlobRaw } from './modules/export/csv.js';
 import { generatePdfBlob as _generatePdfBlobRaw } from './modules/export/pdf.js';
@@ -174,13 +173,8 @@ import { generateOverviewPdfBlob as _generateOverviewPdfBlobRaw } from './module
 import { generateGleitzeitkontoPdfBlob as _generateGleitzeitkontoPdfBlobRaw } from './modules/export/gleitzeitkonto-pdf.js';
 import { generateVacationCertificatePdfBlob as _generateVacationCertificatePdfBlobRaw, buildVacationCertificateRows } from './modules/export/vacation-certificate-pdf.js';
 import { ensurePdfLibs, ensureDocxLib } from './modules/lib-loader.js';
-import {
-  wireFieldServiceUI, renderTrackerFieldService, renderFieldServiceSettings,
-  getTrackerStartFieldService, resetTrackerPick, fieldServiceFromTimer, tripsMissingKm, openKmModal,
-} from './modules/ui/field-service-ui.js';
-import { renderStorageStatus, maybeRequestPersist, wireStorageStatusUI } from './modules/ui/storage-status-ui.js';
-import { computeBackupReminder } from './modules/storage-status.js';
-import { getFieldServiceSettings, formatKm, formatEuro } from './modules/field-service.js';
+import { wireFieldServiceUI, renderFieldServiceSettings } from './modules/ui/field-service-ui.js';
+import { renderStorageStatus, wireStorageStatusUI } from './modules/ui/storage-status-ui.js';
 import { generateKmPdfBlob as _generateKmPdfBlobRaw } from './modules/export/km-pdf.js';
 import { downloadBlob } from './modules/export/download.js';
 import { createAppContext, withExtras } from './modules/app-context.js';
@@ -540,64 +534,8 @@ function switchView(name) {
 
 /* ---------- Tracker ---------- */
 
-let liveTimerInterval = null;
-
-function renderTracker() {
-  ensureActiveEmployer();
-  const sel = document.getElementById('active-employer');
-  const activeEmployerLabel = document.getElementById('active-employer-label');
-  if (activeEmployerLabel) activeEmployerLabel.textContent = L('activeEmployer');
-  const formerCb = document.getElementById('show-former-employers-tracker');
-  if (formerCb) formerCb.checked = showFormerEmployers;
-  const formerEmployersLabel = document.getElementById('former-employers-tracker-label');
-  if (formerEmployersLabel) formerEmployersLabel.textContent = L('formerEmployers');
-  const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
-    showAll: showFormerEmployers,
-    includeIds: [_getState().activeEmployerId],
-  });
-  sel.innerHTML = _getState().employers.length
-    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}" ${e.id === _getState().activeEmployerId ? 'selected' : ''}>${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
-    : `<option value="">— Bitte ${L('employer')} anlegen —</option>`;
-
-  const hint = document.getElementById('onboarding-hint');
-  if (hint) {
-    hint.style.display = _getState().employers.length ? 'none' : '';
-    if (!_getState().employers.length) {
-      hint.innerHTML = `<strong>Willkommen 👋</strong><br>Bitte legen Sie zuerst unter <em>${L('employers')}</em> mindestens ${isFreelance() ? 'einen Kunden' : 'einen Arbeitgeber'} an. Danach können Sie hier Ihre Arbeitszeiten erfassen.`;
-    }
-  }
-
-  const running = _getState().runningTimer;
-  const hasEmployers = _getState().employers.length > 0;
-  const activeEmp = getEmployer(_getState().activeEmployerId);
-  const activeIsFormer = isFormerEmployer(activeEmp, today);
-  document.getElementById('btn-start').disabled = !!running || !hasEmployers || activeIsFormer;
-  document.getElementById('btn-end').disabled = !running;
-
-  const liveEl = document.getElementById('live-status');
-  if (running) {
-    const emp = getEmployer(running.employerId);
-    document.getElementById('live-time').textContent =
-      `${emp ? emp.name + ' • ' : ''}${new Date(running.startISO).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}`;
-    liveEl.classList.remove('hidden');
-    startLiveTimer();
-  } else {
-    liveEl.classList.add('hidden');
-    stopLiveTimer();
-  }
-
-  renderTodaySummary();
-  updateSollWarningBanner();
-
-  // Mode-Toggle beim Wechsel in den Tracker-Tab immer auf Präsenz zurücksetzen (nicht persistiert),
-  // außer der laufende Timer ist bereits im Home-Office-Modus.
-  if (running && running.type === 'homeoffice') {
-    setMode('homeoffice');
-  } else {
-    setMode('praesenz');
-  }
-}
+/** Reiter Erfassen, siehe modules/tabs/tracker.js (seit v3.15.4). */
+function renderTracker() { return _renderTrackerTab(appCtx()); }
 
 /* ---------- Außendienst-Nachweis (seit v3.13.0) ---------- */
 /* ---------- Zentraler Kontext (seit v3.14.1) ---------- */
@@ -628,7 +566,7 @@ function appCtx() {
     populateTemplatePicker,
     renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderEmployers, refreshAll,
     renderArchive, renderGleitzeitkonto, renderVacationPlanning, renderSettings, renderAuditLog,
-    generatePdfBlob, generateWordBlob, generateOverviewPdfBlob, downloadBlob,
+    generatePdfBlob, generateWordBlob, generateCsvBlob, generateOverviewPdfBlob, downloadBlob,
     generateKmPdfBlob, generateGleitzeitkontoPdfBlob, generateVacationCertificatePdfBlob,
     // seit v3.15.1 für die Reiter-Module unter modules/tabs/
     computeMonthTargetMinutes, countWorkdaysInMonth,
@@ -654,173 +592,15 @@ function appCtx() {
   return _appCtxInstance;
 }
 
-function startLiveTimer() {
-  stopLiveTimer();
-  const update = () => {
-    if (!_getState().runningTimer) return;
-    const diff = Date.now() - new Date(_getState().runningTimer.startISO).getTime();
-    const s = Math.floor(diff / 1000);
-    document.getElementById('live-duration').textContent =
-      `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
-  };
-  update();
-  liveTimerInterval = setInterval(update, 1000);
-}
-
-function stopLiveTimer() {
-  if (liveTimerInterval) { clearInterval(liveTimerInterval); liveTimerInterval = null; }
-}
-
-function renderTodaySummary() {
-  const empId = _getState().activeEmployerId;
-  const container = document.getElementById('today-summary');
-  if (!empId) {
-    container.innerHTML = '';
-    container.style.display = 'none';
-    return;
-  }
-  container.style.display = '';
-  const emp = getEmployer(empId);
-  const ym = currentYearMonth();
-  const report = computeMonthReport(empId, ym);
-  const { workedMin, targetMin, balance } = report;
-  const vacationDays = report.vacationEntries.length;
-  const sickDays = report.sickEntries.length;
-  const overtimeReductionDays = report.overtimeReductionEntries.length;
-
-  const summaryFields = getSummaryFields({
-    workedMin,
-    targetMin,
-    balance,
-    vacationDays,
-    sickDays,
-    educationLeaveDays: (report.educationLeaveEntries || []).length,
-    overtimeReductionDays,
-    hourlyRate: Number(emp.hourlyRate) || 0,
-    currency: emp.currency || 'EUR',
-  });
-
-  // Außendienst-Nachweis (seit v3.13.0): zusätzliche Kacheln, nur wenn aktiv und Daten vorhanden.
-  const fsm = report.fieldService;
-  if (fsm && (fsm.tripMin > 0 || fsm.km > 0)) {
-    if (fsm.tripMin > 0) summaryFields.push({ kind: 'time', key: 'fsTrip', label: 'davon Fahrt', valueHM: minutesToHM(fsm.tripMin) });
-    if (fsm.km > 0) summaryFields.push({ kind: 'text', key: 'fsKm', label: 'Kilometer', value: `${formatKm(fsm.km)} km` });
-    if (fsm.amount > 0) summaryFields.push({ kind: 'text', key: 'fsAmount', label: 'Kilometer-Betrag', value: formatEuro(fsm.amount) });
-  }
-
-  container.innerHTML = _buildTodaySummaryHTMLRaw({ ym, summaryFields }, {
-    formatMonthYear,
-    renderSummaryHTML,
-  });
-}
-
 function countWorkdaysInMonth(ym, employer) {
   return _countWorkdaysInMonthRaw(ym, employer, _computeCtxHoliday(employer && employer.id));
 }
 
 /* ---------- Start / End ---------- */
 
-function startWork() {
-  if (!_getState().activeEmployerId) { toast('Bitte zuerst einen Arbeitgeber anlegen'); return; }
-  if (_getState().runningTimer) return;
-  if (findEntryConflict(_getState().entries, { employerId: _getState().activeEmployerId, date: todayISO(), type: 'work' })) {
-    toast(ENTRY_CONFLICT_MESSAGE); return;
-  }
-  _getState().runningTimer = {
-    employerId: _getState().activeEmployerId,
-    startISO: new Date().toISOString(),
-    type: currentMode === 'homeoffice' ? 'homeoffice' : 'work',
-    // Außendienst-Nachweis (seit v3.13.0): Tätigkeit und Einsatzort des ersten Blocks.
-    ...getTrackerStartFieldService(_getState(), _getState().activeEmployerId, currentMode),
-  };
-  resetTrackerPick();
-  saveState();
-  renderTracker();
-  toast(currentMode === 'homeoffice' ? 'Home-Office-Block gestartet' : 'Arbeitsbeginn erfasst');
-}
+function startWork() { return _startWorkTab(appCtx()); }
 
-function endWork() {
-  const r = _getState().runningTimer;
-  if (!r) return;
-  const startDate = new Date(r.startISO);
-  const endDate = new Date();
-  const parts = splitAcrossMidnight(startDate, endDate);
-  if (!parts.length) { toast('Bitte mindestens eine Minute erfassen.'); return; }
-  if (parts.some(p => findEntryConflict(_getState().entries, { employerId: r.employerId, date: p.date, type: r.type || 'work' }))) {
-    toast(ENTRY_CONFLICT_MESSAGE + ' Der Timer bleibt erhalten.'); return;
-  }
-
-  if (r.type === 'homeoffice') {
-    // Für jeden Kalendertag: Segment am bestehenden HO-Entry anhängen oder neuen anlegen
-    for (const p of parts) {
-      const existing = _getState().entries.find(e =>
-        e.type === 'homeoffice' && e.employerId === r.employerId && e.date === p.date
-      );
-      if (existing) {
-        const prev = Array.isArray(existing.segments) ? existing.segments : [];
-        existing.segments = normalizeSegments([...prev, { start: p.start, end: p.end }]);
-      } else {
-        _getState().entries.push({
-          id: uid(),
-          employerId: r.employerId,
-          date: p.date,
-          type: 'homeoffice',
-          segments: [{ start: p.start, end: p.end }],
-          note: '',
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-    _getState().runningTimer = null;
-    saveState();
-    renderTracker();
-    renderEntries();
-    renderWeek();
-    renderReport();
-    toast(parts.length > 1
-      ? `Home-Office-Block auf ${parts.length} Tage verteilt gespeichert`
-      : 'Home-Office-Block gespeichert');
-    return;
-  }
-
-  // Präsenz: bei Über-Mitternacht das Ende einfach als HH:MM stehen lassen —
-  // computeWorkMinutes rechnet bereits +24h wenn end < start.
-  // (Bewusste Entscheidung: Präsenz-Übernachtungen sind arbeitsrechtlich sinnvoller
-  // als ein Eintrag am Start-Tag mit Endzeit über Mitternacht abgebildet.)
-  const dateISO = parts[0].date;
-  const startHHMM = parts[0].start;
-  const endHHMM = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
-
-  const emp = getEmployer(r.employerId);
-  const suggestedBreak = computeSuggestedBreak(startHHMM, endHHMM, emp?.breakMode);
-
-  /** @type {AZEntry} */
-  const entry = {
-    id: uid(),
-    employerId: r.employerId,
-    date: dateISO,
-    type: 'work',
-    start: startHHMM,
-    end: endHHMM,
-    breakMinutes: suggestedBreak || 0,
-    overtimeReason: '',
-    note: '',
-    ...fieldServiceFromTimer(_getState(), r),
-    createdAt: new Date().toISOString(),
-  };
-  _getState().entries.push(entry);
-  _getState().runningTimer = null;
-  saveState();
-  renderTracker();
-
-  openEntryModal(entry, { justEnded: true });
-  // Außendienst (seit v3.13.0): bei „erst bei Arbeitsende“ fehlende Kilometer der Fahrten von heute abfragen.
-  const fsSettings = getFieldServiceSettings(_getState().settings);
-  if (fsSettings.kmPrompt === 'end') {
-    const missing = tripsMissingKm(_getState(), r.employerId, dateISO, entry.id);
-    if (missing.length) openKmModal(missing, appCtx());
-  }
-}
+function endWork() { return _endWorkTab(appCtx()); }
 
 /* ---------- Entry Modal ---------- */
 
@@ -889,20 +669,7 @@ function updateRangeVacationStats() {
 
 /* ---------- Home-Office Mode & Modal ---------- */
 
-let currentMode = 'praesenz';
-
-function setMode(mode) {
-  currentMode = mode === 'homeoffice' ? 'homeoffice' : 'praesenz';
-  const btnP = document.getElementById('mode-praesenz');
-  const btnH = document.getElementById('mode-homeoffice');
-  if (!btnP || !btnH) return;
-  const isHO = currentMode === 'homeoffice';
-  btnP.classList.toggle('active', !isHO);
-  btnH.classList.toggle('active', isHO);
-  btnP.setAttribute('aria-checked', String(!isHO));
-  btnH.setAttribute('aria-checked', String(isHO));
-  try { renderTrackerFieldService(appCtx(), currentMode); } catch (err) { console.error(err); }
-}
+function setMode(mode) { return _setModeTab(appCtx(), mode); }
 
 function openHomeofficeModal(entry, opts) {
   return _openHomeofficeModalRaw(entry, opts, appCtx());
@@ -1035,50 +802,8 @@ function computeBalanceWarningInfo(balance, targetMin, basis) {
   return _buildBalanceWarningInfoRaw(balance, targetMin, thresholdPct, basis);
 }
 
-function renderReport() {
-  const empSel = document.getElementById('report-employer');
-  const monthInput = document.getElementById('report-month');
-
-  const currentEmp = empSel.value;
-  const today = todayISO();
-  const visibleEmployers = filterVisibleEmployers(_getState().employers, today, {
-    showAll: showFormerEmployers,
-    includeIds: [currentEmp, _getState().activeEmployerId],
-  });
-  empSel.innerHTML = _getState().employers.length
-    ? visibleEmployers.map(e => `<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}${isFormerEmployer(e, today) ? ' (ehemalig)' : ''}</option>`).join('')
-    : '<option value="">— Kein Arbeitgeber —</option>';
-  empSel.value = currentEmp || _getState().activeEmployerId || visibleEmployers[0]?.id || '';
-
-  if (!monthInput.value) monthInput.value = currentYearMonth();
-
-  const empId = empSel.value;
-  const ym = monthInput.value;
-  const container = document.getElementById('report-content');
-
-  if (!empId || !ym) {
-    container.innerHTML = '<div class="empty-state">Bitte Arbeitgeber und Monat wählen.</div>';
-    return;
-  }
-
-  const r = computeMonthReport(empId, ym);
-  if (!r) { container.innerHTML = '<div class="empty-state">Keine Daten.</div>'; return; }
-
-  container.innerHTML = _buildReportHTMLRaw(r, {
-    escapeHtml,
-    formatDateLong,
-    formatDate,
-    formatMonthYear,
-    minutesToHM,
-    computeWorkMinutes,
-    computeHomeofficeMinutes,
-    getSummaryFields,
-    renderSummaryHTML,
-    balanceWarning: computeBalanceWarningInfo(r.balance, r.targetMin, 'month'),
-  });
-  const kmBtn = document.getElementById('btn-export-km-pdf');
-  if (kmBtn) kmBtn.classList.toggle('hidden', !(r.fieldService && r.fieldService.km > 0));
-}
+/** Reiter Monat, siehe modules/tabs/report.js (seit v3.15.4). */
+function renderReport() { return _renderReportTab(appCtx()); }
 
 /* ---------- Kilometer-Aufstellung (seit v3.13.0) ---------- */
 
@@ -1088,19 +813,7 @@ async function generateKmPdfBlob(report) {
   return _generateKmPdfBlobRaw(report, { jsPDF, state: _getState(), formatDateLong, formatMonthYear });
 }
 
-async function exportKmPdf() {
-  const r = getCurrentReport();
-  if (!r) return;
-  if (!(r.fieldService && r.fieldService.km > 0)) { toast('Keine Fahrten mit Kilometern in diesem Monat'); return; }
-  try {
-    const blob = await generateKmPdfBlob(r);
-    downloadBlob(blob, fileNameForReport(r, 'pdf').replace(/\.pdf$/, '-kilometer.pdf'));
-    toast('Kilometer-PDF heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('Kilometer-PDF fehlgeschlagen: ' + err.message);
-  }
-}
+function exportKmPdf() { return _exportKmPdfTab(appCtx()); }
 
 /* ---------- Word Export (.docx) ---------- */
 
@@ -1175,50 +888,8 @@ function renderAuditLog() {
   });
 }
 
-// Backup-Erinnerung (seit v3.9.47, Kadenz überarbeitet in v3.9.68): zeigt einen
-// Hinweis-Banner in den Einstellungen.
-//   - Wurde noch NIE ein Backup erstellt: die allererste Erinnerung erscheint erst
-//     am Folgetag (BACKUP_REMINDER_FIRST_DELAY_DAYS), nicht schon am selben Tag,
-//     an dem die ersten Daten angelegt wurden. Der Referenzzeitpunkt dafür wird
-//     einmalig in settings.backupReminderFirstSeenAt festgehalten (additives Feld,
-//     kein Migrations-Eintrag nötig).
-//   - Danach (und sobald mindestens einmal gesichert wurde) gilt ein fester
-//     Rhythmus von BACKUP_REMINDER_INTERVAL_DAYS Tagen seit dem letzten Backup.
-// Seit v3.14.0 steckt die Entscheidung in modules/storage-status.js (computeBackupReminder):
-// zusätzlich zur 7-Tage-Regel nur, wenn es seit dem letzten Backup Änderungen gibt. Der Banner
-// erscheint in den Einstellungen und im Reiter Erfassen mit identischem Inhalt.
-const BACKUP_REMINDER_TARGETS = [
-  { bannerId: 'backup-reminder-banner', textId: 'backup-reminder-text' },
-  { bannerId: 'backup-reminder-banner-tracker', textId: 'backup-reminder-text-tracker' },
-];
-
-function updateBackupReminderBanner() {
-  const settings = /** @type {import('./types.js').AZSettings} */ (_getState().settings || {});
-  const now = Date.now();
-  const hasData = Array.isArray(_getState().entries) && _getState().entries.length > 0;
-  // Referenzzeitpunkt für die Ein-Tag-Schonfrist einmalig festhalten.
-  if (hasData && !settings.lastBackupAt && !settings.backupReminderFirstSeenAt
-      && !(settings.backupReminderSnoozeUntil && new Date(settings.backupReminderSnoozeUntil).getTime() > now)) {
-    settings.backupReminderFirstSeenAt = new Date(now).toISOString();
-    saveState();
-  }
-  const res = computeBackupReminder({
-    hasData,
-    lastBackupAt: settings.lastBackupAt,
-    firstSeenAt: settings.backupReminderFirstSeenAt,
-    changesSinceBackup: settings.changesSinceBackup,
-    snoozeUntil: settings.backupReminderSnoozeUntil,
-    now,
-  });
-  for (const t of BACKUP_REMINDER_TARGETS) {
-    const banner = document.getElementById(t.bannerId);
-    const textEl = document.getElementById(t.textId);
-    if (!banner || !textEl) continue;
-    banner.classList.toggle('hidden', !res.show);
-    if (res.show) textEl.textContent = res.text;
-  }
-  try { maybeRequestPersist(appCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
-}
+/** Banner Backup-Erinnerung (Einstellungen, Erfassen), siehe modules/ui/backup-reminder-banner-ui.js (seit v3.15.4). */
+function updateBackupReminderBanner() { return _updateBackupReminderBannerUi(appCtx()); }
 
 /** Banner Sollstunden-Warnung (Erfassen, Übersicht), siehe modules/ui/soll-warning-banner-ui.js (seit v3.15.3). */
 function updateSollWarningBanner(overridePeriod) { return _updateSollWarningBannerUi(appCtx(), overridePeriod); }
@@ -1272,35 +943,9 @@ function openOverviewShareModal() {
 
 /* ---------- Export UI ---------- */
 
-function fileNameForReport(report, ext) {
-  return `Arbeitszeit_${report.employer.name.replace(/[^a-zA-Z0-9äöüÄÖÜß_-]+/g, '_')}_${report.ym}.${ext}`;
-}
+function exportWord() { return _exportWordTab(appCtx()); }
 
-async function exportWord() {
-  const r = getCurrentReport();
-  if (!r) return;
-  try {
-    const blob = await generateWordBlob(r);
-    downloadBlob(blob, fileNameForReport(r, 'docx'));
-    toast('Word-Datei heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('Word-Export fehlgeschlagen: ' + err.message);
-  }
-}
-
-async function exportPdf() {
-  const r = getCurrentReport();
-  if (!r) return;
-  try {
-    const blob = await generatePdfBlob(r);
-    downloadBlob(blob, fileNameForReport(r, 'pdf'));
-    toast('PDF heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('PDF-Export fehlgeschlagen: ' + err.message);
-  }
-}
+function exportPdf() { return _exportPdfTab(appCtx()); }
 
 function generateCsvBlob(report) {
   return _generateCsvBlobRaw(report, {
@@ -1310,28 +955,9 @@ function generateCsvBlob(report) {
   });
 }
 
-async function exportCsv() {
-  const r = getCurrentReport();
-  if (!r) return;
-  try {
-    const blob = generateCsvBlob(r);
-    downloadBlob(blob, fileNameForReport(r, 'csv'));
-    toast('CSV-Datei heruntergeladen');
-  } catch (err) {
-    console.error(err);
-    toast('CSV-Export fehlgeschlagen: ' + err.message);
-  }
-}
+function exportCsv() { return _exportCsvTab(appCtx()); }
 
-function getCurrentReport() {
-  return _getCurrentReportRaw({
-    state: _getState(),
-    computeMonthReport,
-    toast,
-    getEmployerId: () => document.getElementById('report-employer').value,
-    getYm: () => document.getElementById('report-month').value,
-  });
-}
+function getCurrentReport() { return _getCurrentReportTab(appCtx()); }
 
 /* ---------- Share (Web Share API + Fallback) ---------- */
 
