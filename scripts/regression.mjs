@@ -45,6 +45,7 @@ import { runReportSnapshotTests } from './report-snapshot.mjs';
 import { runCiRunnerTests } from './ci-runner-tests.mjs';
 import { runFieldServiceTests } from './field-service-tests.mjs';
 import { runTimerCheckTests } from './timer-check-tests.mjs';
+import { runDstTests } from './dst-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4826,6 +4827,7 @@ function runServiceWorkerCacheBustCheck() {
     await runFieldServiceTests(browser, BASE_URL, { assertEq });
     await runStorageStatusTests(browser, BASE_URL, { assertEq });
     await runTimerCheckTests(browser, BASE_URL, { assertEq });
+    await runDstTests(browser, BASE_URL, { assertEq });
     await runStorageIdbTests(browser, BASE_URL, { assertEq });
     await runAppContextTests(browser, BASE_URL, { assertEq });
     await runTabsStructureTests(browser, BASE_URL, { assertEq });

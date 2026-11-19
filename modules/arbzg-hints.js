@@ -11,6 +11,8 @@
 // Grenzwerte stehen in ARBZG_RULES, damit z. B. eine künftige Wochenhöchstarbeitszeit
 // (Referentenentwurf vom 18.06.2026) ergänzt werden kann.
 
+import { germanWallToUtc } from './dst.js';
+
 export const ARBZG_RULES = {
   maxDailyMinutes: 10 * 60,
   minRestMinutes: 11 * 60,
@@ -56,10 +58,25 @@ function addDays(iso, n) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+/** Tatsächliche Minuten ab 00:00 des Datums (Zeitumstellung inklusive), sonst null. */
+function realOffset(date, hhmm, dayOffset) {
+  const base = germanWallToUtc(date, '00:00');
+  const at = germanWallToUtc(date, hhmm, dayOffset);
+  return base === null || at === null ? null : Math.round((at - base) / 60000);
+}
+
+/** Länge des Kalendertags in Minuten (1440, bei Zeitumstellung 1380 oder 1500). */
+function dayLength(date) {
+  const len = realOffset(date, '00:00', 1);
+  return len === null ? 1440 : len;
+}
+
 /**
  * Arbeitsintervalle eines Eintrags in Minuten ab 00:00 des Eintragsdatums.
- * Über Mitternacht reichende Zeiten enden nach 1440. Präsenz: ein Intervall
+ * Über Mitternacht reichende Zeiten enden nach der Tageslänge. Präsenz: ein Intervall
  * (Pause liegt darin), Home-Office: je Segment ein Intervall.
+ * Seit v3.15.7 zählen die Minuten tatsächlich vergangene Zeit (Sommer-/Winterzeit);
+ * startClock/endClock sind die Uhrzeiten für die Anzeige.
  */
 export function workIntervals(entry) {
   if (!entry) return [];
@@ -70,7 +87,10 @@ export function workIntervals(entry) {
   for (const s of raw) {
     const a = toMin(s && s.start), b = toMin(s && s.end);
     if (a === null || b === null || a === b) continue;
-    out.push({ start: a, end: b > a ? b : b + 1440 });
+    const ra = realOffset(entry.date, s.start, 0);
+    const rb = realOffset(entry.date, s.end, b > a ? 0 : 1);
+    if (ra !== null && rb !== null) out.push({ start: ra, end: rb, startClock: a, endClock: b });
+    else out.push({ start: a, end: b > a ? b : b + 1440, startClock: a, endClock: b });
   }
   return out;
 }
@@ -127,17 +147,17 @@ export function computeArbzgHints(entries, employers, from, to, rules = ARBZG_RU
     if (prevEntries) {
       let last = null, first = null;
       for (const e of prevEntries) for (const iv of workIntervals(e)) {
-        if (!last || iv.end > last.end) last = { end: iv.end, employerId: e.employerId };
+        if (!last || iv.end > last.end) last = { end: iv.end, endClock: iv.endClock, employerId: e.employerId };
       }
       for (const e of dayEntries) for (const iv of workIntervals(e)) {
-        if (!first || iv.start < first.start) first = { start: iv.start, employerId: e.employerId };
+        if (!first || iv.start < first.start) first = { start: iv.start, startClock: iv.startClock, employerId: e.employerId };
       }
       if (last && first) {
-        const restMin = first.start + 1440 - last.end;
+        const restMin = first.start + dayLength(prevDate) - last.end;
         if (restMin >= 0 && restMin < rules.minRestMinutes) {
           hints.push({
             type: 'rest', date, prevDate, restMin, limitMin: rules.minRestMinutes,
-            prevEnd: fmtClock(last.end), nextStart: fmtClock(first.start),
+            prevEnd: fmtClock(last.endClock), nextStart: fmtClock(first.startClock),
             prevEmployerId: last.employerId, prevName: names.get(last.employerId) || '',
             nextEmployerId: first.employerId, nextName: names.get(first.employerId) || '',
           });

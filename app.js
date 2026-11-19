@@ -410,7 +410,7 @@ function computeWorkMinutes(entry) { return _computeWorkMinutesRaw(entry); }
 function computeHomeofficeMinutes(entry) { return _computeHomeofficeMinutesRaw(entry); }
 function isWorkedEntry(entry) { return _isWorkedEntryRaw(entry); }
 function legalBreakMinutes(min) { return _legalBreakMinutesRaw(min); }
-function computeSuggestedBreak(startHHMM, endHHMM, breakMode) { return _computeSuggestedBreakRaw(startHHMM, endHHMM, breakMode); }
+function computeSuggestedBreak(startHHMM, endHHMM, breakMode, dateISO) { return _computeSuggestedBreakRaw(startHHMM, endHHMM, breakMode, dateISO); }
 
 /* ---------- Holiday Overrides + Feiertage (siehe modules/holidays.js) ----------
  * Die Feiertagslogik lebt komplett in modules/holidays.js.

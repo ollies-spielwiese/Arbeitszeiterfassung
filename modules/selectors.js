@@ -14,6 +14,7 @@
 
 import { isFormerEmployer, filterVisibleEmployers } from './compute.js';
 import { toAppContext } from './app-context.js';
+import { entryDstShift } from './dst.js';
 
 /**
  * Baut den Erklärungstext für den Saldo-Tooltip (Urlaubs-/Krankheitsgutschrift), der als
@@ -468,6 +469,8 @@ export function computeEntryRows(list, ctx) {
       color,
       date: e.date,
       ...row,
+      // Seit v3.15.7: Verschiebung durch Sommer-/Winterzeit in Minuten (0 = keine).
+      dstShiftMin: entryDstShift(e),
       note: noteParts.length ? noteParts.join(' • ') : null,
     };
   });

@@ -1774,3 +1774,11 @@ textarea.note-autogrow {
 @media (prefers-color-scheme: dark) {
   .timer-check-message { background: #422006; border-color: #b45309; color: #fde68a; }
 }
+
+/* Seit v3.15.7: Zeitumstellung (Schild in „Einträge“, Hinweis im Formular). */
+.entry-badge.dst { background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; }
+.dst-hint { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-size: 0.85rem; line-height: 1.4; }
+.dst-hint.hidden { display: none; }
+@media (prefers-color-scheme: dark) {
+  .entry-badge.dst, .dst-hint { background: #172554; border-color: #1d4ed8; color: #bfdbfe; }
+}

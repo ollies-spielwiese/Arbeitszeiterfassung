@@ -257,7 +257,7 @@ export function endWork(ctx, opts) {
   const endHHMM = `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`;
 
   const emp = cx.data.employer(r.employerId);
-  const suggestedBreak = cx.compute.suggestedBreak(startHHMM, endHHMM, emp?.breakMode);
+  const suggestedBreak = cx.compute.suggestedBreak(startHHMM, endHHMM, emp?.breakMode, dateISO);
 
   /** @type {import('../../types.js').AZEntry} */
   const entry = {

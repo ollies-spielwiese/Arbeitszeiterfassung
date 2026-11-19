@@ -10,6 +10,7 @@
  */
 
 import { pad, timeToMinutes, dayOfWeekISO, monthDates, shiftYearMonth } from './util-time.js';
+import { realMinutes } from './dst.js';
 import { getHolidays, getHolidaysInRange } from './holidays.js';
 import { getFieldServiceSettings, isFieldServiceActive, computeFieldServiceMonth } from './field-service.js';
 import { EDUCATION_LEAVE_RULES, getEducationLeaveRule, getEducationLeaveFirstYear, getEducationLeavePeriod } from './education-leave-rules.js';
@@ -61,6 +62,23 @@ export const MONTH_LABELS_LONG = [
 /* ---------- Reine Arbeitszeit-Berechnung ---------- */
 
 /**
+ * Dauer zwischen zwei Uhrzeiten (Ende vor Beginn = Folgetag). Mit Datum zählt die
+ * tatsächlich vergangene Zeit, also inklusive Sommer- und Winterzeit (seit v3.15.7,
+ * deutsche Zeit, modules/dst.js). Ohne Datum wie bisher reine Uhrzeit-Differenz.
+ * @param {string|undefined} dateISO
+ * @param {string} start
+ * @param {string} end
+ * @returns {number}
+ */
+export function spanMinutes(dateISO, start, end) {
+  const real = dateISO ? realMinutes(dateISO, start, end) : null;
+  if (real !== null) return real;
+  let m = timeToMinutes(end) - timeToMinutes(start);
+  if (m < 0) m += 24 * 60;
+  return m;
+}
+
+/**
  * Netto-Minuten eines Home-Office-Eintrags = Summe aller gueltigen Segmente.
  * @param {AZEntry} entry
  * @returns {number}
@@ -70,9 +88,7 @@ export function computeHomeofficeMinutes(entry) {
   let total = 0;
   for (const seg of entry.segments) {
     if (!seg || !seg.start || !seg.end) continue;
-    let m = timeToMinutes(seg.end) - timeToMinutes(seg.start);
-    if (m < 0) m += 24 * 60;
-    if (m > 0) total += m;
+    total += Math.max(0, spanMinutes(entry.date, seg.start, seg.end));
   }
   return total;
 }
@@ -86,8 +102,7 @@ export function computeWorkMinutes(entry) {
   if (!entry) return 0;
   if (entry.type === 'homeoffice') return computeHomeofficeMinutes(entry);
   if (entry.type !== 'work' || !entry.start || !entry.end) return 0;
-  let mins = timeToMinutes(entry.end) - timeToMinutes(entry.start);
-  if (mins < 0) mins += 24 * 60;
+  let mins = spanMinutes(entry.date, entry.start, entry.end);
   mins -= (entry.breakMinutes || 0);
   return Math.max(0, mins);
 }
@@ -117,14 +132,13 @@ export function legalBreakMinutes(workMinutesBeforeBreak) {
  * @param {string} startHHMM
  * @param {string} endHHMM
  * @param {string} breakMode 'none' | 'manual' | 'auto'
+ * @param {string} [dateISO] Datum des Beginns (seit v3.15.7 für die Zeitumstellung)
  * @returns {number|null}
  */
-export function computeSuggestedBreak(startHHMM, endHHMM, breakMode) {
+export function computeSuggestedBreak(startHHMM, endHHMM, breakMode, dateISO) {
   if (breakMode === 'none' || breakMode === 'manual') return null;
   if (!startHHMM || !endHHMM) return null;
-  let gross = timeToMinutes(endHHMM) - timeToMinutes(startHHMM);
-  if (gross < 0) gross += 24 * 60;
-  return legalBreakMinutes(gross);
+  return legalBreakMinutes(spanMinutes(dateISO, startHHMM, endHHMM));
 }
 
 /**

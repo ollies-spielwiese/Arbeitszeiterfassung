@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.15.6';
+export const APP_VERSION = '3.15.7';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.15.7', items: [
+    'Fix: In den Nächten der Zeitumstellung zählt die App jetzt die tatsächlich gearbeitete Zeit (Winterzeit eine Stunde mehr, Sommerzeit eine Stunde weniger) – für Präsenz, Home-Office, Pausenvorschlag und Ruhezeit-Hinweis, nach deutscher Zeit. Betroffene Einträge tragen das Schild „Zeitumstellung“, das Formular erklärt die Rechnung',
+  ] },
   { version: '3.15.6', items: [
     'Fix: Läuft der Timer 12 Stunden oder länger, fragt „Ende“ nach dem tatsächlichen Ende (vergessene Timer werden nicht mehr still gekürzt). Dazu: Präsenz über Mitternacht lässt sich trotz Abwesenheit am Folgetag beenden, CSV-Export schützt vor Formeln, bessere Barrierefreiheit und eine Content-Security-Policy',
   ] },

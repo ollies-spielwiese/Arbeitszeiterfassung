@@ -10,6 +10,7 @@
 // }
 
 import { safeColor } from '../util-format.js';
+import { formatDstShift } from '../dst.js';
 
 const BADGE_LABELS = {
   overtime: 'Überstunden',
@@ -60,7 +61,8 @@ export function buildEntriesHTML(rows, ctx) {
   const { escapeHtml, formatDateLong } = ctx;
   return rows.map((row) => {
     const right = renderRight(row, ctx);
-    const badge = renderBadge(row);
+    const badge = renderBadge(row)
+      + (row.dstShiftMin ? `<span class="entry-badge dst" data-testid="badge-dst-${escapeHtml(row.id)}">Zeitumstellung ${formatDstShift(row.dstShiftMin)}</span>` : '');
     const details = row.detailsParts.map(escapeHtml).join(' • ');
     const note = row.note ? `<div class="entry-note">${escapeHtml(row.note)}</div>` : '';
     return `

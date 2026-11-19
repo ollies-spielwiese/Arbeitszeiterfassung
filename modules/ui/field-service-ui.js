@@ -246,7 +246,7 @@ export function switchActivity(newId, ctx) {
     const startHHMM = parts[0].start;
     const endHHMM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const emp = cx.data.employer(r.employerId);
-    const suggested = cx.compute.suggestedBreak(startHHMM, endHHMM, emp && emp.breakMode);
+    const suggested = cx.compute.suggestedBreak(startHHMM, endHHMM, emp && emp.breakMode, parts[0].date);
     saved = {
       id: cx.data.uid(), employerId: r.employerId, date: parts[0].date, type: 'work',
       start: startHHMM, end: endHHMM, breakMinutes: suggested || 0, overtimeReason: '', note: '',

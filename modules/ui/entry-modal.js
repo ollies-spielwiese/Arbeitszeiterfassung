@@ -27,6 +27,8 @@
 import { pushAuditLog } from '../audit-log.js';
 import { autoGrowTextarea } from './autogrow.js';
 import { findEntryConflict } from '../entry-conflicts.js';
+import { dstShiftMinutes, realMinutes } from '../dst.js';
+import { minutesToHM } from '../util-time.js';
 import { computeArbzgHintsForCandidate, buildArbzgDialogHTML, isArbzgHintEnabled } from '../arbzg-hints.js';
 import { computeSundayHintsForCandidate, buildSundayHintParagraphs, isSundayHintEnabled } from '../sunday-hints.js';
 import { syncEntryFieldService, readEntryFieldService } from './field-service-ui.js';
@@ -125,6 +127,7 @@ export function updateEntryTypeFields() {
 
 // v3.12.0: Hinweis Arbeitszeitgesetz im Eintragsdialog (nur Hinweis, keine Sperre).
 export function updateEntryArbzgHint(ctx) {
+  updateEntryDstHint();
   const cx = toAppContext(ctx);
   const el = document.getElementById('entry-arbzg-hint');
   if (!el) return;
@@ -159,15 +162,38 @@ export function updateEntryArbzgHint(ctx) {
   el.classList.remove('hidden');
 }
 
+/**
+ * Hinweis Zeitumstellung unter der Pause (seit v3.15.7): nur bei Präsenz, wenn Datum,
+ * Beginn und Ende eine Umstellung einschließen.
+ */
+export function updateEntryDstHint() {
+  const el = document.getElementById('entry-dst-hint');
+  if (!el) return;
+  const val = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id)).value;
+  const type = val('entry-type'), date = val('entry-date'), start = val('entry-start'), end = val('entry-end');
+  const shift = type === 'work' && date && start && end ? dstShiftMinutes(date, start, end) : 0;
+  if (!shift) { el.textContent = ''; el.classList.add('hidden'); return; }
+  const real = realMinutes(date, start, end) || 0;
+  const brk = Math.max(0, parseInt(val('entry-break'), 10) || 0);
+  const what = shift > 0
+    ? 'In dieser Nacht wurde die Uhr um 03:00 auf 02:00 zurückgestellt (Winterzeit).'
+    : 'In dieser Nacht wurde die Uhr um 02:00 auf 03:00 vorgestellt (Sommerzeit).';
+  el.textContent = `${what} Gezählt werden ${minutesToHM(real)} Std. statt ${minutesToHM(real - shift)}, `
+    + `${brk ? `Pause ${brk} Min.` : 'ohne Pause'}, netto ${minutesToHM(Math.max(0, real - brk))} Std.`;
+  el.classList.remove('hidden');
+}
+
 export function updateBreakHint(ctx) {
   const { compute: { suggestedBreak: computeSuggestedBreak }, data: { employer: getEmployer } } = toAppContext(ctx);
   const empId = document.getElementById('entry-employer').value;
   const emp = getEmployer(empId);
   const start = document.getElementById('entry-start').value;
   const end = document.getElementById('entry-end').value;
+  const date = /** @type {HTMLInputElement} */ (document.getElementById('entry-date')).value;
   const hintEl = document.getElementById('break-hint');
+  updateEntryDstHint();
   if (!emp || !start || !end) { hintEl.textContent = ''; return; }
-  const suggested = computeSuggestedBreak(start, end, emp.breakMode);
+  const suggested = computeSuggestedBreak(start, end, emp.breakMode, date);
   const labels = { legal: 'Gesetzlich', flex: 'Gleitzeit', manual: 'Manuell', none: 'Ohne Pause' };
   const modeLabel = labels[emp.breakMode] || '';
   if (emp.breakMode === 'none') {

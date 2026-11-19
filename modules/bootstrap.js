@@ -160,14 +160,16 @@ export function wireEvents(ctx) {
     if (typeof updateEntryArbzgHint === 'function') {
       ['input', 'change'].forEach(ev => document.getElementById('form-entry').addEventListener(ev, () => updateEntryArbzgHint()));
     }
-    ['entry-start', 'entry-end'].forEach(id => {
+    // Seit v3.15.7 auch beim Datum: in Nächten mit Zeitumstellung ändert sich die Dauer.
+    ['entry-start', 'entry-end', 'entry-date'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
         const empId = document.getElementById('entry-employer').value;
         const emp = getEmployer(empId);
         const start = document.getElementById('entry-start').value;
         const end = document.getElementById('entry-end').value;
+        const date = /** @type {HTMLInputElement} */ (document.getElementById('entry-date')).value;
         if (emp && start && end && emp.breakMode !== 'manual' && emp.breakMode !== 'none') {
-          const suggested = computeSuggestedBreak(start, end, emp.breakMode);
+          const suggested = computeSuggestedBreak(start, end, emp.breakMode, date);
           if (suggested !== null && (emp.breakMode === 'legal' || parseInt(document.getElementById('entry-break').value) === 0)) {
             document.getElementById('entry-break').value = suggested;
           }
