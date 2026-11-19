@@ -1,0 +1,56 @@
+{
+  "app.js": {
+    "TS2339: Property 'dataset' does not exist on type 'Element'.": 1
+  },
+  "modules/bootstrap.js": {
+    "TS2339: Property 'checked' does not exist on type 'EventTarget'.": 5,
+    "TS2339: Property 'checked' does not exist on type 'HTMLElement'.": 1,
+    "TS2339: Property 'closest' does not exist on type 'EventTarget'.": 1,
+    "TS2339: Property 'dataset' does not exist on type 'Element'.": 3,
+    "TS2339: Property 'dataset' does not exist on type 'EventTarget'.": 1,
+    "TS2339: Property 'files' does not exist on type 'EventTarget'.": 2,
+    "TS2339: Property 'matches' does not exist on type 'EventTarget'.": 2,
+    "TS2339: Property 'open' does not exist on type 'Element'.": 2,
+    "TS2339: Property 'open' does not exist on type 'HTMLElement'.": 1,
+    "TS2339: Property 'style' does not exist on type 'Element'.": 5,
+    "TS2339: Property 'value' does not exist on type 'EventTarget'.": 10,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 11
+  },
+  "modules/share.js": {
+    "TS2339: Property 'checked' does not exist on type 'HTMLElement'.": 4,
+    "TS2339: Property 'value' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 3
+  },
+  "modules/ui/employer-modal.js": {
+    "TS2339: Property 'checked' does not exist on type 'Element'.": 2,
+    "TS2339: Property 'dataset' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'disabled' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'disabled' does not exist on type 'HTMLElement'.": 1,
+    "TS2339: Property 'focus' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'value' does not exist on type 'Element'.": 3,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 67
+  },
+  "modules/ui/entry-modal.js": {
+    "TS2339: Property 'disabled' does not exist on type 'HTMLElement'.": 2,
+    "TS2339: Property 'style' does not exist on type 'Element'.": 2,
+    "TS2339: Property 'value' does not exist on type 'Element'.": 8,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 30
+  },
+  "modules/ui/holiday-overrides.js": {
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 10
+  },
+  "modules/ui/homeoffice-modal.js": {
+    "TS2339: Property 'checked' does not exist on type 'Element'.": 3,
+    "TS2339: Property 'disabled' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'value' does not exist on type 'Element'.": 3,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 23
+  },
+  "modules/ui/range-entry-modal.js": {
+    "TS2339: Property 'checked' does not exist on type 'HTMLElement'.": 2,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 14
+  },
+  "modules/ui/templates.js": {
+    "TS2339: Property 'dataset' does not exist on type 'Element'.": 1,
+    "TS2339: Property 'value' does not exist on type 'HTMLElement'.": 11
+  }
+}

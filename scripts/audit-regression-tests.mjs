@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import path from 'node:path';
+import * as TC_BASELINE from './typecheck-baseline.mjs';
 const require = createRequire(import.meta.url);
 
 export async function runAuditRegressionTests(browser, baseURL, { assertEq }) {
@@ -242,10 +243,14 @@ export async function runAuditRegressionTests(browser, baseURL, { assertEq }) {
     ['Exit 1',{status:1},1],['Exit 2 ohne Diagnostik',{status:2},1],['Erfolg',{status:0},0],
     ['DOM Filter',{status:2,stdout:"a.js(1,1): error TS2339: Property 'value' does not exist on type 'HTMLElement'."},0],
     ['echter Typfehler',{status:2,stdout:'a.js(1,1): error TS2322: wrong type'},1],
+    // Seit v3.15.10: Vergleich mit der gespeicherten Liste (hier eine Meldung 'value' in a.js).
+    ['DOM Filter, neue Meldung gegenüber Liste',{status:2,stdout:"a.js(1,1): error TS2339: Property 'value' does not exist on type 'HTMLElement'.\na.js(9,1): error TS2339: Property 'value' does not exist on type 'HTMLElement'."},1],
   ]) {
     let exit;const stop={};
+    const baseline={'a.js':{"TS2339: Property 'value' does not exist on type 'HTMLElement'.":1}};
     try {vm.runInNewContext(tc,{spawnSync:()=>result,fileURLToPath:x=>x.replace('file://',''),path,
-      console:{log(){},error(){}},process:{exit:n=>{exit=n;throw stop;}}});}catch(e){if(e!==stop)throw e;}
+      ...TC_BASELINE,existsSync:()=>true,readFileSync:()=>JSON.stringify(baseline),writeFileSync(){},
+      console:{log(){},error(){}},process:{argv:[],exit:n=>{exit=n;throw stop;}}});}catch(e){if(e!==stop)throw e;}
     check(`F22 ${label}`,exit,expected);
   }
 }

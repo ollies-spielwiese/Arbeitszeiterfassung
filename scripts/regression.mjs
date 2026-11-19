@@ -47,6 +47,7 @@ import { runFieldServiceTests } from './field-service-tests.mjs';
 import { runTimerCheckTests } from './timer-check-tests.mjs';
 import { runDstTests } from './dst-tests.mjs';
 import { runNightShiftTests } from './night-shift-tests.mjs';
+import { runMigrationTests } from './migration-tests.mjs';
 import { installCspGuard, runCspStaticTests, runCspBrowserTests } from './csp-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -4835,6 +4836,7 @@ function runServiceWorkerCacheBustCheck() {
     await runTimerCheckTests(browser, BASE_URL, { assertEq });
     await runDstTests(browser, BASE_URL, { assertEq });
     await runNightShiftTests(browser, BASE_URL, { assertEq });
+    await runMigrationTests(browser, BASE_URL, { assertEq });
     runCspStaticTests({ assertEq });
     await runCspBrowserTests(browser, BASE_URL, { assertEq });
     await runStorageIdbTests(browser, BASE_URL, { assertEq });

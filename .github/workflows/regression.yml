@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck (tsc --noEmit mit DOM-Rausch-Filter)
         run: npm run typecheck
 
+      - name: Unit-Tests in Node (Berlin und New York)
+        run: npm run -s unit
+
       - name: Install Playwright Chromium (with system deps)
         run: npx playwright install --with-deps chromium
 

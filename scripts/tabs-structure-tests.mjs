@@ -23,6 +23,9 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const FIXTURE = path.join(REPO_ROOT, 'scripts', 'fixtures', 'test-backup-muster.json');
 
 /** Obergrenze für app.js (Zeilen), sinkt je Release: 2.350 / 2.150 / 1.900 / 1.550 / 1.300. */
+/** Maskiert alle Sonderzeichen für new RegExp (seit v3.15.10, CodeQL js/incomplete-sanitization). */
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const APP_JS_MAX_LINES = 1300;
 
 /** Verschobene Funktionen: Name in app.js → [Modul, Name des Exports]. */
@@ -93,7 +96,7 @@ function runSourceChecks(check) {
     const count = (app.match(new RegExp(`function ${name}\\s*\\(`, 'g')) || []).length;
     check(`TAB2 ${name} nur einmal in app.js`, count, 1);
     if (m) {
-      const imp = new RegExp(`import \\{[^}]*\\b${exp} as ${m[2]}\\b[^}]*\\} from '\\./${rel.replace(/\./g, '\\.')}';`);
+      const imp = new RegExp(`import \\{[^}]*\\b${exp} as ${m[2]}\\b[^}]*\\} from '\\./${escapeRegExp(rel)}';`);
       check(`TAB2 ${name} bindet ${rel} an`, imp.test(app), true);
     }
     check(`TAB2 ${rel} exportiert ${exp}`, new RegExp(`export (async )?function ${exp}\\(ctx[,)]`).test(read(rel)), true);

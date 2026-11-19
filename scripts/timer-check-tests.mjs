@@ -76,27 +76,9 @@ export async function runTimerCheckTests(browser, baseURL, { assertEq }) {
 
     // ---------- Reine Logik ----------
     const pure = await page.evaluate(async () => {
-      const T = await import('/modules/timer-check.js');
-      const out = [], test = (n, v, e) => out.push([n, v, e]);
-      const start = '2026-11-16T07:00:00.000Z'; // Mo 08:00 Berlin
-      const at = (iso) => new Date(iso);
-      test('Schwelle', [T.needsTimerCheck(start, at('2026-11-16T18:59:00Z')), T.needsTimerCheck(start, at('2026-11-16T19:00:00Z'))], [false, true]);
-      const sug = T.suggestTimerEnd({ startISO: start, type: 'work', now: at('2026-11-17T08:00:00Z'), dayTargetMin: 480, breakMode: 'legal' });
-      test('Vorschlag Präsenz 25 Std.', T.toTimeInput(sug), '16:30');
-      const sugNone = T.suggestTimerEnd({ startISO: start, type: 'work', now: at('2026-11-17T08:00:00Z'), dayTargetMin: 480, breakMode: 'none' });
-      test('Vorschlag ohne Pause', T.toTimeInput(sugNone), '16:00');
-      const sugWe = T.suggestTimerEnd({ startISO: start, type: 'work', now: at('2026-11-17T08:00:00Z'), dayTargetMin: 0, breakMode: 'legal' });
-      test('Vorschlag ohne Soll (8 Std.)', T.toTimeInput(sugWe), '16:30');
-      const sugHo = T.suggestTimerEnd({ startISO: start, type: 'homeoffice', now: at('2026-11-17T08:00:00Z'), dayTargetMin: 480 });
-      test('Vorschlag Home-Office = jetzt', T.toTimeInput(sugHo), '09:00');
-      const v = (end, type = 'work') => T.validateTimerEnd({ startISO: start, type, end, now: at('2026-11-17T08:00:00Z') });
-      test('Prüfung', [
-        !!v(null), !!v(at('2026-11-16T06:00:00Z')), !!v(at('2026-11-17T09:00:00Z')),
-        !!v(at('2026-11-17T07:00:00Z')), v(at('2026-11-17T07:00:00Z'), 'homeoffice'), v(at('2026-11-16T15:30:00Z')),
-      ], [true, true, true, true, null, null]);
-      test('Ergebnistext', T.describeTimerResult({ startISO: start, type: 'work', end: at('2026-11-16T15:30:00Z'), breakMode: 'legal' }),
-        'Ergebnis: Mo, 16.11.2026, 08:00–16:30 = 8:30 Std., Pause 30 Min., netto 8:00 Std.');
-      return out;
+      const m = await import('/scripts/unit/timer-check.cases.mjs');
+      return m.cases((n) => import('/modules/' + n));
+
     });
     for (const [n, v, e] of pure) check(n, v, e);
 
