@@ -45,7 +45,7 @@ export function renderTemplates(ctx) {
   const container = document.getElementById('templates-list');
   if (!container) return;
   if (!state.templates.length) {
-    container.innerHTML = '<div class="empty-state" style="padding:1rem;">Keine Vorlagen.</div>';
+    container.innerHTML = '<div class="empty-state empty-state-compact">Keine Vorlagen.</div>';
     return;
   }
   container.innerHTML = state.templates.map(t => {

@@ -72,6 +72,20 @@ async function pureChecks(page) {
     test('NS3 kein Hinweis Schichtbeginn', notes([p3], 'start', '2026-11'), []);
     test('NS4 Hinweis Monatsbericht Schichtbeginn', notes([h4a, h4b], 'start', '2027-01'),
       ['Home-Office 00:00–06:00 am 01.01.2027 zählt zum 31.12.2026 (Tag des Schichtbeginns).']);
+    // NS7 (seit v3.15.9): Hinweis auch in der CSV, als Kopfzeile. Ohne Hinweis keine Zeile.
+    const X = await import('/modules/export/csv.js');
+    const T = await import('/modules/util-time.js');
+    const csv = async (entries, rule, ym) => {
+      const state = { employers: [emp], entries, settings: { state: 'HE', nightShiftDay: rule } };
+      const r = C.computeMonthReport('m', ym, { state });
+      const text = await X.generateCsvBlob(r, { formatDate: T.formatDate, minutesToHM: T.minutesToHM, computeWorkMinutes: C.computeWorkMinutes, computeHomeofficeMinutes: C.computeHomeofficeMinutes, employeeName: 'Max Mustermann' }).text();
+      return text.split('\r\n').filter(l => l.startsWith('Nachtschicht;'));
+    };
+    test('NS7 CSV November Kalendertag', await csv([p3], 'calendar', '2026-11'), ['Nachtschicht;Präsenz 22:00–06:00 vom 30.11.2026: 5:38 zählen zum 01.12.2026 (nach Kalendertag).']);
+    test('NS7 CSV Dezember Kalendertag', await csv([p3], 'calendar', '2026-12'), ['Nachtschicht;Präsenz 22:00–06:00 vom 30.11.2026: 5:38 zählen zum 01.12.2026 (nach Kalendertag).']);
+    test('NS7 CSV November Schichtbeginn ohne Zeile', await csv([p3], 'start', '2026-11'), []);
+    test('NS7 CSV Januar Schichtbeginn', await csv([h4a, h4b], 'start', '2027-01'), ['Nachtschicht;Home-Office 00:00–06:00 am 01.01.2027 zählt zum 31.12.2026 (Tag des Schichtbeginns).']);
+    test('NS7 CSV Januar Kalendertag ohne Zeile', await csv([h4a, h4b], 'calendar', '2027-01'), []);
     test('NS1 kein Hinweis innerhalb des Monats', [notes([p1], 'calendar', '2026-12'), notes([h1, h2], 'start', '2026-12')], [[], []]);
 
     // NS5 Zeitumstellung: echte Minuten, Pause anteilig

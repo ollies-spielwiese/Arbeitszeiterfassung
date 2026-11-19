@@ -1,0 +1,23 @@
+/* Diagnose-Seite (seit v3.15.9 als eigene Datei, CSP ohne 'unsafe-inline'). */
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+       background: #0f172a; color: #e2e8f0; margin: 0; padding: 1.5rem; line-height: 1.5; }
+h1 { color: #60a5fa; font-size: 1.4rem; margin: 0 0 1rem; }
+h2 { color: #93c5fd; font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+td, th { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #334155; vertical-align: top; }
+th { color: #94a3b8; font-weight: 500; }
+.match { color: #4ade80; font-weight: 600; }
+.miss  { color: #64748b; }
+code { background: #1e293b; padding: 0.15rem 0.35rem; border-radius: 3px; font-size: 0.8rem; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+.big { font-size: 1.1rem; font-weight: 600; color: #fff; }
+.warn { color: #fbbf24; }
+a { color: #60a5fa; }
+button { background: #2563eb; color: #fff; border: 0; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.9rem; margin-top: 1rem; }
+.detail { color: #94a3b8; font-size: 0.85rem; margin-top: 0.3rem; }
+.muted-out { font-size: 0.85rem; color: #94a3b8; }
+.back { margin-top: 2rem; font-size: 0.8rem; color: #64748b; }
+.code-small { font-size: 0.75rem; }
+.mt-small { margin-top: 0.5rem; }
+.summary { margin-top: 0.5rem; font-size: 0.9rem; }
+.ok { color: #4ade80; }

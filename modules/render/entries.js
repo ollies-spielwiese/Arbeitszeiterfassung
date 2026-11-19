@@ -67,7 +67,7 @@ export function buildEntriesHTML(rows, ctx) {
     const details = row.detailsParts.map(escapeHtml).join(' • ');
     const note = row.note ? `<div class="entry-note">${escapeHtml(row.note)}</div>` : '';
     return `
-      <div class="entry-card" style="border-left-color: ${safeColor(row.color)}" data-id="${escapeHtml(row.id)}" data-testid="entry-${escapeHtml(row.id)}">
+      <div class="entry-card" data-color="${escapeHtml(safeColor(row.color))}" data-color-prop="borderLeftColor" data-id="${escapeHtml(row.id)}" data-testid="entry-${escapeHtml(row.id)}">
         <div class="entry-header">
           <div class="entry-date">${formatDateLong(row.date)}${badge}</div>
           ${right}

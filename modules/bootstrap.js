@@ -26,7 +26,48 @@ import { validateEmailField, wireEmailField } from './ui/email-validation.js';
  * Ein separater DOMContentLoaded-Registrar innerhalb dieses Moduls würde in
  * type=module (defer-Semantik) das Event verpassen und die App bootet nicht.
  */
+/**
+ * Seit v3.15.9: Rahmen-Schutz. Ein Meta-Tag kann frame-ancestors nicht setzen, und GitHub Pages
+ * erlaubt keine eigenen Header. Läuft die App in einem Rahmen einer fremden Seite, zeigt sie
+ * deshalb nur einen Hinweis mit Link zur App. Rahmen derselben Adresse bleiben erlaubt.
+ * @param {Window} win
+ * @returns {boolean}
+ */
+export function isFramedByForeignPage(win) {
+  if (win.top === win.self) return false;
+  try {
+    return !win.top || win.top.location.origin !== win.location.origin;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Ersetzt den Seiteninhalt durch den Hinweis des Rahmen-Schutzes (ohne style-Attribute).
+ * @param {Document} doc
+ * @param {string} href Adresse der App
+ */
+export function showFrameGuard(doc, href) {
+  const box = doc.createElement('div');
+  box.className = 'frame-guard';
+  box.setAttribute('role', 'alert');
+  box.setAttribute('data-testid', 'frame-guard');
+  const p = doc.createElement('p');
+  p.textContent = 'Die Arbeitszeit-App läuft hier in einer fremden Seite. Zum Schutz Ihrer Daten wird sie so nicht angezeigt.';
+  const a = doc.createElement('a');
+  a.href = href;
+  a.target = '_top';
+  a.rel = 'noopener';
+  a.textContent = 'App direkt öffnen';
+  box.append(p, a);
+  doc.body.replaceChildren(box);
+}
+
 export function wireEvents(ctx) {
+  if (isFramedByForeignPage(window)) {
+    showFrameGuard(document, window.location.href);
+    return;
+  }
   const {
     // State + Storage
     getState, saveState, storage, exportEmergencyBackup,

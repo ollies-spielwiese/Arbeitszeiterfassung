@@ -22,6 +22,20 @@ export function safeColor(value) {
 }
 
 /**
+ * Seit v3.15.9: Die CSP erlaubt keine style-Attribute im HTML. Farben stehen deshalb als
+ * data-color (plus data-color-prop: background oder borderLeftColor) im Markup und werden
+ * nach dem Aufbau über element.style gesetzt. Nur Farbwerte aus safeColor() kommen durch.
+ * @param {ParentNode} root
+ */
+export function applyDataColors(root) {
+  root.querySelectorAll('[data-color]').forEach((node) => {
+    const el = /** @type {HTMLElement} */ (node);
+    const prop = el.dataset.colorProp === 'borderLeftColor' ? 'borderLeftColor' : 'background';
+    el.style[prop] = safeColor(el.dataset.color);
+  });
+}
+
+/**
  * Formatiert einen Betrag als Währungsstring (de-DE-Locale).
  * Pure Version — currency muss explizit übergeben werden.
  * Der app.js-Wrapper zieht den Default aus state.settings.currency.

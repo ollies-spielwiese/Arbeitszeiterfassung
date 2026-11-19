@@ -66,7 +66,7 @@ export function renderTracker(ctx) {
 
   const hint = document.getElementById('onboarding-hint');
   if (hint) {
-    hint.style.display = st.employers.length ? 'none' : '';
+    hint.classList.toggle('hidden', !!st.employers.length);
     if (!st.employers.length) {
       hint.innerHTML = `<strong>Willkommen 👋</strong><br>Bitte legen Sie zuerst unter <em>${L('employers')}</em> mindestens ${cx.data.isFreelance() ? 'einen Kunden' : 'einen Arbeitgeber'} an. Danach können Sie hier Ihre Arbeitszeiten erfassen.`;
     }

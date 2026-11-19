@@ -1789,3 +1789,11 @@ textarea.note-autogrow {
 @media (prefers-color-scheme: dark) {
   .entry-badge.night { background: #2e1065; border-color: #6d28d9; color: #ddd6fe; }
 }
+
+/* Seit v3.15.9: ehemalige style-Attribute als Klassen (CSP ohne 'unsafe-inline'). */
+.form-row.form-row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.entry-note.holiday-note { margin-top: 0.75rem; }
+.schedule-day label.day-toggle-label, label.day-toggle-label { display: flex; align-items: center; gap: 0.35rem; font-weight: 600; }
+.day-break.day-break-input { width: 4rem; }
+.empty-state.empty-state-compact { padding: 1rem; }
+.frame-guard { max-width: 32rem; margin: 3rem auto; padding: 1.5rem; font: 1rem/1.5 system-ui, sans-serif; text-align: center; }

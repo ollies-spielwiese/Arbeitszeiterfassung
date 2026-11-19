@@ -11,11 +11,15 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.15.8';
+export const APP_VERSION = '3.15.9';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.15.9', items: [
+    'Neu: Der Nachtschicht-Hinweis steht jetzt auch in der CSV, als eigene Kopfzeile wie in PDF und Word',
+    'Sicherheit: Strengere Content-Security-Policy. Skripte nur noch aus den drei Export-Bibliotheken, keine eingebetteten Stile, Schutz vor Einbetten in fremde Seiten, Diagnose-Seite mit eigener Richtlinie',
+  ] },
   { version: '3.15.8', items: [
     'Neu: Einstellung „Nachtschicht über Mitternacht“: zählt zum Tag des Schichtbeginns (Standard) oder nach Kalendertag, für Präsenz und Home-Office gleich',
   ] },

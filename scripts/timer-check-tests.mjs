@@ -217,7 +217,7 @@ export async function runTimerCheckTests(browser, baseURL, { assertEq }) {
       return m ? m.getAttribute('content') : '';
     });
     check('CSP1: vorhanden', [
-      /script-src 'self' https:\/\/unpkg\.com;/.test(csp || ''), /object-src 'none'/.test(csp || ''),
+      /script-src 'self' https:\/\/unpkg\.com\/docx@/.test(csp || ''), /object-src 'none'/.test(csp || ''),
       /base-uri 'self'/.test(csp || ''), /unsafe-eval/.test(csp || ''),
     ], [true, true, true, false]);
   } finally {

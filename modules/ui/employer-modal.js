@@ -45,14 +45,14 @@ export function buildScheduleGrid(schedule) {
     return `
       <div class="schedule-day" data-day="${k}">
         <div class="day-label">
-          <label style="display:flex;align-items:center;gap:0.35rem;font-weight:600;">
+          <label class="day-toggle-label">
             <input type="checkbox" class="day-toggle" ${s.enabled ? 'checked' : ''} />
             ${DAY_LABELS[i]}
           </label>
         </div>
         <input type="time" class="day-start" value="${escapeHtml(s.start)}" ${s.enabled ? '' : 'disabled'} />
         <input type="time" class="day-end" value="${escapeHtml(s.end)}" ${s.enabled ? '' : 'disabled'} />
-        <input type="number" class="day-break" min="0" value="${escapeHtml(s.break || 0)}" style="width: 4rem;" placeholder="Pause" title="Pause in Minuten" ${s.enabled ? '' : 'disabled'} />
+        <input type="number" class="day-break day-break-input" min="0" value="${escapeHtml(s.break || 0)}" placeholder="Pause" title="Pause in Minuten" ${s.enabled ? '' : 'disabled'} />
       </div>
     `;
   }).join('');

@@ -2,10 +2,11 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <!-- Seit v3.15.6: Content-Security-Policy. Skripte nur von der eigenen Adresse und den drei
-       Export-Bibliotheken auf unpkg.com (zusätzlich per SRI geprüft). 'unsafe-inline' bei den
-       Stilen ist nötig, weil die App Farben und Abstände direkt im HTML setzt. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <!-- Content-Security-Policy (seit v3.15.6, nachgeschärft in v3.15.9). Skripte nur von der eigenen
+       Adresse und den drei Export-Bibliotheken mit vollem Pfad (zusätzlich per SRI geprüft). Stile nur
+       aus styles.css; Farben setzt der Code nach dem Aufbau über element.style. Die Versionen der
+       Bibliotheken stehen auch in modules/lib-loader.js und sw.js, ein Test prüft die Übereinstimmung. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com/docx@8.5.0/build/index.umd.js https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Offline-Arbeitszeiterfassung mit Wochen-, Monats- und Jahresbilanz, PDF- und Word-Export." />
   <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: light)" />
@@ -119,7 +120,7 @@
         <line x1="36" y1="44" x2="32" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="44" y1="44" x2="40" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.8</span></h1>
+      <h1>Arbeitszeit <span class="app-version" id="app-version-badge" aria-label="Version">v3.15.9</span></h1>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="tracker" role="tab" aria-selected="true">Erfassen</button>
@@ -221,7 +222,7 @@
         </button>
       </div>
 
-      <div id="onboarding-hint" class="onboarding-hint" style="display:none;">
+      <div id="onboarding-hint" class="onboarding-hint hidden">
         <strong>Willkommen 👋</strong><br>
         Bitte legen Sie zuerst unter <em>Arbeitgeber</em> mindestens einen Arbeitgeber an. Danach können Sie hier Ihre Arbeitszeiten erfassen.
       </div>
@@ -1420,7 +1421,7 @@
         <fieldset class="fs fs-billing hidden" id="fs-employer-billing">
           <legend>Abrechnung</legend>
           <p class="hint">Nur für Freiberufler-Modus. Der Stundensatz wird am Ende der PDF-/Word-Berichte als Netto-Betrag ausgewiesen (Zeit × Stundensatz). Keine Rechnung im Rechtssinne — nur Grundlage für Ihre eigene Fakturierung.</p>
-          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div class="form-row form-row-2col">
             <div>
               <label for="employer-hourly-rate">Stundensatz (netto)</label>
               <input type="number" id="employer-hourly-rate" min="0" step="0.01" placeholder="z. B. 85" />

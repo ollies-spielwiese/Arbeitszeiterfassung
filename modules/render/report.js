@@ -70,7 +70,7 @@ export function buildReportHTML(r, ctx) {
   }).join('');
 
   const holidayList = r.holidays.length
-    ? `<div class="entry-note" style="margin-top: 0.75rem;">Feiertage im Monat: ${r.holidays.map(h => `${formatDate(h.date)} ${escapeHtml(h.name)}`).join(' · ')}</div>`
+    ? `<div class="entry-note holiday-note">Feiertage im Monat: ${r.holidays.map(h => `${formatDate(h.date)} ${escapeHtml(h.name)}`).join(' · ')}</div>`
     : '';
 
   // Nachtschicht über den Monatsrand (seit v3.15.8).

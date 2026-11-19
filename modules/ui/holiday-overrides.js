@@ -92,7 +92,7 @@ export function renderHolidayList(ctx) {
   rows.sort((a, b) => a.date.localeCompare(b.date));
 
   if (!rows.length) {
-    container.innerHTML = '<div class="empty-state" style="padding:1rem;">Keine Feiertage in diesem Jahr.</div>';
+    container.innerHTML = '<div class="empty-state empty-state-compact">Keine Feiertage in diesem Jahr.</div>';
     return;
   }
 

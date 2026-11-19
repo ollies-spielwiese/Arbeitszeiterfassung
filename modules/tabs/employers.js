@@ -15,6 +15,7 @@ import { toAppContext } from '../app-context.js';
 import { isFormerEmployer } from '../compute.js';
 import { buildEmployerCardsHTML } from '../render/employers.js';
 import { openEmployerModal } from '../ui/employer-modal.js';
+import { applyDataColors } from '../util-format.js';
 
 /**
  * Beschriftung der Pausenregel auf der Karte.
@@ -59,6 +60,7 @@ export function renderEmployers(ctx) {
     todayISO: cx.data.todayISO,
     formatDate: cx.format.date,
   });
+  applyDataColors(container);
 
   container.querySelectorAll('.employer-card').forEach((card) => {
     card.addEventListener('click', () => {

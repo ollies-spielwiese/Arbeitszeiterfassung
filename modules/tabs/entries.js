@@ -15,6 +15,7 @@ import { computeEntryRows } from '../selectors.js';
 import { currentYearMonth, formatDateLong } from '../util-time.js';
 import { isFormerEmployer, filterVisibleEmployers } from '../compute.js';
 import { getNightShiftRule } from '../night-shift.js';
+import { applyDataColors } from '../util-format.js';
 
 /**
  * @param {any} ctx
@@ -74,6 +75,7 @@ export function renderEntries(ctx) {
     formatDateLong,
     minutesToHM: cx.format.minutesToHM,
   });
+  applyDataColors(container);
 
   container.querySelectorAll('.entry-card').forEach((card) => {
     const el = /** @type {HTMLElement} */ (card);

@@ -47,6 +47,7 @@ import { runFieldServiceTests } from './field-service-tests.mjs';
 import { runTimerCheckTests } from './timer-check-tests.mjs';
 import { runDstTests } from './dst-tests.mjs';
 import { runNightShiftTests } from './night-shift-tests.mjs';
+import { installCspGuard, runCspStaticTests, runCspBrowserTests } from './csp-tests.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,8 +97,12 @@ function assertAtLeast(name, actual, min) {
 
 // ---------- Boot ----------
 
+/** @type {{violations: string[]}} */
+let cspGuard = { violations: [] };
+
 async function boot() {
   const browser = await ENGINE.launch({ headless: HEADLESS });
+  cspGuard = installCspGuard(browser);
   const context = await browser.newContext();
   const page = await context.newPage();
   page.on('pageerror', err => record('page-error: ' + err.message, false));
@@ -4830,6 +4835,8 @@ function runServiceWorkerCacheBustCheck() {
     await runTimerCheckTests(browser, BASE_URL, { assertEq });
     await runDstTests(browser, BASE_URL, { assertEq });
     await runNightShiftTests(browser, BASE_URL, { assertEq });
+    runCspStaticTests({ assertEq });
+    await runCspBrowserTests(browser, BASE_URL, { assertEq });
     await runStorageIdbTests(browser, BASE_URL, { assertEq });
     await runAppContextTests(browser, BASE_URL, { assertEq });
     await runTabsStructureTests(browser, BASE_URL, { assertEq });
@@ -4837,6 +4844,8 @@ function runServiceWorkerCacheBustCheck() {
     await runCiRunnerTests({ assertEq });
     await runFreelance(page);
     await runEmployee(page);
+    // CSP-Wächter (seit v3.15.9): kein einziger Verstoß in allen Seiten des Laufs.
+    assertEq('CSP-Wächter: keine Verstöße im gesamten Lauf', JSON.stringify(cspGuard.violations.slice(0, 20)), '[]');
   } catch (err) {
     record('runner-exception: ' + err.message, false, err.stack?.split('\n').slice(0,3).join(' | '));
   } finally {

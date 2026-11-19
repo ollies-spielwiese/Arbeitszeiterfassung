@@ -30,7 +30,7 @@ export function buildEmployerCardsHTML(employers, ctx) {
       : '';
     return `
       <div class="employer-card" data-id="${escapeHtml(e.id)}">
-        <div class="employer-color" style="background:${safeColor(e.color)}"></div>
+        <div class="employer-color" data-color="${escapeHtml(safeColor(e.color))}" data-color-prop="background"></div>
         <div class="employer-info">
           <div class="${nameClass}">${escapeHtml(e.name)}${formerBadge}</div>
           <div class="employer-meta">

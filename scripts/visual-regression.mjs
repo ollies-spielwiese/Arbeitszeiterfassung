@@ -74,7 +74,10 @@ async function boot() {
     headless: HEADLESS,
     args: ['--font-render-hinting=none', '--disable-font-subpixel-positioning', '--disable-lcd-text'],
   });
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, locale: 'de-DE' });
+  // bypassCSP (seit v3.15.9): Die CSP erlaubt keine eingefügten Stile mehr. Der Test braucht
+  // aber DISABLE_ANIMATIONS_CSS für stabile Bilder. Die CSP selbst prüft der CSP-Wächter in
+  // der Regression.
+  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, locale: 'de-DE', bypassCSP: true });
   const page = await context.newPage();
   await page.clock.setFixedTime(new Date(ANCHOR_DATE));
   await page.goto(BASE_URL + '/?nc=' + Date.now(), { waitUntil: 'commit', timeout: 15000 });

@@ -125,6 +125,9 @@ export function generateCsvBlob(report, ctx) {
     }
   }
 
+  // Nachtschicht über den Monatsrand (seit v3.15.9), wie in PDF und Word.
+  for (const t of (report.nightShiftNotes || [])) metaRows.push(['Nachtschicht', t]);
+
   const header = fsm ? [...CSV_HEADER, ...CSV_FS_HEADER] : CSV_HEADER;
   if (fsm && fsm.km > 0) {
     metaRows.push(['Kilometer gesamt', formatKm(fsm.km)]);
