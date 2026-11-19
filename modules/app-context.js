@@ -36,6 +36,9 @@ export const LEGACY_MAP = Object.freeze({
   // Zustand
   getState: 'state.get',
   saveState: 'state.save',
+  // seit v3.15.5 (Backup-Import und Spiegelkopie, modules/ui/backup-ui.js)
+  replaceStateAtomically: 'state.replace',
+  runMigrations: 'state.migrate',
   // Berechnung
   computeWorkMinutes: 'compute.workMinutes',
   computeHomeofficeMinutes: 'compute.homeofficeMinutes',
@@ -101,6 +104,7 @@ export const LEGACY_MAP = Object.freeze({
   renderVacationPlanning: 'render.vacation',
   renderSettings: 'render.settings',
   renderAuditLog: 'render.auditLog',
+  updateModeVisibility: 'render.modeVisibility', // seit v3.15.5 (Reiter Einstellungen)
   // Exporte
   generatePdfBlob: 'exports.pdf',
   generateWordBlob: 'exports.word',
@@ -120,6 +124,7 @@ export const LEGACY_MAP = Object.freeze({
   getAppMode: 'data.appMode',
   DAY_KEYS: 'data.dayKeys',
   DAY_LABELS_LONG: 'data.dayLabelsLong',
+  DEFAULT_STATE: 'data.defaultState', // seit v3.15.5 (Backup-Import)
 });
 
 /** Bereiche des Kontexts in fester Reihenfolge. */
@@ -151,7 +156,7 @@ export function isAppContext(ctx) {
 }
 
 /** Einträge, die keine Funktion sind (Konstanten). */
-const NON_FUNCTION_NAMES = new Set(['DAY_KEYS', 'DAY_LABELS_LONG']);
+const NON_FUNCTION_NAMES = new Set(['DAY_KEYS', 'DAY_LABELS_LONG', 'DEFAULT_STATE']);
 
 /**
  * Baut den Kontext aus den flachen Abhängigkeiten von app.js.

@@ -11,11 +11,14 @@
  *   Wird von L() in app.js über getAppMode() gelesen.
  */
 
-export const APP_VERSION = '3.15.4';
+export const APP_VERSION = '3.15.5';
 export const LAST_SEEN_VERSION_KEY = 'arbeitszeit_last_seen_version';
 
 /* Changelog: keep newest on top. Shown once per new version. */
 export const CHANGELOG = [
+  { version: '3.15.5', items: [
+    'Interner Umbau: Reiter Arbeitgeber und Einstellungen sowie das Backup als eigene Module (keine sichtbare Änderung)',
+  ] },
   { version: '3.15.4', items: [
     'Interner Umbau: Die Reiter Erfassen und Monat sowie die Backup-Erinnerung liegen jetzt in eigenen Modulen (keine sichtbare Änderung)',
   ] },

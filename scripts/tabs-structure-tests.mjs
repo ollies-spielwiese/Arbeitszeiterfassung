@@ -13,6 +13,8 @@
 //            J1 Jahresauswahl (modules/ui/year-select.js)
 //   v3.15.4  T1–T7 Erfassen, M1–M6 Monat, R1 Backup-Erinnerung
 //            (modules/ui/backup-reminder-banner-ui.js)
+//   v3.15.5  AG1–AG4 Arbeitgeber, ES1–ES5 Einstellungen, BK1–BK4 Backup
+//            (modules/ui/backup-ui.js)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -21,7 +23,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const FIXTURE = path.join(REPO_ROOT, 'scripts', 'fixtures', 'test-backup-muster.json');
 
 /** Obergrenze für app.js (Zeilen), sinkt je Release: 2.350 / 2.150 / 1.900 / 1.550 / 1.300. */
-export const APP_JS_MAX_LINES = 1550;
+export const APP_JS_MAX_LINES = 1300;
 
 /** Verschobene Funktionen: Name in app.js → [Modul, Name des Exports]. */
 export const MOVED = {
@@ -49,13 +51,23 @@ export const MOVED = {
   exportCsv: ['modules/tabs/report.js', 'exportCsv'],
   exportKmPdf: ['modules/tabs/report.js', 'exportKmPdf'],
   updateBackupReminderBanner: ['modules/ui/backup-reminder-banner-ui.js', 'updateBackupReminderBanner'],
+  renderEmployers: ['modules/tabs/employers.js', 'renderEmployers'],
+  renderSettings: ['modules/tabs/settings.js', 'renderSettings'],
+  updateModeVisibility: ['modules/tabs/settings.js', 'updateModeVisibility'],
+  renderAuditLog: ['modules/tabs/settings.js', 'renderAuditLog'],
+  exportBackup: ['modules/ui/backup-ui.js', 'exportBackup'],
+  importBackup: ['modules/ui/backup-ui.js', 'importBackup'],
+  restoreFromMirror: ['modules/ui/backup-ui.js', 'restoreFromMirror'],
+  renderBackupFolderSection: ['modules/ui/backup-ui.js', 'renderBackupFolderSection'],
 };
 
 /** Funktionen, die ganz aus app.js verschwinden (jetzt in Modulen ohne Einzeiler). */
 export const REMOVED = ['isoWeekToDates', 'supportsWeekInput', 'fileNameForGleitzeitkonto',
   'fileNameForOverview', 'computeSelectableYears', 'populateYearSelect', 'exportVacationCertificatePdf',
   'stepVacationCalendarMonth', 'wireVacationCalendarNav', 'renderVacationCalendarOnly',
-  'startLiveTimer', 'stopLiveTimer', 'renderTodaySummary', 'fileNameForReport'];
+  'startLiveTimer', 'stopLiveTimer', 'renderTodaySummary', 'fileNameForReport',
+  'breakModeLabel', 'syncSollWarningSettingsUI', 'getUsableBackupFolderHandle', 'wireBackupFolderButtons',
+  'handleChooseBackupFolder', 'handleConfirmBackupFolderAccess', 'importDeps'];
 
 /** Variablen und Konstanten, die nur noch in Modulen liegen. */
 export const REMOVED_NAMES = ['vacationCalendarYm', 'SOLL_WARNING_BANNER_TARGETS', 'liveTimerInterval', 'currentMode', 'BACKUP_REMINDER_TARGETS'];
@@ -92,17 +104,18 @@ function runSourceChecks(check) {
   check('TAB2 fileNameForReport kommt aus tabs/report.js', /import \{[^}]*\bfileNameForReport\b[^}]*\} from '\.\/modules\/tabs\/report\.js';/.test(app), true);
   check('TAB2 CSV-Erzeuger bleibt in app.js und steht im Kontext', [/^function generateCsvBlob\(report\) \{$/m.test(app), /generatePdfBlob, generateWordBlob, generateCsvBlob,/.test(app)], [true, true]);
   check('TAB2 Jahresauswahl kommt aus ui/year-select.js', /populateYearSelect: \(selectEl, year\) => _populateYearSelectUi\(selectEl, year, _getState\(\)\)/.test(app), true);
-  for (const rel of ['modules/ui/soll-warning-banner-ui.js', 'modules/ui/backup-reminder-banner-ui.js']) {
+  for (const rel of ['modules/ui/soll-warning-banner-ui.js', 'modules/ui/backup-reminder-banner-ui.js', 'modules/ui/backup-ui.js']) {
     const banner = stripComments(read(rel));
     check(`TAB1 ${rel} ohne Import von app.js und window.state`, [/from\s+['"][./]*app\.js['"]/.test(banner), /window\.state\b/.test(banner)], [false, false]);
   }
   check('TAB2 app.js ohne DOM-Ziele der verschobenen Reiter', ['archive-list', 'entries-list', 'filter-month', 'week-content', 'week-input', 'week-employer', 'gleitzeitkonto-content', 'gleitzeitkonto-year',
     'vacation-planning-content', 'vacation-planning-year', 'overview-content', 'overview-month', 'sollstunden-warning-list', 'sollstunden-warning-banner-overview',
-    'today-summary', 'live-duration', 'btn-start', 'report-content', 'report-employer', 'backup-reminder-banner-tracker'].filter((id) => app.includes(`'${id}'`)), []);
+    'today-summary', 'live-duration', 'btn-start', 'report-content', 'report-employer', 'backup-reminder-banner-tracker',
+    'employers-list', 'employers-view-title', 'setting-employee-name', 'setting-own-email', 'audit-log-list', 'backup-folder-content', 'settings-block-state'].filter((id) => app.includes(`'${id}'`)), []);
   const lines = app.split('\n').length;
   check(`TAB4 app.js höchstens ${APP_JS_MAX_LINES} Zeilen (aktuell ${lines})`, lines <= APP_JS_MAX_LINES, true);
   const sw = read('sw.js');
-  for (const rel of ['modules/ui/soll-warning-banner-ui.js', 'modules/ui/year-select.js', 'modules/ui/backup-reminder-banner-ui.js']) check(`TAB5 ${rel} in sw.js ASSETS`, sw.includes(`'./${rel}'`), true);
+  for (const rel of ['modules/ui/soll-warning-banner-ui.js', 'modules/ui/year-select.js', 'modules/ui/backup-reminder-banner-ui.js', 'modules/ui/backup-ui.js']) check(`TAB5 ${rel} in sw.js ASSETS`, sw.includes(`'./${rel}'`), true);
   for (const rel of tabFiles) check(`TAB5 ${rel} in sw.js ASSETS`, sw.includes(`'./${rel}'`), true);
 }
 
@@ -147,7 +160,8 @@ export async function runTabsStructureTests(browser, baseURL, { assertEq }) {
       const E = await import('/modules/tabs/entries.js');
       const ctx = window.__appCtx();
       return {
-        render: [typeof ctx.render.archive, typeof ctx.render.gleitzeit, typeof ctx.render.vacation, typeof ctx.render.settings, typeof ctx.render.auditLog],
+        render: [typeof ctx.render.archive, typeof ctx.render.gleitzeit, typeof ctx.render.vacation, typeof ctx.render.settings, typeof ctx.render.auditLog, typeof ctx.render.modeVisibility],
+        backup: [typeof ctx.state.replace, typeof ctx.state.migrate, typeof ctx.data.defaultState],
         ui: [typeof ctx.ui.openHomeofficeModal, typeof ctx.ui.showFormerEmployers, typeof ctx.ui.setShowFormerEmployers],
         compute: [typeof ctx.compute.monthTargetMinutes, typeof ctx.compute.workdaysInMonth],
         exports: [typeof ctx.exports.kmPdf, typeof ctx.exports.gleitzeitPdf, typeof ctx.exports.vacationCertificatePdf],
@@ -155,7 +169,8 @@ export async function runTabsStructureTests(browser, baseURL, { assertEq }) {
         former: ctx.ui.showFormerEmployers(),
       };
     });
-    check('TAB3 Kontext render', bridge.render, Array(5).fill('function'));
+    check('TAB3 Kontext render', bridge.render, Array(6).fill('function'));
+    check('TAB3 Kontext Backup-Import', bridge.backup, ['function', 'function', 'object']);
     check('TAB3 Kontext ui', bridge.ui, Array(3).fill('function'));
     check('TAB3 Kontext compute', bridge.compute, Array(2).fill('function'));
     check('TAB3 Kontext exports', bridge.exports, Array(3).fill('function'));
@@ -645,6 +660,108 @@ export async function runTabsStructureTests(browser, baseURL, { assertEq }) {
       window.updateBackupReminderBanner();
     });
     check('R1 nach Backup kein Banner', (await reminder()).map((r) => r[0]), [true, true]);
+
+    // ---------- Arbeitgeber (v3.15.5) ----------
+    const agCards = () => page.evaluate(() => {
+      window.switchView('employers');
+      return {
+        title: document.getElementById('employers-view-title').textContent,
+        tab: document.querySelector('.tab[data-view="employers"]').textContent,
+        cards: [...document.querySelectorAll('#employers-list .employer-card')].map((c) => c.textContent.replace(/\s+/g, ' ').trim()),
+      };
+    });
+    const hasAll = (list, parts) => parts.map((p, i) => p.every((x) => (list[i] || '').includes(x)));
+    const ag1 = await agCards();
+    check('AG1 Arbeitgeber, Angestellt', [ag1.title, ag1.cards.length, ...hasAll(ag1.cards, [
+      ['Musterfirma GmbH', '40 h/Woche', 'Pause gesetzlich', 'Pers.-Nr. 10234'],
+      ['Alte Softwareschmiede AG', 'Ehemalig seit 31.03.2025', '173 h/Monat', 'Pause manuell'],
+      ['Teilzeit Logistik Nord', '20 h/Woche', 'Gleitzeit', 'Pers.-Nr. 77220']])],
+    ['Arbeitgeber verwalten', 3, true, true, true]);
+    await page.evaluate(() => { window.state.settings.appMode = 'freelance'; });
+    const ag2 = await agCards();
+    await page.evaluate(() => { delete window.state.settings.appMode; window.switchView('employers'); });
+    check('AG2 Kunden, Freiberuflich', [ag2.title, ag2.tab, ag2.cards.length, ...hasAll(ag2.cards, [
+      ['Studio Nordlicht', '15 h/Woche', 'Ohne Pause', '75,00 €/h'],
+      ['BrightPath Consulting', 'Ehemalig seit 31.12.2024', '40 h/Monat', '95,00 €/h'],
+      ['Alpine Design SA', '10 h/Woche', '110,00 CHF/h']])],
+    ['Kunden verwalten', 'Kunden', 3, true, true, true]);
+    check('AG2 zurück auf Angestellt', (await agCards()).tab, 'Arbeitgeber');
+    await page.click('#employers-list .employer-card');
+    check('AG3 Klick öffnet Dialog', await page.evaluate(() => [document.getElementById('modal-employer').classList.contains('hidden'), document.getElementById('employer-name').value]),
+      [false, 'Musterfirma GmbH']);
+    await page.evaluate(() => window.__appCtx().ui.closeModals());
+    check('AG4 leere Liste', await page.evaluate(() => {
+      const saved = window.state.employers; window.state.employers = [];
+      window.renderEmployers();
+      const t = document.getElementById('employers-list').textContent.trim();
+      window.state.employers = saved; window.renderEmployers();
+      return t.startsWith('Noch kein Arbeitgeber angelegt.');
+    }), true);
+
+    // ---------- Einstellungen (v3.15.5) ----------
+    const settingsView = () => page.evaluate(() => {
+      window.switchView('settings');
+      const v = (id) => document.getElementById(id).value;
+      return {
+        fields: [v('setting-employee-name'), v('setting-own-email'), v('setting-state'), document.getElementById('setting-arbzg-hints').checked,
+          [...document.querySelectorAll('input[name="setting-app-mode"]')].find((r) => r.checked).value],
+        label: document.getElementById('settings-employee-name-label').textContent,
+        holidays: document.querySelectorAll('#holiday-list li, #holiday-list .holiday-row, #holiday-list tr').length,
+        sw: [document.getElementById('setting-sw-month-enabled').checked, document.getElementById('setting-sw-gleitzeit-enabled').checked,
+          document.querySelector('.sw-chip[data-target="month"].active')?.dataset.value, document.querySelector('.sw-chip[data-target="gleitzeit"].active')?.dataset.value],
+        hidden: ['settings-block-state', 'settings-block-holidays', 'settings-block-sw'].map((id) => document.getElementById(id).classList.contains('hidden')),
+        absence: document.getElementById('btn-add-absence').style.display,
+        templates: document.querySelectorAll('#templates-list > *').length,
+        audit: document.getElementById('audit-log-list').textContent.trim(),
+      };
+    });
+    const es0 = await settingsView();
+    check('ES1 Felder Einstellungen', [...es0.fields, es0.label], ['Max Mustermann', 'max.mustermann@example.com', 'HE', true, 'employee', 'Arbeitnehmer/in – Name']);
+    check('ES2 Feiertage Hessen 2026', es0.holidays, 10);
+    check('ES3 Sollstunden-Warnung', es0.sw, [false, false, '20', '10']);
+    await page.evaluate(() => { window.state.settings.appMode = 'freelance'; });
+    const esF = await settingsView();
+    await page.evaluate(() => { delete window.state.settings.appMode; });
+    const esE = await settingsView();
+    check('ES4 Modus Freiberuflich', [esF.fields[4], esF.label, esF.hidden, esF.absence, esF.templates], ['freelance', 'Freiberufler/in – Name', [true, true, true], 'none', 4]);
+    check('ES4 zurück auf Angestellt', [esE.label, esE.hidden, esE.absence], ['Arbeitnehmer/in – Name', [false, false, false], '']);
+    check('ES5 Protokoll leer', es0.audit, 'Noch keine Änderungen protokolliert.');
+    const es5 = await page.evaluate(() => {
+      const entry = window.state.entries.find((e) => e.employerId === window.state.activeEmployerId);
+      window.pushAuditLog(window.state, { action: 'update', entry, summary: 'Test' });
+      window.renderAuditLog();
+      const rows = [...document.querySelectorAll('#audit-log-list .audit-log-row')].map((r) => r.textContent);
+      window.state.auditLog = []; window.renderAuditLog();
+      return [rows.length, rows[0].includes('Musterfirma GmbH')];
+    });
+    check('ES5 Protokoll nach Änderung', es5, [1, true]);
+
+    // ---------- Backup (v3.15.5) ----------
+    const bk1 = await page.evaluate(async () => {
+      await window.renderBackupFolderSection();
+      return ['showDirectoryPicker' in window, document.getElementById('backup-folder-content').textContent.replace(/\s+/g, ' ').trim(), !!document.getElementById('btn-choose-backup-folder')];
+    });
+    check('BK1 Karte Backup-Ordner', bk1[0]
+      ? [bk1[1].startsWith('Noch kein fester Ordner ausgewählt.'), bk1[2]]
+      : [bk1[1].startsWith('Ein fester Backup-Ordner lässt sich in Safari aus Sicherheitsgründen nicht direkt in der App festlegen.'), bk1[2]],
+    bk1[0] ? [true, true] : [true, false]);
+    await page.evaluate(() => { window.saveState(); window.state.settings.changesSinceBackup = 5; delete window.state.settings.lastBackupAt; document.getElementById('toast').textContent = ''; });
+    const [bdl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => window.exportBackup())]);
+    await page.waitForFunction(() => document.getElementById('toast').textContent === 'Backup heruntergeladen');
+    check('BK2 Backup erstellen', [bdl.suggestedFilename(), await page.evaluate(() => [window.state.settings.changesSinceBackup, typeof window.state.settings.lastBackupAt,
+      document.getElementById('backup-reminder-banner').classList.contains('hidden')])], ['arbeitszeit-backup-2026-11-18.json', [0, 'string', true]]);
+    await page.evaluate(() => { window.state.settings.employeeName = 'Geändert'; window.saveState(); document.getElementById('toast').textContent = ''; });
+    await page.setInputFiles('#input-backup-file', FIXTURE);
+    await page.waitForFunction(() => document.getElementById('toast').textContent === 'Backup importiert');
+    check('BK3 Backup einlesen', await page.evaluate(() => [window.state.settings.employeeName, window.state.employers.length,
+      document.getElementById('setting-employee-name').value, document.querySelectorAll('#employers-list .employer-card').length]),
+    ['Max Mustermann', 6, 'Max Mustermann', 3]);
+    check('BK4 Wiederherstellung aus der Spiegelkopie', await page.evaluate(async (raw) => {
+      window.state.settings.employeeName = 'Geändert'; window.saveState();
+      const B = await import('/modules/ui/backup-ui.js');
+      B.restoreFromMirror(window.__appCtx(), JSON.parse(raw));
+      return [window.state.settings.employeeName, window.state.employers.length, document.getElementById('setting-employee-name').value];
+    }, fixture), ['Max Mustermann', 6, 'Max Mustermann']);
   } finally {
     await context.close();
   }

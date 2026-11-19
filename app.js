@@ -141,7 +141,6 @@ import {
   renderSummaryWordParagraphs as _renderSummaryWordParagraphsRaw,
   renderSummaryPlaintext as _renderSummaryPlaintextRaw,
 } from './modules/render/summary.js';
-import { isArbzgHintEnabled } from './modules/arbzg-hints.js';
 import { buildEmployerCardsHTML as _buildEmployerCardsHTMLRaw } from './modules/render/employers.js';
 import { renderArchive as _renderArchiveTab, archiveCurrentMonth as _archiveCurrentMonthTab } from './modules/tabs/archive.js';
 import { renderEntries as _renderEntriesTab } from './modules/tabs/entries.js';
@@ -160,6 +159,10 @@ import {
   exportPdf as _exportPdfTab, exportWord as _exportWordTab, exportCsv as _exportCsvTab, exportKmPdf as _exportKmPdfTab,
 } from './modules/tabs/report.js';
 import { populateYearSelect as _populateYearSelectUi } from './modules/ui/year-select.js';
+import { renderEmployers as _renderEmployersTab } from './modules/tabs/employers.js';
+import {
+  renderSettings as _renderSettingsTab, updateModeVisibility as _updateModeVisibilityTab, renderAuditLog as _renderAuditLogTab,
+} from './modules/tabs/settings.js';
 import { renderWeek as _renderWeekTab, installWeekInputFallback as _installWeekInputFallbackTab } from './modules/tabs/week.js';
 import {
   renderGleitzeitkonto as _renderGleitzeitkontoTab, getCurrentGleitzeitkonto as _getCurrentGleitzeitkontoTab,
@@ -181,14 +184,10 @@ import { createAppContext, withExtras } from './modules/app-context.js';
 import { initServiceWorkerUpdates } from './modules/sw-update.js';
 import { maybeShowWhatsNew as _maybeShowWhatsNewRaw, compareVersions } from './modules/whatsnew.js';
 import { maybeShowKindMigrationNotice as _maybeShowKindMigrationNoticeRaw } from './modules/kind-migration-notice.js';
-import { exportBackup as _exportBackupRaw, importBackup as _importBackupRaw, prepareImportedState } from './modules/backup.js';
 import {
-  isFolderPickerSupported,
-  getStoredFolderHandle,
-  chooseFolder as _chooseFolderRaw,
-  queryFolderPermission,
-  writeBackupToFolder,
-} from './modules/backupFolder.js';
+  exportBackup as _exportBackupUi, importBackup as _importBackupUi, restoreFromMirror as _restoreFromMirrorUi,
+  renderBackupFolderSection as _renderBackupFolderSectionUi,
+} from './modules/ui/backup-ui.js';
 import {
   openShareModal as _openShareModalRaw,
   openOverviewShareModal as _openOverviewShareModalRaw,
@@ -256,7 +255,6 @@ import {
   deleteTemplate as _deleteTemplateRaw,
 } from './modules/ui/templates.js';
 import { exportBridge } from './modules/regression-bridge.js';
-import { validateEmailField } from './modules/ui/email-validation.js';
 import { APP_VERSION, LAST_SEEN_VERSION_KEY, CHANGELOG, LABELS } from './modules/constants.js';
 import { wireEvents } from './modules/bootstrap.js';
 
@@ -566,6 +564,8 @@ function appCtx() {
     populateTemplatePicker,
     renderTracker, renderEntries, renderWeek, renderReport, renderOverview, renderEmployers, refreshAll,
     renderArchive, renderGleitzeitkonto, renderVacationPlanning, renderSettings, renderAuditLog,
+    // seit v3.15.5 (Arbeitgeber, Einstellungen, Backup)
+    updateModeVisibility, replaceStateAtomically, runMigrations: _runMigrationsModule, DEFAULT_STATE,
     generatePdfBlob, generateWordBlob, generateCsvBlob, generateOverviewPdfBlob, downloadBlob,
     generateKmPdfBlob, generateGleitzeitkontoPdfBlob, generateVacationCertificatePdfBlob,
     // seit v3.15.1 für die Reiter-Module unter modules/tabs/
@@ -878,15 +878,8 @@ function setShowFormerEmployers(value) {
 /** Reiter Übersicht, siehe modules/tabs/overview.js (seit v3.15.3). */
 function renderOverview() { return _renderOverviewTab(appCtx()); }
 
-function renderAuditLog() {
-  const container = document.getElementById('audit-log-list');
-  if (!container) return;
-  container.innerHTML = _buildAuditLogHTMLRaw(_getState().auditLog, {
-    escapeHtml,
-    getEmployer,
-    formatDateLong,
-  });
-}
+/** Protokoll in den Einstellungen, siehe modules/tabs/settings.js (seit v3.15.5). */
+function renderAuditLog() { return _renderAuditLogTab(appCtx()); }
 
 /** Banner Backup-Erinnerung (Einstellungen, Erfassen), siehe modules/ui/backup-reminder-banner-ui.js (seit v3.15.4). */
 function updateBackupReminderBanner() { return _updateBackupReminderBannerUi(appCtx()); }
@@ -984,48 +977,8 @@ function archiveCurrentMonth() { return _archiveCurrentMonthTab(appCtx()); }
 function renderArchive() { return _renderArchiveTab(appCtx()); }
 
 /* ---------- Employers ---------- */
-
-function renderEmployers() {
-  const container = document.getElementById('employers-list');
-  // Tab-Beschriftung an Modus anpassen
-  const empTabBtn = document.querySelector('.tab[data-view="employers"]');
-  if (empTabBtn) empTabBtn.textContent = L('employers');
-  const empViewTitle = document.getElementById('employers-view-title');
-  if (empViewTitle) empViewTitle.textContent = `${L('employers')} verwalten`;
-  // Seit v3.9.58: Arbeitgeber (Modus "Angestellt") und Kunden (Modus "Freiberuflich") sind zwar in
-  // derselben Liste gespeichert, werden hier aber nach ihrem festen `kind`-Feld getrennt angezeigt —
-  // eine Person kann parallel angestellt UND freiberuflich taetig sein, ohne dass sich die beiden
-  // Listen im jeweils falschen Reiter mischen.
-  const wantedKind = isFreelance() ? 'client' : 'employer';
-  const relevantEmployers = _getState().employers.filter(e => (e.kind === 'employer' || e.kind === 'client') ? e.kind === wantedKind : true);
-  if (!relevantEmployers.length) {
-    container.innerHTML = `<div class="empty-state">Noch kein ${escapeHtml(L('employer'))} angelegt.<br><br>Klicken Sie oben auf „+ Neu", um zu starten.</div>`;
-    return;
-  }
-  container.innerHTML = _buildEmployerCardsHTMLRaw(relevantEmployers, {
-    escapeHtml,
-    formatMoney,
-    breakModeLabel,
-    isFreelance,
-    isFormerEmployer,
-    todayISO,
-    formatDate,
-  });
-
-  container.querySelectorAll('.employer-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const emp = getEmployer(card.dataset.id);
-      if (emp) openEmployerModal(emp);
-    });
-  });
-}
-
-function breakModeLabel(mode) {
-  return ({
-    legal: 'Pause gesetzlich', manual: 'Pause manuell',
-    flex: 'Gleitzeit', none: 'Ohne Pause',
-  })[mode] || mode;
-}
+/** Reiter Arbeitgeber, siehe modules/tabs/employers.js (seit v3.15.5). */
+function renderEmployers() { return _renderEmployersTab(appCtx()); }
 
 /* ---------- Employer-Modal via modules/ui/employer-modal.js (Phase 3.9f) ---------- */
 
@@ -1041,88 +994,10 @@ function handleFullTimeReferenceInput() { return _handleFullTimeReferenceInputRa
 function handleWeeklyHoursInputForModel() { return _handleWeeklyHoursInputForModelRaw(); }
 function handleWorkTimeModelChange() { return _handleWorkTimeModelChangeRaw(); }
 
-/* ---------- Templates (Notizvorlagen) ---------- */
-
-function renderSettings() {
-  document.getElementById('setting-employee-name').value = _getState().settings.employeeName || '';
-  document.getElementById('setting-own-email').value = _getState().settings.ownEmail || '';
-  validateEmailField(document.getElementById('setting-own-email'));
-  document.getElementById('setting-state').value = _getState().settings.state || 'HE';
-  const arbzgCb = document.getElementById('setting-arbzg-hints');
-  if (arbzgCb) arbzgCb.checked = isArbzgHintEnabled(_getState().settings);
-  try { renderFieldServiceSettings(appCtx()); } catch (err) { console.error(err); }
-  try { renderStorageStatus(appCtx()).catch((err) => console.error(err)); } catch (err) { console.error(err); }
-  // Modus-Radios
-  const mode = getAppMode();
-  document.querySelectorAll('input[name="setting-app-mode"]').forEach((r) => {
-    r.checked = (r.value === mode);
-  });
-  const yearInput = document.getElementById('holiday-year');
-  if (yearInput && !yearInput.value) {
-    yearInput.value = String(new Date().getFullYear());
-  }
-  renderHolidayList();
-  renderTemplates();
-  updateModeVisibility();
-  renderAuditLog();
-  updateBackupReminderBanner();
-  renderBackupFolderSection();
-  syncSollWarningSettingsUI();
-}
-
-// Spiegelt state.settings (sollWarning*) in die Checkbox-/Chip-UI — wird bei
-// jedem Öffnen der Einstellungen sowie initial beim Wiring aufgerufen.
-function syncSollWarningSettingsUI() {
-  ['month', 'gleitzeit'].forEach((basis) => {
-    const enabledKey = basis === 'month' ? 'sollWarningMonthEnabled' : 'sollWarningGleitzeitEnabled';
-    const thresholdKey = basis === 'month' ? 'sollWarningMonthThresholdPct' : 'sollWarningGleitzeitThresholdPct';
-    const enabledCb = document.getElementById(`setting-sw-${basis}-enabled`);
-    if (enabledCb) enabledCb.checked = !!_getState().settings[enabledKey];
-    const current = Number(_getState().settings[thresholdKey]) || 0;
-    document.querySelectorAll(`.sw-chip[data-target="${basis}"]`).forEach((btn) => {
-      btn.classList.toggle('active', Number(btn.dataset.value) === current);
-    });
-    const customInput = document.getElementById(`setting-sw-${basis}-threshold-custom`);
-    if (customInput) customInput.value = current || '';
-  });
-}
-
-/**
- * Zentraler Sichtbarkeits-Toggle für modusabhängige UI-Bereiche.
- * Wird bei renderSettings() und bei Modus-Wechsel aufgerufen.
- */
-function updateModeVisibility() {
-  const freelance = isFreelance();
-  // Settings: Bundesland + Feiertage im Freelance-Modus ausblenden
-  const blockState = document.getElementById('settings-block-state');
-  const blockHolidays = document.getElementById('settings-block-holidays');
-  const blockSollWarning = document.getElementById('settings-block-sw');
-  if (blockState) blockState.classList.toggle('hidden', freelance);
-  if (blockHolidays) blockHolidays.classList.toggle('hidden', freelance);
-  if (blockSollWarning) blockSollWarning.classList.toggle('hidden', freelance);
-  // Tracker: "+ Urlaub / Krankheit"-Button im Freelance-Modus verstecken
-  const btnAbsence = document.getElementById('btn-add-absence');
-  if (btnAbsence) btnAbsence.style.display = freelance ? 'none' : '';
-  // Employer-Modal: Urlaubsanspruch-Zeile ausblenden
-  const vacRow = document.getElementById('employer-vacation-row');
-  if (vacRow) vacRow.classList.toggle('hidden', freelance);
-  const eduRow = document.getElementById('employer-education-leave-row');
-  if (eduRow) eduRow.classList.toggle('hidden', freelance);
-  // Employer-Modal: Arbeitszeitmodell (Beschäftigungsart/-organisation) gilt nur für
-  // angestellte Arbeitsverhältnisse, nicht für Freiberufler-Kunden.
-  const employmentModelFs = document.getElementById('fs-employer-employment-model');
-  if (employmentModelFs) employmentModelFs.classList.toggle('hidden', freelance);
-  // Tab-Beschriftung Arbeitgeber ↔ Kunden anpassen
-  const tabEmployers = document.querySelector('[data-view="employers"]');
-  if (tabEmployers) tabEmployers.textContent = L('employers');
-  // Settings: Namensfeld-Bezeichnung dem Hauptmodus anpassen (Freiberuflich/Nebenerwerb → "Freiberufler/in").
-  const empNameLabel = document.getElementById('settings-employee-name-label');
-  if (empNameLabel) empNameLabel.textContent = freelance ? 'Freiberufler/in – Name' : 'Arbeitnehmer/in – Name';
-  // Eintragstyp-Option "Arbeitgeber" nur im Freiberuflich/Nebenerwerb-Hauptmodus als "Nebenerwerb" bezeichnen —
-  // im Hauptmodus Angestellt bleibt es die primäre Anstellung, nicht der Nebenerwerb.
-  const employerKindOption = document.getElementById('employer-kind-option-employer');
-  if (employerKindOption) employerKindOption.textContent = freelance ? 'Arbeitgeber (Modus „Nebenerwerb“)' : 'Arbeitgeber (Modus „Angestellt“)';
-}
+/* ---------- Einstellungen ---------- */
+// Reiter Einstellungen, Sichtbarkeit nach Modus und Protokoll: siehe modules/tabs/settings.js (seit v3.15.5).
+function renderSettings() { return _renderSettingsTab(appCtx()); }
+function updateModeVisibility() { return _updateModeVisibilityTab(appCtx()); }
 
 /* ---------- Holiday-Overrides via modules/ui/holiday-overrides.js (Phase 3.9g) ---------- */
 
@@ -1141,158 +1016,11 @@ function saveTemplate(ev) { return _saveTemplateRaw(ev, appCtx()); }
 function deleteTemplate() { return _deleteTemplateRaw(appCtx()); }
 
 /* ---------- Backup ---------- */
-
-/**
- * Liefert einen nutzbaren Backup-Ordner-Handle nur dann, wenn die API
- * unterstützt wird, ein Ordner gespeichert ist UND die Schreibberechtigung
- * bereits erteilt ist (stille Prüfung ohne Dialog) — sonst null, damit der
- * Aufrufer auf den normalen Download-Weg zurückfällt.
- */
-async function getUsableBackupFolderHandle() {
-  if (!isFolderPickerSupported()) return null;
-  const handle = await getStoredFolderHandle();
-  if (!handle) return null;
-  const perm = await queryFolderPermission(handle, { request: false });
-  return perm === 'granted' ? handle : null;
-}
-
-async function exportBackup() {
-  const folderHandle = await getUsableBackupFolderHandle();
-  if (folderHandle) {
-    try {
-      if (_getState().settings) { _getState().settings.lastBackupAt = new Date().toISOString(); _getState().settings.changesSinceBackup = 0; }
-      saveState();
-      const filename = `arbeitszeit-backup-${todayISO()}.json`;
-      await writeBackupToFolder(folderHandle, filename, JSON.stringify(_getState(), null, 2));
-      toast(`Backup gespeichert in „${folderHandle.name}“`);
-      updateBackupReminderBanner();
-      return;
-    } catch (e) {
-      // Ordner nicht mehr erreichbar (z.B. gelöscht, externes Laufwerk getrennt) —
-      // regulärer Download-Weg als Fallback, damit das Backup nicht verloren geht.
-      toast('Backup-Ordner nicht verfügbar — Backup wird stattdessen heruntergeladen');
-    }
-  }
-  _exportBackupRaw({
-    getState: _getState,
-    saveState,
-    downloadBlob,
-    todayISO,
-    toast,
-  });
-  updateBackupReminderBanner();
-}
-
-/* ---------- Backup-Ordner (File System Access API, seit v3.9.69) ---------- */
-// Chrome/Edge: Ordner einmalig wählen, App merkt sich ihn dauerhaft (IndexedDB)
-// und schreibt künftige Backups ohne erneuten Auswahldialog dorthin.
-// Safari/iOS/Firefox: API nicht verfügbar — stattdessen Hinweis auf die
-// gleichwertige iOS-Bordfunktion (Einstellungen → Safari → Downloads).
-
-async function renderBackupFolderSection() {
-  const content = document.getElementById('backup-folder-content');
-  if (!content) return;
-
-  if (!isFolderPickerSupported()) {
-    content.innerHTML = `
-      <p class="hint">Ein fester Backup-Ordner lässt sich in Safari aus Sicherheitsgründen nicht direkt in der App festlegen.</p>
-      <p class="hint">Beim Export zeigt Safari stattdessen eine Dateivorschau. Tippe dort auf <strong>Mehr …</strong> (oder das Teilen-Symbol) und wähle <strong>In „Dateien“ sichern</strong>, um das Backup manuell im gewünschten Ordner abzulegen, z. B. „Auf meinem iPhone“ bzw. „Auf meinem iPad“.</p>
-    `;
-    return;
-  }
-
-  const handle = await getStoredFolderHandle();
-  if (!handle) {
-    content.innerHTML = `
-      <p class="hint">Noch kein fester Ordner ausgewählt. Backups werden bei jedem Export einzeln gespeichert.</p>
-      <div class="data-actions">
-        <button type="button" id="btn-choose-backup-folder" class="btn-primary btn-small" data-testid="button-choose-backup-folder">📁 Ordner auswählen</button>
-      </div>
-    `;
-    wireBackupFolderButtons();
-    return;
-  }
-
-  const perm = await queryFolderPermission(handle, { request: false });
-  if (perm !== 'granted') {
-    content.innerHTML = `
-      <p class="hint">Zugriff auf „${escapeHtml(handle.name)}“ muss erneut bestätigt werden (z. B. nach einem Browser-Neustart).</p>
-      <div class="data-actions">
-        <button type="button" id="btn-confirm-backup-folder" class="btn-primary btn-small" data-testid="button-confirm-backup-folder">Zugriff bestätigen</button>
-        <button type="button" id="btn-change-backup-folder" class="btn-secondary btn-small" data-testid="button-change-backup-folder">Anderen Ordner wählen</button>
-      </div>
-    `;
-    wireBackupFolderButtons();
-    return;
-  }
-
-  content.innerHTML = `
-    <p class="hint">Aktueller Ordner: <strong>📁 ${escapeHtml(handle.name)}</strong></p>
-    <div class="data-actions">
-      <button type="button" id="btn-change-backup-folder" class="btn-secondary btn-small" data-testid="button-change-backup-folder">Ordner ändern</button>
-    </div>
-    <p class="hint">Backups werden ab jetzt automatisch in diesem Ordner gespeichert — ohne erneute Ordnerauswahl, nur noch mit kurzer Bestätigung.</p>
-  `;
-  wireBackupFolderButtons();
-}
-
-function wireBackupFolderButtons() {
-  const btnChoose = document.getElementById('btn-choose-backup-folder');
-  if (btnChoose) btnChoose.addEventListener('click', handleChooseBackupFolder);
-  const btnChange = document.getElementById('btn-change-backup-folder');
-  if (btnChange) btnChange.addEventListener('click', handleChooseBackupFolder);
-  const btnConfirm = document.getElementById('btn-confirm-backup-folder');
-  if (btnConfirm) btnConfirm.addEventListener('click', handleConfirmBackupFolderAccess);
-}
-
-async function handleChooseBackupFolder() {
-  try {
-    await _chooseFolderRaw();
-    toast('Backup-Ordner gespeichert');
-  } catch (e) {
-    if (e && e.name === 'AbortError') { return; } // Dialog abgebrochen — kein Fehler
-    toast('Ordner konnte nicht gespeichert werden: ' + e.message);
-  }
-  renderBackupFolderSection();
-}
-
-async function handleConfirmBackupFolderAccess() {
-  const handle = await getStoredFolderHandle();
-  if (!handle) { renderBackupFolderSection(); return; }
-  const perm = await queryFolderPermission(handle, { request: true });
-  toast(perm === 'granted' ? 'Zugriff bestätigt' : 'Zugriff nicht erteilt');
-  renderBackupFolderSection();
-}
-
-/** Gemeinsame Abhängigkeiten für Backup-Import und Wiederherstellung aus der Spiegelkopie. */
-function importDeps() {
-  return {
-    commitImport: replaceStateAtomically,
-    toast,
-    DEFAULT_STATE,
-    normalizeHolidayOverrides,
-    runMigrations: _runMigrationsModule,
-    uid,
-    normalizeSegments,
-    onImport: () => {
-      updateModeVisibility();
-      renderTracker(); renderEntries(); renderEmployers(); renderArchive(); renderSettings();
-    },
-  };
-}
-
-/**
- * v3.15.0: Daten aus der Spiegelkopie übernehmen (gleicher geprüfter Weg wie ein Backup-Import).
- * @param {any} data
- */
-function restoreFromMirror(data) {
-  const deps = importDeps();
-  replaceStateAtomically(prepareImportedState(data, deps), deps.onImport);
-}
-
-function importBackup(file) {
-  _importBackupRaw(file, importDeps());
-}
+// Backup erstellen und einlesen, Backup-Ordner, Spiegelkopie: siehe modules/ui/backup-ui.js (seit v3.15.5).
+function exportBackup() { return _exportBackupUi(appCtx()); }
+function renderBackupFolderSection() { return _renderBackupFolderSectionUi(appCtx()); }
+function restoreFromMirror(data) { return _restoreFromMirrorUi(appCtx(), data); }
+function importBackup(file) { return _importBackupUi(appCtx(), file); }
 
 /* ---------- Helpers ---------- */
 
